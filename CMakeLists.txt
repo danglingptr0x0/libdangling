@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+include(GNUInstallDirs)
+
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(YDER REQUIRED libyder)
@@ -34,7 +36,7 @@ else()
     set(LDG_ARCH_SOURCES src/mem/secure.c)
 endif()
 
-set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_PREFIX}/share/dangling/uncrustify.cfg")
+set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")
 
 add_library(dangling_shared SHARED ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
 set_target_properties(dangling_shared PROPERTIES OUTPUT_NAME dangling)
@@ -59,16 +61,16 @@ target_link_libraries(dangling_static PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES}
 target_compile_definitions(dangling_static PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}")
 
 install(TARGETS dangling_shared dangling_static
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/dangling DESTINATION include)
-install(FILES share/dangling/uncrustify.cfg DESTINATION share/dangling)
+install(DIRECTORY include/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES share/dangling/uncrustify.cfg DESTINATION ${CMAKE_INSTALL_DATADIR}/dangling)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/dangling.pc.in"
     "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc"
     @ONLY
 )
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc" DESTINATION lib/pkgconfig)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc" DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
