@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+datadir=${prefix}/share/dangling
+
+Name: dangling
+Description: Personal utility library
+Version: @PROJECT_VERSION@
+Requires: libyder libcurl
+Libs: -L${libdir} -ldangling
+Cflags: -I${includedir}
