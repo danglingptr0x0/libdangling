@@ -1,0 +1,13 @@
+build/
+*.o
+*.a
+*.so
+*.dylib
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.pc
+compile_commands.json
+.cache/
+.ccls-cache/
