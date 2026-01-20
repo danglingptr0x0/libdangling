@@ -30,6 +30,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
         src/arch/x86_64/mem_secure.asm
         src/arch/x86_64/time_tsc.asm
         src/arch/x86_64/syscall.asm
+        src/arch/x86_64/cpuid.asm
     )
     set_source_files_properties(${LDG_ARCH_SOURCES} PROPERTIES LANGUAGE ASM_NASM)
     set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -f elf64")
