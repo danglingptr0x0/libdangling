@@ -92,7 +92,7 @@ int32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, size_t capacity)
     ctx->req_cap = capacity;
     ctx->req_cunt = 0;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
@@ -128,7 +128,7 @@ int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const
     ldg_curl_multi_req_t *req = NULL;
     size_t url_len = 0;
     size_t data_len = 0;
-    int32_t ret = LDG_ERR_OK;
+    int32_t ret = LDG_ERR_AOK;
 
     if (LDG_UNLIKELY(!ctx || !url)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -141,7 +141,7 @@ int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const
     if (LDG_UNLIKELY(posix_memalign((void **)&req->url, LDG_CACHE_LINE_WIDTH, url_len) != 0)) { return LDG_ERR_ALLOC_NULL; }
 
     ret = ldg_strrbrcpy(req->url, url, url_len);
-    if (LDG_UNLIKELY(ret != LDG_ERR_OK && ret != LDG_ERR_STR_OVERLAP))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
     {
         free(req->url);
         req->url = NULL;
@@ -159,7 +159,7 @@ int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const
         }
 
         ret = ldg_strrbrcpy(req->post_data, post_data, data_len);
-        if (LDG_UNLIKELY(ret != LDG_ERR_OK && ret != LDG_ERR_STR_OVERLAP))
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
         {
             free(req->url);
             req->url = NULL;
@@ -203,7 +203,7 @@ int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const
     curl_multi_add_handle(ctx->multi, req->curl);
     ctx->req_cunt++;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 int32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
@@ -223,7 +223,7 @@ int32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
         }
     } while (still_running);
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 double ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx)

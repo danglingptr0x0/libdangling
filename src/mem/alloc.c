@@ -38,12 +38,12 @@ static ldg_mem_state_t g_mem = { 0 };
 
 int32_t ldg_mem_init(void)
 {
-    if (g_mem.is_init) { return LDG_ERR_OK; }
+    if (g_mem.is_init) { return LDG_ERR_AOK; }
 
     (void)memset(&g_mem, 0, sizeof(ldg_mem_state_t));
     g_mem.is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_mem_shutdown(void)
@@ -131,7 +131,7 @@ static int32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
         return LDG_ERR_MEM_BAD;
     }
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void* ldg_mem_realloc(void *ptr, size_t size)
@@ -151,7 +151,7 @@ void* ldg_mem_realloc(void *ptr, size_t size)
     hdr = mem_hdr_find(ptr);
     if (LDG_UNLIKELY(!hdr)) { return NULL; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return NULL; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return NULL; }
 
     new_ptr = ldg_mem_alloc(size);
     if (LDG_UNLIKELY(!new_ptr)) { return NULL; }
@@ -178,7 +178,7 @@ void ldg_mem_dealloc(void *ptr)
     hdr = mem_hdr_find(ptr);
     if (LDG_UNLIKELY(!hdr)) { return; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return; }
 
     if (hdr->prev)
     {
@@ -335,7 +335,7 @@ int32_t ldg_mem_valid_is(const void *ptr)
     hdr = mem_hdr_find(ptr);
     if (!hdr) { return 0; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return 0; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return 0; }
 
     return 1;
 }
