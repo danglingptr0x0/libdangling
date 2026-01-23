@@ -50,7 +50,7 @@ int32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
 
     pool->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
@@ -95,7 +95,7 @@ int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_fu
         }
     }
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
@@ -104,7 +104,7 @@ int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 
     if (LDG_UNLIKELY(!pool || !pool->is_init)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!LDG_READ_ONCE(pool->is_running))) { return LDG_ERR_OK; }
+    if (LDG_UNLIKELY(!LDG_READ_ONCE(pool->is_running))) { return LDG_ERR_AOK; }
 
     for (i = 0; i < pool->worker_cunt; i++)
     {
@@ -124,7 +124,7 @@ int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 
     LDG_WRITE_ONCE(pool->is_running, 0);
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 uint32_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool)

@@ -26,7 +26,7 @@ int32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 
     (void)memset(dst + src_len, 0, abssize - src_len);
 
-    return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_OK;
+    return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_AOK;
 }
 
 void ldg_byte_to_hex(byte_t val, char out[3])
