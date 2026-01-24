@@ -42,6 +42,13 @@ typedef struct ldg_curl_multi_ctx
     uint8_t pudding[40];
 } LDG_ALIGNED ldg_curl_multi_ctx_t;
 
+typedef struct ldg_curl_easy_ctx
+{
+    CURL *curl;
+    uint8_t is_init;
+    uint8_t pudding[7];
+} ldg_curl_easy_ctx_t;
+
 LDG_EXPORT size_t ldg_curl_resp_write_cb(void *contents, size_t size, size_t nmemb, void *user_data);
 LDG_EXPORT void ldg_curl_resp_init(ldg_curl_resp_t *resp);
 LDG_EXPORT void ldg_curl_resp_free(ldg_curl_resp_t *resp);
@@ -52,5 +59,13 @@ LDG_EXPORT void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx);
 LDG_EXPORT int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, struct curl_slist *headers);
 LDG_EXPORT int32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx);
 LDG_EXPORT double ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx);
+
+LDG_EXPORT int32_t ldg_curl_headers_append(struct curl_slist **list, const char *header);
+LDG_EXPORT void ldg_curl_headers_destroy(struct curl_slist **list);
+
+LDG_EXPORT int32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx);
+LDG_EXPORT void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx);
+LDG_EXPORT int32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_resp_t *resp);
+LDG_EXPORT int32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_resp_t *resp);
 
 #endif

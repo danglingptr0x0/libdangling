@@ -1,7 +1,7 @@
 #include <dangling/parse/parse.h>
 #include <dangling/str/str.h>
 
-int ldg_parse_streq(const char *a, const char *b)
+int ldg_parse_streq_is(const char *a, const char *b)
 {
     while (*a && *b)
     {

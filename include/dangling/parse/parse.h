@@ -39,6 +39,6 @@ typedef struct
 } ldg_cmd_entry_t;
 
 LDG_EXPORT void ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks);
-LDG_EXPORT int ldg_parse_streq(const char *a, const char *b);
+LDG_EXPORT int ldg_parse_streq_is(const char *a, const char *b);
 
 #endif

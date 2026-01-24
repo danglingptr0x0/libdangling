@@ -9,7 +9,7 @@
 #include <dangling/arch/x86_64/atomic.h>
 #include <dangling/arch/x86_64/fence.h>
 
-static void* ldg_thread_pool_worker_entry(void *arg)
+static void* ldg_thread_pool_worker_enter(void *arg)
 {
     ldg_thread_pool_worker_t *worker = (ldg_thread_pool_worker_t *)arg;
     ldg_thread_pool_t *pool = NULL;
@@ -104,7 +104,7 @@ int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_fu
 
         (void)pthread_attr_init(&attr);
 
-        ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_entry, &pool->workers[i]);
+        ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
 
         (void)pthread_attr_destroy(&attr);
 
@@ -167,7 +167,7 @@ static int32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
 
         (void)pthread_attr_init(&attr);
 
-        ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_entry, &pool->workers[i]);
+        ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
 
         (void)pthread_attr_destroy(&attr);
 

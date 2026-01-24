@@ -244,3 +244,105 @@ double ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx)
 
     return (double)total_now / (double)total_dl;
 }
+
+int32_t ldg_curl_headers_append(struct curl_slist **list, const char *header)
+{
+    struct curl_slist *tmp = NULL;
+
+    if (LDG_UNLIKELY(!list || !header)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    tmp = curl_slist_append(*list, header);
+    if (LDG_UNLIKELY(!tmp)) { return LDG_ERR_ALLOC_NULL; }
+
+    *list = tmp;
+
+    return LDG_ERR_AOK;
+}
+
+void ldg_curl_headers_destroy(struct curl_slist **list)
+{
+    if (LDG_UNLIKELY(!list || !*list)) { return; }
+
+    curl_slist_free_all(*list);
+    *list = NULL;
+}
+
+int32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
+{
+    if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    ctx->curl = curl_easy_init();
+    if (LDG_UNLIKELY(!ctx->curl)) { return LDG_ERR_ALLOC_NULL; }
+
+    ctx->is_init = 1;
+
+    return LDG_ERR_AOK;
+}
+
+void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
+{
+    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return; }
+
+    if (ctx->curl)
+    {
+        curl_easy_cleanup(ctx->curl);
+        ctx->curl = NULL;
+    }
+
+    ctx->is_init = 0;
+}
+
+int32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_resp_t *resp)
+{
+    CURLcode res = CURLE_OK;
+
+    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    ldg_curl_resp_init(resp);
+
+    curl_easy_reset(ctx->curl);
+    curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
+    curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_write_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
+
+    if (headers) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, headers); }
+
+    res = curl_easy_perform(ctx->curl);
+    if (LDG_UNLIKELY(res != CURLE_OK))
+    {
+        ldg_curl_resp_free(resp);
+        return LDG_ERR_NET_PERFORM;
+    }
+
+    return LDG_ERR_AOK;
+}
+
+int32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_resp_t *resp)
+{
+    CURLcode res = CURLE_OK;
+
+    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    ldg_curl_resp_init(resp);
+
+    curl_easy_reset(ctx->curl);
+    curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
+    curl_easy_setopt(ctx->curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_write_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
+
+    if (data) { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data); }
+    else { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, ""); }
+
+    if (headers) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, headers); }
+
+    res = curl_easy_perform(ctx->curl);
+    if (LDG_UNLIKELY(res != CURLE_OK))
+    {
+        ldg_curl_resp_free(resp);
+        return LDG_ERR_NET_PERFORM;
+    }
+
+    return LDG_ERR_AOK;
+}

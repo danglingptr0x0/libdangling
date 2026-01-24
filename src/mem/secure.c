@@ -92,7 +92,7 @@ void ldg_mem_secure_cmov(void *dst, const void *src, size_t len, int cond)
     LDG_MEM_BARRIER;
 }
 
-int32_t ldg_mem_secure_neq(const void *a, const void *b, size_t len)
+int32_t ldg_mem_secure_neq_is(const void *a, const void *b, size_t len)
 {
     volatile const uint8_t *pa = NULL;
     volatile const uint8_t *pb = NULL;
