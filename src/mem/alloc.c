@@ -38,12 +38,12 @@ static ldg_mem_state_t g_mem = { 0 };
 
 int32_t ldg_mem_init(void)
 {
-    if (g_mem.is_init) { return LDG_ERR_OK; }
+    if (g_mem.is_init) { return LDG_ERR_AOK; }
 
     (void)memset(&g_mem, 0, sizeof(ldg_mem_state_t));
     g_mem.is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_mem_shutdown(void)
@@ -84,10 +84,7 @@ void* ldg_mem_alloc(size_t size)
     hdr->prev = NULL;
     *sentinel_back = LDG_MEM_SENTINEL;
 
-    if (g_mem.alloc_list)
-    {
-        g_mem.alloc_list->prev = hdr;
-    }
+    if (g_mem.alloc_list) { g_mem.alloc_list->prev = hdr; }
 
     g_mem.alloc_list = hdr;
 
@@ -95,10 +92,7 @@ void* ldg_mem_alloc(size_t size)
     g_mem.stats.alloc_cunt++;
     g_mem.stats.active_alloc_cunt++;
 
-    if (g_mem.stats.bytes_allocated > g_mem.stats.bytes_peak)
-    {
-        g_mem.stats.bytes_peak = g_mem.stats.bytes_allocated;
-    }
+    if (g_mem.stats.bytes_allocated > g_mem.stats.bytes_peak) { g_mem.stats.bytes_peak = g_mem.stats.bytes_allocated; }
 
     return user_ptr;
 }
@@ -131,7 +125,7 @@ static int32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
         return LDG_ERR_MEM_BAD;
     }
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void* ldg_mem_realloc(void *ptr, size_t size)
@@ -151,7 +145,7 @@ void* ldg_mem_realloc(void *ptr, size_t size)
     hdr = mem_hdr_find(ptr);
     if (LDG_UNLIKELY(!hdr)) { return NULL; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return NULL; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return NULL; }
 
     new_ptr = ldg_mem_alloc(size);
     if (LDG_UNLIKELY(!new_ptr)) { return NULL; }
@@ -178,21 +172,12 @@ void ldg_mem_dealloc(void *ptr)
     hdr = mem_hdr_find(ptr);
     if (LDG_UNLIKELY(!hdr)) { return; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return; }
 
-    if (hdr->prev)
-    {
-        hdr->prev->next = hdr->next;
-    }
-    else
-    {
-        g_mem.alloc_list = hdr->next;
-    }
+    if (hdr->prev) { hdr->prev->next = hdr->next; }
+    else{ g_mem.alloc_list = hdr->next; }
 
-    if (hdr->next)
-    {
-        hdr->next->prev = hdr->prev;
-    }
+    if (hdr->next) { hdr->next->prev = hdr->prev; }
 
     g_mem.stats.bytes_allocated -= hdr->size;
     g_mem.stats.dealloc_cunt++;
@@ -200,10 +185,7 @@ void ldg_mem_dealloc(void *ptr)
 
     poison_ptr = (uint64_t *)ptr;
     poison_cunt = hdr->size / sizeof(uint64_t);
-    for (i = 0; i < poison_cunt; i++)
-    {
-        poison_ptr[i] = LDG_MEM_POISON;
-    }
+    for (i = 0; i < poison_cunt; i++) { poison_ptr[i] = LDG_MEM_POISON; }
 
     hdr->sentinel_front = 0;
 
@@ -289,10 +271,7 @@ void ldg_mem_pool_destroy(ldg_mem_pool_t *pool)
 {
     if (LDG_UNLIKELY(!pool)) { return; }
 
-    if (pool->alloc_cunt > 0)
-    {
-        LDG_LOG_WARNING("ldg_mem_pool: destroying pool with %zu active allocs", pool->alloc_cunt);
-    }
+    if (pool->alloc_cunt > 0) { LDG_LOG_WARNING("ldg_mem_pool: destroying pool with %zu active allocs", pool->alloc_cunt); }
 
     ldg_mem_dealloc(pool->buff);
     ldg_mem_dealloc(pool);
@@ -322,10 +301,7 @@ void ldg_mem_leaks_dump(void)
         hdr = hdr->next;
     }
 
-    if (leak_cunt > 0)
-    {
-        LDG_LOG_WARNING("ldg_mem: total leaks: %u; bytes: %zu", leak_cunt, g_mem.stats.bytes_allocated);
-    }
+    if (leak_cunt > 0) { LDG_LOG_WARNING("ldg_mem: total leaks: %u; bytes: %zu", leak_cunt, g_mem.stats.bytes_allocated); }
 }
 
 int32_t ldg_mem_valid_is(const void *ptr)
@@ -335,7 +311,7 @@ int32_t ldg_mem_valid_is(const void *ptr)
     hdr = mem_hdr_find(ptr);
     if (!hdr) { return 0; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_OK) { return 0; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return 0; }
 
     return 1;
 }
