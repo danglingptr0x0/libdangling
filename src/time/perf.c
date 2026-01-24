@@ -21,7 +21,7 @@ int32_t ldg_time_init(ldg_time_ctx_t *ctx)
     ctx->frame_cunt = 0;
     ctx->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_time_tick(ldg_time_ctx_t *ctx)
@@ -101,7 +101,7 @@ int32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
     ctx->core_id = core_end;
     ctx->is_calibrated = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 double ldg_tsc_to_sec(ldg_tsc_ctx_t *ctx, uint64_t cycles)

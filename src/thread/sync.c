@@ -38,7 +38,7 @@ int32_t ldg_mut_init(ldg_mut_t *m, uint8_t shared)
     m->is_shared = shared;
     m->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_mut_destroy(ldg_mut_t *m)
@@ -72,7 +72,7 @@ int32_t ldg_mut_trylock(ldg_mut_t *m)
     if (LDG_UNLIKELY(!m || !m->is_init)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     ret = pthread_mutex_trylock(&m->mtx);
-    if (ret == 0) { return LDG_ERR_OK; }
+    if (ret == 0) { return LDG_ERR_AOK; }
 
     if (ret == EBUSY) { return LDG_ERR_BUSY; }
 
@@ -110,7 +110,7 @@ int32_t ldg_cond_init(ldg_cond_t *c, uint8_t shared)
     c->is_shared = shared;
     c->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_cond_destroy(ldg_cond_t *c)
@@ -147,7 +147,7 @@ int32_t ldg_cond_timedwait(ldg_cond_t *c, ldg_mut_t *m, uint64_t timeout_ms)
     }
 
     ret = pthread_cond_timedwait(&c->cond, &m->mtx, &ts);
-    if (ret == 0) { return LDG_ERR_OK; }
+    if (ret == 0) { return LDG_ERR_AOK; }
 
     if (ret == ETIMEDOUT) { return LDG_ERR_TIMEOUT; }
 
@@ -189,7 +189,7 @@ int32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
     s->is_owner = 1;
     s->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 int32_t ldg_sem_open(ldg_sem_t *s, const char *name)
@@ -211,7 +211,7 @@ int32_t ldg_sem_open(ldg_sem_t *s, const char *name)
     s->is_owner = 0;
     s->is_init = 1;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_sem_destroy(ldg_sem_t *s)
@@ -239,7 +239,7 @@ int32_t ldg_sem_trywait(ldg_sem_t *s)
     if (LDG_UNLIKELY(!s || !s->is_init)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     ret = sem_trywait(s->sem);
-    if (ret == 0) { return LDG_ERR_OK; }
+    if (ret == 0) { return LDG_ERR_AOK; }
 
     if (errno == EAGAIN) { return LDG_ERR_BUSY; }
 
