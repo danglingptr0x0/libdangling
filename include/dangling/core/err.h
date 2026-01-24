@@ -1,7 +1,7 @@
 #ifndef LDG_CORE_ERR_H
 #define LDG_CORE_ERR_H
 
-#define LDG_ERR_OK 0
+#define LDG_ERR_AOK 0
 #define LDG_ERR_FUNC_ARG_NULL -1
 #define LDG_ERR_FUNC_ARG_INVALID -2
 #define LDG_ERR_ALLOC_NULL -3

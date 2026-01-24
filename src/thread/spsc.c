@@ -20,7 +20,7 @@ int32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity)
 
     (void)memset(q->buff, 0, q->buff_size);
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 void ldg_spsc_shutdown(ldg_spsc_queue_t *q)
@@ -58,7 +58,7 @@ int32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item)
     atomic_thread_fence(memory_order_release);
     q->head = next_head;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
@@ -77,7 +77,7 @@ int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
     atomic_thread_fence(memory_order_release);
     q->tail = (tail + 1) % q->capacity;
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out)
@@ -93,7 +93,7 @@ int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out)
 
     (void)memcpy(item_out, q->buff + (tail * q->item_size), q->item_size);
 
-    return LDG_ERR_OK;
+    return LDG_ERR_AOK;
 }
 
 size_t ldg_spsc_cunt(const ldg_spsc_queue_t *q)

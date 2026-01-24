@@ -4,10 +4,18 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <dangling/core/macros.h>
+#include <dangling/thread/mpmc.h>
 
 #define LDG_THREAD_POOL_MAX_WORKERS 64
+#define LDG_THREAD_POOL_TASK_QUEUE_CAPACITY 1024
 
 typedef void (*ldg_thread_pool_worker_func_t)(void *arg);
+
+typedef struct ldg_thread_pool_task
+{
+    ldg_thread_pool_worker_func_t func;
+    void *arg;
+} ldg_thread_pool_task_t;
 
 typedef enum ldg_thread_pool_worker_state
 {
@@ -34,10 +42,12 @@ typedef struct ldg_thread_pool_worker
 typedef struct ldg_thread_pool
 {
     ldg_thread_pool_worker_t workers[LDG_THREAD_POOL_MAX_WORKERS];
+    ldg_mpmc_queue_t *task_queue;
     uint32_t worker_cunt;
     volatile int32_t is_running;
+    volatile int32_t submit_mode;
     uint8_t is_init;
-    uint8_t pudding[55];
+    uint8_t pudding[43];
 } LDG_ALIGNED ldg_thread_pool_t;
 
 LDG_EXPORT int32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt);
@@ -45,5 +55,6 @@ LDG_EXPORT void ldg_thread_pool_shutdown(ldg_thread_pool_t *pool);
 LDG_EXPORT int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
 LDG_EXPORT int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool);
 LDG_EXPORT uint32_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool);
+LDG_EXPORT int32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
 
 #endif
