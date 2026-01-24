@@ -12,7 +12,7 @@
 
 #define LDG_DJB2_HASH_INIT 5381
 
-LDG_EXPORT int32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize);
+LDG_EXPORT uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize);
 
 static inline int ldg_char_space_is(char c)
 {

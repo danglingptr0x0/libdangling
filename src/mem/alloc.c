@@ -36,7 +36,7 @@ typedef struct ldg_mem_state
 static ldg_mem_state_t g_mem = { 0 };
 
 
-int32_t ldg_mem_init(void)
+uint32_t ldg_mem_init(void)
 {
     if (g_mem.is_init) { return LDG_ERR_AOK; }
 
@@ -114,7 +114,7 @@ static ldg_mem_hdr_t* mem_hdr_find(const void *ptr)
     return hdr;
 }
 
-static int32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
+static uint32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
 {
     uint8_t *user_ptr = (uint8_t *)(void *)hdr + sizeof(ldg_mem_hdr_t);
     uint32_t *sentinel_back = (uint32_t *)(void *)(user_ptr + hdr->size);
@@ -304,7 +304,7 @@ void ldg_mem_leaks_dump(void)
     if (leak_cunt > 0) { LDG_LOG_WARNING("ldg_mem: total leaks: %u; bytes: %zu", leak_cunt, g_mem.stats.bytes_allocated); }
 }
 
-int32_t ldg_mem_valid_is(const void *ptr)
+uint32_t ldg_mem_valid_is(const void *ptr)
 {
     ldg_mem_hdr_t *hdr = NULL;
 

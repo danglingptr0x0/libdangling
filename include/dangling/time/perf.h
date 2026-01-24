@@ -17,7 +17,7 @@ typedef struct ldg_time_ctx
     uint8_t pudding[7];
 } LDG_ALIGNED ldg_time_ctx_t;
 
-LDG_EXPORT int32_t ldg_time_init(ldg_time_ctx_t *ctx);
+LDG_EXPORT uint32_t ldg_time_init(ldg_time_ctx_t *ctx);
 LDG_EXPORT void ldg_time_tick(ldg_time_ctx_t *ctx);
 
 LDG_EXPORT double ldg_time_get(ldg_time_ctx_t *ctx);

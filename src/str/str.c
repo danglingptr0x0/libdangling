@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-int32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
+uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 {
     size_t src_len = 0;
     int32_t overlap = 0;

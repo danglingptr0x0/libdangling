@@ -8,7 +8,7 @@
 
 #define LDG_TSC_CALIBRATION_MS 10
 
-int32_t ldg_time_init(ldg_time_ctx_t *ctx)
+uint32_t ldg_time_init(ldg_time_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -74,7 +74,7 @@ uint64_t ldg_time_frame_cunt_get(ldg_time_ctx_t *ctx)
     return ctx->frame_cunt;
 }
 
-int32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
+uint32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
 {
     struct timespec sleep_req = { 0 };
     uint64_t tsc_start = 0;
