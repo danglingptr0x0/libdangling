@@ -28,13 +28,13 @@ typedef struct ldg_mpmc_queue
     ldg_cond_t wait_cond;
 } LDG_ALIGNED ldg_mpmc_queue_t;
 
-LDG_EXPORT int32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity);
+LDG_EXPORT uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity);
 LDG_EXPORT void ldg_mpmc_shutdown(ldg_mpmc_queue_t *q);
-LDG_EXPORT int32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item);
-LDG_EXPORT int32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out);
-LDG_EXPORT int32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms);
+LDG_EXPORT uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item);
+LDG_EXPORT uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out);
+LDG_EXPORT uint32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms);
 LDG_EXPORT size_t ldg_mpmc_cunt_get(const ldg_mpmc_queue_t *q);
-LDG_EXPORT int32_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q);
-LDG_EXPORT int32_t ldg_mpmc_full_is(const ldg_mpmc_queue_t *q);
+LDG_EXPORT uint32_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q);
+LDG_EXPORT uint32_t ldg_mpmc_full_is(const ldg_mpmc_queue_t *q);
 
 #endif

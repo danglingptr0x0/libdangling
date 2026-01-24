@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdatomic.h>
 
-int32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity)
+uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity)
 {
     if (LDG_UNLIKELY(!q || item_size == 0 || capacity == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -40,7 +40,7 @@ void ldg_spsc_shutdown(ldg_spsc_queue_t *q)
     q->tail = 0;
 }
 
-int32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item)
+uint32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item)
 {
     size_t head = 0;
     size_t next_head = 0;
@@ -61,7 +61,7 @@ int32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
+uint32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
 {
     size_t tail = 0;
 
@@ -80,7 +80,7 @@ int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out)
+uint32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out)
 {
     size_t tail = 0;
 
@@ -112,7 +112,7 @@ size_t ldg_spsc_cunt_get(const ldg_spsc_queue_t *q)
     return q->capacity - tail + head;
 }
 
-int32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q)
+uint32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q)
 {
     if (LDG_UNLIKELY(!q)) { return 1; }
 
@@ -120,7 +120,7 @@ int32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q)
     return q->head == q->tail;
 }
 
-int32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q)
+uint32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q)
 {
     size_t next_head = 0;
 

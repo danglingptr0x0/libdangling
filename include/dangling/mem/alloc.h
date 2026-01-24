@@ -18,7 +18,7 @@ typedef struct ldg_mem_stats
 
 typedef struct ldg_mem_pool ldg_mem_pool_t;
 
-LDG_EXPORT int32_t ldg_mem_init(void);
+LDG_EXPORT uint32_t ldg_mem_init(void);
 LDG_EXPORT void ldg_mem_shutdown(void);
 
 LDG_EXPORT void* ldg_mem_alloc(size_t size);
@@ -33,7 +33,7 @@ LDG_EXPORT void ldg_mem_pool_destroy(ldg_mem_pool_t *pool);
 LDG_EXPORT void ldg_mem_stats_get(ldg_mem_stats_t *stats);
 LDG_EXPORT void ldg_mem_leaks_dump(void);
 
-LDG_EXPORT int32_t ldg_mem_valid_is(const void *ptr);
+LDG_EXPORT uint32_t ldg_mem_valid_is(const void *ptr);
 LDG_EXPORT size_t ldg_mem_size_get(const void *ptr);
 
 #endif

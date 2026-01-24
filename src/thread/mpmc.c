@@ -14,12 +14,12 @@ static ldg_mpmc_slot_t* slot_get(ldg_mpmc_queue_t *q, size_t idx)
     return (ldg_mpmc_slot_t *)(q->buff + (idx * q->slot_size));
 }
 
-static int32_t capacity_pow2_is(size_t capacity)
+static uint32_t capacity_pow2_is(size_t capacity)
 {
     return (capacity > 0) && ((capacity & (capacity - 1)) == 0);
 }
 
-int32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
+uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
 {
     size_t i = 0;
     size_t slot_data_offset = 0;
@@ -89,7 +89,7 @@ void ldg_mpmc_shutdown(ldg_mpmc_queue_t *q)
     q->tail = 0;
 }
 
-int32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
+uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
 {
     size_t pos = 0;
     size_t seq = 0;
@@ -118,7 +118,7 @@ int32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
+uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
 {
     size_t pos = 0;
     size_t seq = 0;
@@ -145,9 +145,9 @@ int32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms)
+uint32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms)
 {
-    int32_t ret = 0;
+    uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!q || !item_out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -182,14 +182,14 @@ size_t ldg_mpmc_cunt_get(const ldg_mpmc_queue_t *q)
     return 0;
 }
 
-int32_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q)
+uint32_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q)
 {
     if (LDG_UNLIKELY(!q)) { return 1; }
 
     return LDG_LOAD_ACQUIRE(q->head) == LDG_LOAD_ACQUIRE(q->tail);
 }
 
-int32_t ldg_mpmc_full_is(const ldg_mpmc_queue_t *q)
+uint32_t ldg_mpmc_full_is(const ldg_mpmc_queue_t *q)
 {
     size_t head = 0;
     size_t tail = 0;

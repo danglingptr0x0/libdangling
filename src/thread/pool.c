@@ -14,7 +14,7 @@ static void* ldg_thread_pool_worker_enter(void *arg)
     ldg_thread_pool_worker_t *worker = (ldg_thread_pool_worker_t *)arg;
     ldg_thread_pool_t *pool = NULL;
     ldg_thread_pool_task_t task = { 0 };
-    int32_t ret = 0;
+    uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!worker)) { return NULL; }
 
@@ -39,7 +39,7 @@ static void* ldg_thread_pool_worker_enter(void *arg)
     return NULL;
 }
 
-int32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
+uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
 {
     uint32_t i = 0;
 
@@ -82,7 +82,7 @@ void ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
     pool->is_init = 0;
 }
 
-int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
+uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
 {
     uint32_t i = 0;
     int ret = 0;
@@ -118,7 +118,7 @@ int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_fu
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
+uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 {
     uint32_t i = 0;
 
@@ -149,7 +149,7 @@ uint32_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool)
     return pool->worker_cunt;
 }
 
-static int32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
+static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
 {
     uint32_t i = 0;
     int ret = 0;
@@ -181,10 +181,10 @@ static int32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
+uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
 {
     ldg_thread_pool_task_t task = { 0 };
-    int32_t ret = 0;
+    uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!pool || !pool->is_init || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
 

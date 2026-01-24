@@ -19,7 +19,7 @@ LDG_EXPORT void ldg_tsc_serialize(void);
 LDG_EXPORT uint64_t ldg_tsc_serialized_sample(uint32_t *core_id);
 LDG_EXPORT uint64_t ldg_tsc_delta(uint64_t start, uint64_t end);
 
-LDG_EXPORT int32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx);
+LDG_EXPORT uint32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx);
 LDG_EXPORT double ldg_tsc_to_sec(ldg_tsc_ctx_t *ctx, uint64_t cycles);
 
 #endif

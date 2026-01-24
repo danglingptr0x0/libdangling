@@ -44,14 +44,14 @@ void ldg_mem_secure_copy(void *dst, const void *src, size_t len)
     LDG_MEM_BARRIER;
 }
 
-int32_t ldg_mem_secure_cmp(const void *a, const void *b, size_t len)
+uint32_t ldg_mem_secure_cmp(const void *a, const void *b, size_t len)
 {
     volatile const uint8_t *pa = NULL;
     volatile const uint8_t *pb = NULL;
     volatile uint8_t acc = 0;
     size_t i = 0;
 
-    if (!a || !b) { return -1; }
+    if (LDG_UNLIKELY(!a || !b)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (len == 0) { return 0; }
 
@@ -68,7 +68,7 @@ int32_t ldg_mem_secure_cmp(const void *a, const void *b, size_t len)
     acc |= acc >> 2;
     acc |= acc >> 1;
 
-    return (int32_t)(acc & 1);
+    return (uint32_t)(acc & 1);
 }
 
 void ldg_mem_secure_cmov(void *dst, const void *src, size_t len, int cond)
@@ -92,7 +92,7 @@ void ldg_mem_secure_cmov(void *dst, const void *src, size_t len, int cond)
     LDG_MEM_BARRIER;
 }
 
-int32_t ldg_mem_secure_neq_is(const void *a, const void *b, size_t len)
+uint32_t ldg_mem_secure_neq_is(const void *a, const void *b, size_t len)
 {
     volatile const uint8_t *pa = NULL;
     volatile const uint8_t *pb = NULL;

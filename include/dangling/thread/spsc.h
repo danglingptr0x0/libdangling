@@ -17,13 +17,13 @@ typedef struct ldg_spsc_queue
     uint8_t pudding1[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
 } LDG_ALIGNED ldg_spsc_queue_t;
 
-LDG_EXPORT int32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity);
+LDG_EXPORT uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity);
 LDG_EXPORT void ldg_spsc_shutdown(ldg_spsc_queue_t *q);
-LDG_EXPORT int32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item);
-LDG_EXPORT int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out);
-LDG_EXPORT int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out);
+LDG_EXPORT uint32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item);
+LDG_EXPORT uint32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out);
+LDG_EXPORT uint32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out);
 LDG_EXPORT size_t ldg_spsc_cunt_get(const ldg_spsc_queue_t *q);
-LDG_EXPORT int32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q);
-LDG_EXPORT int32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q);
+LDG_EXPORT uint32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q);
+LDG_EXPORT uint32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q);
 
 #endif

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-size_t ldg_curl_resp_write_cb(void *contents, size_t size, size_t nmemb, void *user_data)
+static size_t ldg_curl_resp_write_cb(void *contents, size_t size, size_t nmemb, void *user_data)
 {
     size_t size_real = 0;
     ldg_curl_resp_t *resp = NULL;
@@ -72,7 +72,28 @@ void ldg_curl_resp_free(ldg_curl_resp_t *resp)
     resp->cap = 0;
 }
 
-int32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, size_t capacity)
+typedef struct ldg_curl_stream_ctx
+{
+    ldg_curl_stream_cb_t cb;
+    void *user_data;
+} ldg_curl_stream_ctx_t;
+
+static size_t ldg_curl_stream_write_cb(void *contents, size_t size, size_t nmemb, void *user_data)
+{
+    ldg_curl_stream_ctx_t *ctx = NULL;
+    size_t size_real = 0;
+
+    if (LDG_UNLIKELY(!contents || !user_data)) { return 0; }
+
+    ctx = (ldg_curl_stream_ctx_t *)user_data;
+    size_real = size * nmemb;
+
+    if (LDG_UNLIKELY(!ctx->cb)) { return 0; }
+
+    return ctx->cb(contents, size_real, ctx->user_data);
+}
+
+uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, size_t capacity)
 {
     if (LDG_UNLIKELY(!ctx || capacity == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -123,12 +144,12 @@ void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
     (void)memset(ctx, 0, sizeof(ldg_curl_multi_ctx_t));
 }
 
-int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, struct curl_slist *headers)
+uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, struct curl_slist *headers)
 {
     ldg_curl_multi_req_t *req = NULL;
     size_t url_len = 0;
     size_t data_len = 0;
-    int32_t ret = LDG_ERR_AOK;
+    uint32_t ret = LDG_ERR_AOK;
 
     if (LDG_UNLIKELY(!ctx || !url)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -200,7 +221,35 @@ int32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
+uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, struct curl_slist *headers)
+{
+    uint32_t ret = 0;
+    ldg_curl_multi_req_t *req = NULL;
+
+    ret = ldg_curl_multi_req_add(ctx, url, NULL, headers);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    req = &ctx->reqs[ctx->req_cunt - 1];
+    (void)curl_easy_setopt(req->curl, CURLOPT_HTTPGET, 1L);
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers)
+{
+    uint32_t ret = 0;
+    ldg_curl_multi_req_t *req = NULL;
+
+    ret = ldg_curl_multi_req_add(ctx, url, data, headers);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    req = &ctx->reqs[ctx->req_cunt - 1];
+    (void)curl_easy_setopt(req->curl, CURLOPT_POST, 1L);
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
 {
     int still_running = 0;
     int numfds = 0;
@@ -245,7 +294,7 @@ double ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx)
     return (double)total_now / (double)total_dl;
 }
 
-int32_t ldg_curl_headers_append(struct curl_slist **list, const char *header)
+uint32_t ldg_curl_headers_append(struct curl_slist **list, const char *header)
 {
     struct curl_slist *tmp = NULL;
 
@@ -267,7 +316,7 @@ void ldg_curl_headers_destroy(struct curl_slist **list)
     *list = NULL;
 }
 
-int32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
+uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -292,7 +341,7 @@ void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
     ctx->is_init = 0;
 }
 
-int32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_resp_t *resp)
+uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
@@ -318,7 +367,7 @@ int32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_resp_t *resp)
+uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
@@ -343,6 +392,57 @@ int32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char
         ldg_curl_resp_free(resp);
         return LDG_ERR_NET_PERFORM;
     }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data)
+{
+    CURLcode res = CURLE_OK;
+    ldg_curl_stream_ctx_t stream_ctx = {0};
+
+    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    stream_ctx.cb = cb;
+    stream_ctx.user_data = user_data;
+
+    curl_easy_reset(ctx->curl);
+    curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
+    curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_stream_write_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx);
+
+    if (headers) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, headers); }
+
+    res = curl_easy_perform(ctx->curl);
+    if (LDG_UNLIKELY(res != CURLE_OK)) { return LDG_ERR_NET_PERFORM; }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data)
+{
+    CURLcode res = CURLE_OK;
+    ldg_curl_stream_ctx_t stream_ctx = {0};
+
+    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    stream_ctx.cb = cb;
+    stream_ctx.user_data = user_data;
+
+    curl_easy_reset(ctx->curl);
+    curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
+    curl_easy_setopt(ctx->curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_stream_write_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx);
+
+    if (data) { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data); }
+    else { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, ""); }
+
+    if (headers) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, headers); }
+
+    res = curl_easy_perform(ctx->curl);
+    if (LDG_UNLIKELY(res != CURLE_OK)) { return LDG_ERR_NET_PERFORM; }
 
     return LDG_ERR_AOK;
 }

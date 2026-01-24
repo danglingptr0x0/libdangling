@@ -7,7 +7,7 @@
 #include <time.h>
 #include <fcntl.h>
 
-int32_t ldg_mut_init(ldg_mut_t *m, uint8_t shared)
+uint32_t ldg_mut_init(ldg_mut_t *m, uint8_t shared)
 {
     int ret = 0;
 
@@ -65,7 +65,7 @@ void ldg_mut_unlock(ldg_mut_t *m)
     (void)pthread_mutex_unlock(&m->mtx);
 }
 
-int32_t ldg_mut_trylock(ldg_mut_t *m)
+uint32_t ldg_mut_trylock(ldg_mut_t *m)
 {
     int ret = 0;
 
@@ -79,7 +79,7 @@ int32_t ldg_mut_trylock(ldg_mut_t *m)
     return LDG_ERR_FUNC_ARG_INVALID;
 }
 
-int32_t ldg_cond_init(ldg_cond_t *c, uint8_t shared)
+uint32_t ldg_cond_init(ldg_cond_t *c, uint8_t shared)
 {
     int ret = 0;
 
@@ -130,7 +130,7 @@ void ldg_cond_wait(ldg_cond_t *c, ldg_mut_t *m)
     (void)pthread_cond_wait(&c->cond, &m->mtx);
 }
 
-int32_t ldg_cond_timedwait(ldg_cond_t *c, ldg_mut_t *m, uint64_t timeout_ms)
+uint32_t ldg_cond_timedwait(ldg_cond_t *c, ldg_mut_t *m, uint64_t timeout_ms)
 {
     struct timespec ts = { 0 };
     int ret = 0;
@@ -168,7 +168,7 @@ void ldg_cond_broadcast(ldg_cond_t *c)
     (void)pthread_cond_broadcast(&c->cond);
 }
 
-int32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
+uint32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
 {
     size_t name_len = 0;
 
@@ -192,7 +192,7 @@ int32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
     return LDG_ERR_AOK;
 }
 
-int32_t ldg_sem_open(ldg_sem_t *s, const char *name)
+uint32_t ldg_sem_open(ldg_sem_t *s, const char *name)
 {
     size_t name_len = 0;
 
@@ -232,7 +232,7 @@ void ldg_sem_wait(ldg_sem_t *s)
     (void)sem_wait(s->sem);
 }
 
-int32_t ldg_sem_trywait(ldg_sem_t *s)
+uint32_t ldg_sem_trywait(ldg_sem_t *s)
 {
     int ret = 0;
 

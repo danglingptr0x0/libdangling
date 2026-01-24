@@ -50,11 +50,11 @@ typedef struct ldg_thread_pool
     uint8_t pudding[43];
 } LDG_ALIGNED ldg_thread_pool_t;
 
-LDG_EXPORT int32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt);
+LDG_EXPORT uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt);
 LDG_EXPORT void ldg_thread_pool_shutdown(ldg_thread_pool_t *pool);
-LDG_EXPORT int32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
-LDG_EXPORT int32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool);
+LDG_EXPORT uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
+LDG_EXPORT uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool);
 LDG_EXPORT uint32_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool);
-LDG_EXPORT int32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
+LDG_EXPORT uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
 
 #endif
