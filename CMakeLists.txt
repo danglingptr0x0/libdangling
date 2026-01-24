@@ -20,6 +20,7 @@ set(LDG_SOURCES
     src/thread/spsc.c
     src/thread/sync.c
     src/thread/pool.c
+    src/thread/mpmc.c
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")

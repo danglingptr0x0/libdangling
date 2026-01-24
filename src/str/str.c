@@ -15,16 +15,10 @@ int32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 
     overlap = (dst < src + src_len) && (src < dst + abssize);
 
-    if (overlap)
-    {
-        (void)memmove(dst, src, src_len);
-    }
-    else
-    {
-        (void)memcpy(dst, src, src_len);
-    }
+    if (overlap) { (void)memmove(dst, src, src_len); }
+    else{ (void)memcpy(dst, src, src_len); }
 
     (void)memset(dst + src_len, 0, abssize - src_len);
 
-    return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_OK;
+    return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_AOK;
 }
