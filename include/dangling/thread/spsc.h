@@ -22,8 +22,8 @@ LDG_EXPORT void ldg_spsc_shutdown(ldg_spsc_queue_t *q);
 LDG_EXPORT int32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item);
 LDG_EXPORT int32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out);
 LDG_EXPORT int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out);
-LDG_EXPORT size_t ldg_spsc_cunt(const ldg_spsc_queue_t *q);
-LDG_EXPORT int32_t ldg_spsc_empty(const ldg_spsc_queue_t *q);
-LDG_EXPORT int32_t ldg_spsc_full(const ldg_spsc_queue_t *q);
+LDG_EXPORT size_t ldg_spsc_cunt_get(const ldg_spsc_queue_t *q);
+LDG_EXPORT int32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q);
+LDG_EXPORT int32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q);
 
 #endif

@@ -96,7 +96,7 @@ int32_t ldg_spsc_peek(const ldg_spsc_queue_t *q, void *item_out)
     return LDG_ERR_AOK;
 }
 
-size_t ldg_spsc_cunt(const ldg_spsc_queue_t *q)
+size_t ldg_spsc_cunt_get(const ldg_spsc_queue_t *q)
 {
     size_t head = 0;
     size_t tail = 0;
@@ -112,7 +112,7 @@ size_t ldg_spsc_cunt(const ldg_spsc_queue_t *q)
     return q->capacity - tail + head;
 }
 
-int32_t ldg_spsc_empty(const ldg_spsc_queue_t *q)
+int32_t ldg_spsc_empty_is(const ldg_spsc_queue_t *q)
 {
     if (LDG_UNLIKELY(!q)) { return 1; }
 
@@ -120,7 +120,7 @@ int32_t ldg_spsc_empty(const ldg_spsc_queue_t *q)
     return q->head == q->tail;
 }
 
-int32_t ldg_spsc_full(const ldg_spsc_queue_t *q)
+int32_t ldg_spsc_full_is(const ldg_spsc_queue_t *q)
 {
     size_t next_head = 0;
 
