@@ -223,10 +223,7 @@ static inline void ldg_mat3_polar(double R[9], double S[9], const double F[9])
         if (diff < 1e-12) { break; }
     }
 
-    if (ldg_mat3_det(R) < 0.0)
-    {
-        for (i = 0; i < 9; i++) { R[i] = -R[i]; }
-    }
+    if (ldg_mat3_det(R) < 0.0) { for (i = 0; i < 9; i++) { R[i] = -R[i]; } }
 
     ldg_mat3_transpose(Rt, R);
     ldg_mat3_mul(S, Rt, F);

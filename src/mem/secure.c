@@ -22,10 +22,7 @@ void ldg_mem_secure_zero(void *ptr, size_t len)
         : "memory"
         );
 #else
-    for (i = 0; i < len; i++)
-    {
-        p[i] = 0;
-    }
+    for (i = 0; i < len; i++) { p[i] = 0; }
 #endif
 
     LDG_MEM_BARRIER;
@@ -42,10 +39,7 @@ void ldg_mem_secure_copy(void *dst, const void *src, size_t len)
     d = (volatile uint8_t *)dst;
     s = (volatile const uint8_t *)src;
 
-    for (i = 0; i < len; i++)
-    {
-        d[i] = s[i];
-    }
+    for (i = 0; i < len; i++) { d[i] = s[i]; }
 
     LDG_MEM_BARRIER;
 }
@@ -66,10 +60,7 @@ int32_t ldg_mem_secure_cmp(const void *a, const void *b, size_t len)
 
     LDG_MEM_BARRIER;
 
-    for (i = 0; i < len; i++)
-    {
-        acc |= pa[i] ^ pb[i];
-    }
+    for (i = 0; i < len; i++) { acc |= pa[i] ^ pb[i]; }
 
     LDG_MEM_BARRIER;
 
@@ -96,10 +87,7 @@ void ldg_mem_secure_cmov(void *dst, const void *src, size_t len, int cond)
 
     mask = (uint8_t)(-(int8_t)(cond & 1));
 
-    for (i = 0; i < len; i++)
-    {
-        d[i] ^= mask & (d[i] ^ s[i]);
-    }
+    for (i = 0; i < len; i++) { d[i] ^= mask & (d[i] ^ s[i]); }
 
     LDG_MEM_BARRIER;
 }
@@ -120,10 +108,7 @@ int32_t ldg_mem_secure_neq(const void *a, const void *b, size_t len)
 
     LDG_MEM_BARRIER;
 
-    for (i = 0; i < len; i++)
-    {
-        acc |= pa[i] ^ pb[i];
-    }
+    for (i = 0; i < len; i++) { acc |= pa[i] ^ pb[i]; }
 
     LDG_MEM_BARRIER;
 
