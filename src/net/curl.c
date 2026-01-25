@@ -399,7 +399,7 @@ uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const cha
 uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data)
 {
     CURLcode res = CURLE_OK;
-    ldg_curl_stream_ctx_t stream_ctx = {0};
+    ldg_curl_stream_ctx_t stream_ctx = { 0 };
 
     if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -423,7 +423,7 @@ uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, str
 uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data)
 {
     CURLcode res = CURLE_OK;
-    ldg_curl_stream_ctx_t stream_ctx = {0};
+    ldg_curl_stream_ctx_t stream_ctx = { 0 };
 
     if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
