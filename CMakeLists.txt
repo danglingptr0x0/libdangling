@@ -12,6 +12,31 @@ find_package(Threads REQUIRED)
 pkg_check_modules(YDER REQUIRED libyder)
 pkg_check_modules(CURL REQUIRED libcurl)
 
+pkg_check_modules(PIPEWIRE libpipewire-0.3)
+pkg_check_modules(ALSA alsa)
+
+if(PIPEWIRE_FOUND)
+    set(LDG_AUDIO_BACKEND "pipewire")
+    set(LDG_AUDIO_SOURCES src/audio/audio_pw.c)
+    set(LDG_AUDIO_CFLAGS ${PIPEWIRE_CFLAGS})
+    set(LDG_AUDIO_INCLUDE_DIRS ${PIPEWIRE_INCLUDE_DIRS})
+    set(LDG_AUDIO_LIBRARIES ${PIPEWIRE_LIBRARIES})
+    set(LDG_AUDIO_DEFINES LDG_AUDIO_PIPEWIRE)
+    message(STATUS "Audio backend: PipeWire")
+elseif(ALSA_FOUND)
+    set(LDG_AUDIO_BACKEND "alsa")
+    set(LDG_AUDIO_SOURCES src/audio/audio_alsa.c)
+    set(LDG_AUDIO_CFLAGS ${ALSA_CFLAGS})
+    set(LDG_AUDIO_INCLUDE_DIRS ${ALSA_INCLUDE_DIRS})
+    set(LDG_AUDIO_LIBRARIES ${ALSA_LIBRARIES})
+    set(LDG_AUDIO_DEFINES LDG_AUDIO_ALSA)
+    message(STATUS "Audio backend: ALSA")
+else()
+    set(LDG_AUDIO_BACKEND "none")
+    set(LDG_AUDIO_SOURCES "")
+    message(STATUS "Audio backend: none (libpipewire-0.3 or alsa not found)")
+endif()
+
 set(LDG_SOURCES
     src/mem/alloc.c
     src/str/str.c
@@ -24,6 +49,7 @@ set(LDG_SOURCES
     src/thread/pool.c
     src/thread/mpmc.c
     src/parse/parse.c
+    ${LDG_AUDIO_SOURCES}
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
@@ -48,9 +74,10 @@ target_include_directories(dangling_shared PUBLIC
     $<INSTALL_INTERFACE:include>
     ${YDER_INCLUDE_DIRS}
     ${CURL_INCLUDE_DIRS}
+    ${LDG_AUDIO_INCLUDE_DIRS}
 )
-target_link_libraries(dangling_shared PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} Threads::Threads)
-target_compile_definitions(dangling_shared PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}")
+target_link_libraries(dangling_shared PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} ${LDG_AUDIO_LIBRARIES} Threads::Threads)
+target_compile_definitions(dangling_shared PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}" ${LDG_AUDIO_DEFINES})
 
 add_library(dangling_static STATIC ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
 set_target_properties(dangling_static PROPERTIES OUTPUT_NAME dangling)
@@ -59,9 +86,10 @@ target_include_directories(dangling_static PUBLIC
     $<INSTALL_INTERFACE:include>
     ${YDER_INCLUDE_DIRS}
     ${CURL_INCLUDE_DIRS}
+    ${LDG_AUDIO_INCLUDE_DIRS}
 )
-target_link_libraries(dangling_static PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} Threads::Threads)
-target_compile_definitions(dangling_static PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}")
+target_link_libraries(dangling_static PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} ${LDG_AUDIO_LIBRARIES} Threads::Threads)
+target_compile_definitions(dangling_static PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}" ${LDG_AUDIO_DEFINES})
 
 install(TARGETS dangling_shared dangling_static
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

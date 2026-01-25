@@ -42,13 +42,25 @@
 #define LDG_ERR_STR_TRUNC   500
 #define LDG_ERR_STR_OVERLAP 501
 
+// audio (600-699)
+#define LDG_ERR_AUDIO_INIT             600
+#define LDG_ERR_AUDIO_NOT_INIT         601
+#define LDG_ERR_AUDIO_NOT_AVAILABLE    602
+#define LDG_ERR_AUDIO_STREAM_NOT_FOUND 603
+#define LDG_ERR_AUDIO_SINK_NOT_FOUND   604
+#define LDG_ERR_AUDIO_SOURCE_NOT_FOUND 605
+#define LDG_ERR_AUDIO_NO_DEFAULT       606
+#define LDG_ERR_AUDIO_DUCK_FULL        607
+#define LDG_ERR_AUDIO_DUCK_EMPTY       608
+#define LDG_ERR_AUDIO_VOLUME_RANGE     609
+
 // errlog
 #define LDG_ERRLOG_LVL_ERR  0
 #define LDG_ERRLOG_LVL_WARN 1
 #define LDG_ERRLOG_LVL_INFO 2
 
 #ifndef LDG_ERRLOG_HANDLER
-    #define LDG_ERRLOG_HANDLER(lvl, msg) ((void)0)
+#define LDG_ERRLOG_HANDLER(lvl, msg) ((void)0)
 #endif
 
 #define LDG_ERRLOG(lvl, msg) LDG_ERRLOG_HANDLER((lvl), (msg))
