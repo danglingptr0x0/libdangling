@@ -5,18 +5,15 @@
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
-#include <dangling/thread/sync.h>
-
 #include <pipewire/pipewire.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/iter.h>
 
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
 
 #define LDG_AUDIO_NODE_STREAM 1
 #define LDG_AUDIO_NODE_SINK   2
@@ -28,7 +25,6 @@ typedef struct ldg_audio_node
 {
     uint32_t id;
     uint32_t type;
-    uint32_t pid;
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
     double volume;
@@ -43,7 +39,7 @@ typedef struct ldg_audio_node
 typedef struct ldg_audio_duck_entry
 {
     double factor;
-    uint32_t exclude_pid;
+    uint32_t exclude_stream_id;
     uint32_t *stream_ids;
     double *orig_volumes;
     uint32_t stream_cunt;
@@ -51,7 +47,7 @@ typedef struct ldg_audio_duck_entry
 
 typedef struct ldg_audio_ctx
 {
-    struct pw_main_loop *loop;
+    struct pw_thread_loop *loop;
     struct pw_context *context;
     struct pw_core *core;
     struct pw_registry *registry;
@@ -60,33 +56,32 @@ typedef struct ldg_audio_ctx
     ldg_audio_node_t *streams;
     ldg_audio_node_t *sinks;
     ldg_audio_node_t *sources;
-    ldg_mut_t lock;
-    pthread_t loop_thread;
     ldg_audio_duck_entry_t duck_stack[LDG_AUDIO_DUCK_STACK_MAX];
     uint32_t duck_cunt;
     uint32_t default_sink_id;
     uint32_t default_source_id;
+    uint32_t self_stream_id;
+    int32_t sync_seq;
     volatile int32_t is_init;
-    volatile int32_t is_running;
     uint8_t pudding[4];
 } LDG_ALIGNED ldg_audio_ctx_t;
 
 static ldg_audio_ctx_t g_audio_ctx = { 0 };
 
-static void audio_node_free(ldg_audio_node_t *node)
+static void audio_node_free(ldg_audio_node_t *node, int32_t destroy_proxy)
 {
     if (!node) { return; }
 
     if (node->proxy)
     {
         spa_hook_remove(&node->listener);
-        pw_proxy_destroy(node->proxy);
+        if (destroy_proxy) { pw_proxy_destroy(node->proxy); }
     }
 
     ldg_mem_dealloc(node);
 }
 
-static void audio_node_list_free(ldg_audio_node_t **head)
+static void audio_node_list_free(ldg_audio_node_t **head, int32_t destroy_proxy)
 {
     ldg_audio_node_t *curr = NULL;
     ldg_audio_node_t *next = NULL;
@@ -97,7 +92,7 @@ static void audio_node_list_free(ldg_audio_node_t **head)
     while (curr)
     {
         next = curr->next;
-        audio_node_free(curr);
+        audio_node_free(curr, destroy_proxy);
         curr = next;
     }
 
@@ -133,7 +128,7 @@ static void audio_node_remove(ldg_audio_node_t **head, uint32_t id)
             if (prev) { prev->next = curr->next; }
             else { *head = curr->next; }
 
-            audio_node_free(curr);
+            audio_node_free(curr, 1);
             return;
         }
 
@@ -145,9 +140,9 @@ static void audio_node_remove(ldg_audio_node_t **head, uint32_t id)
 static void node_event_param(void *data, int seq, uint32_t id, uint32_t index, uint32_t next, const struct spa_pod *param)
 {
     ldg_audio_node_t *node = (ldg_audio_node_t *)data;
-    float volumes[SPA_AUDIO_MAX_CHANNELS] = { 0 };
+    const struct spa_pod_prop *prop = NULL;
+    const struct spa_pod_object *obj = NULL;
     uint32_t n_volumes = 0;
-    int32_t mute = 0;
     uint32_t i = 0;
     double sum = 0.0;
 
@@ -157,27 +152,33 @@ static void node_event_param(void *data, int seq, uint32_t id, uint32_t index, u
 
     if (!param || id != SPA_PARAM_Props) { return; }
 
-    if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_channelVolumes, SPA_POD_Array(&n_volumes, SPA_TYPE_Float, SPA_AUDIO_MAX_CHANNELS, volumes), SPA_PROP_mute, SPA_POD_Bool(&mute)) < 0)
+    if (!spa_pod_is_object(param)) { return; }
+
+    obj = (const struct spa_pod_object *)param;
+
+    SPA_POD_OBJECT_FOREACH(obj, prop)
     {
-        (void)spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_channelVolumes, SPA_POD_Array(&n_volumes, SPA_TYPE_Float, SPA_AUDIO_MAX_CHANNELS, volumes));
-        (void)spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_mute, SPA_POD_Bool(&mute));
+        if (prop->key == SPA_PROP_channelVolumes)
+        {
+            if (spa_pod_is_array(&prop->value))
+            {
+                n_volumes = SPA_POD_ARRAY_N_VALUES(&prop->value);
+                const float *vols = (const float *)SPA_POD_ARRAY_VALUES(&prop->value);
+
+                if (n_volumes > 0 && n_volumes <= SPA_AUDIO_MAX_CHANNELS)
+                {
+                    node->channel_cunt = (int32_t)n_volumes;
+                    sum = 0.0;
+                    for (i = 0; i < n_volumes; i++) { sum += (double)vols[i]; }
+                    node->volume = sum / (double)n_volumes;
+                    if (node->volume < 0.0) { node->volume = 0.0; }
+
+                    if (node->volume > 1.0) { node->volume = 1.0; }
+                }
+            }
+        }
+        else if (prop->key == SPA_PROP_mute) { if (spa_pod_is_bool(&prop->value)) { node->muted = SPA_POD_VALUE(struct spa_pod_bool, &prop->value); } }
     }
-
-    ldg_mut_lock(&g_audio_ctx.lock);
-
-    if (n_volumes > 0)
-    {
-        node->channel_cunt = (int32_t)n_volumes;
-        for (i = 0; i < n_volumes; i++) { sum += (double)volumes[i]; }
-        node->volume = sum / (double)n_volumes;
-        if (node->volume < 0.0) { node->volume = 0.0; }
-
-        if (node->volume > 1.0) { node->volume = 1.0; }
-    }
-
-    node->muted = mute;
-
-    ldg_mut_unlock(&g_audio_ctx.lock);
 }
 
 static const struct pw_node_events node_events = {
@@ -188,7 +189,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     const char *media_class = NULL;
     const char *name = NULL;
     const char *desc = NULL;
-    const char *pid_str = NULL;
     ldg_audio_node_t *node = NULL;
     ldg_audio_node_t **list = NULL;
     uint32_t node_type = 0;
@@ -219,7 +219,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
         node_type = LDG_AUDIO_NODE_SOURCE;
         list = &g_audio_ctx.sources;
     }
-    else{ return; }
+    else { return; }
 
     node = (ldg_audio_node_t *)ldg_mem_alloc(sizeof(ldg_audio_node_t));
     if (LDG_UNLIKELY(!node)) { return; }
@@ -239,34 +239,26 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     {
         const char *app_name = spa_dict_lookup(props, PW_KEY_APP_NAME);
         if (app_name) { (void)ldg_strrbrcpy(node->name, app_name, LDG_AUDIO_NAME_MAX); }
-
-        pid_str = spa_dict_lookup(props, PW_KEY_APP_PROCESS_ID);
-        if (pid_str) { node->pid = (uint32_t)strtoul(pid_str, NULL, LDG_BASE_DECIMAL); }
     }
 
     node->proxy = (struct pw_proxy *)pw_registry_bind(g_audio_ctx.registry, id, type, PW_VERSION_NODE, 0);
     if (node->proxy)
     {
         pw_proxy_add_object_listener(node->proxy, &node->listener, &node_events, node);
-
         pw_node_subscribe_params((struct pw_node *)node->proxy, (uint32_t[]) { SPA_PARAM_Props }, 1);
     }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
     node->next = *list;
     *list = node;
-    ldg_mut_unlock(&g_audio_ctx.lock);
 }
 
 static void registry_event_global_remove(void *data, uint32_t id)
 {
     (void)data;
 
-    ldg_mut_lock(&g_audio_ctx.lock);
     audio_node_remove(&g_audio_ctx.streams, id);
     audio_node_remove(&g_audio_ctx.sinks, id);
     audio_node_remove(&g_audio_ctx.sources, id);
-    ldg_mut_unlock(&g_audio_ctx.lock);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -276,7 +268,8 @@ static void core_event_done(void *data, uint32_t id, int seq)
 {
     (void)data;
     (void)id;
-    (void)seq;
+
+    if (g_audio_ctx.sync_seq == seq) { pw_thread_loop_signal(g_audio_ctx.loop, 0); }
 }
 
 static void core_event_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -291,32 +284,24 @@ static void core_event_error(void *data, uint32_t id, int seq, int res, const ch
 static const struct pw_core_events core_events = {
     PW_VERSION_CORE_EVENTS, .done = core_event_done, .error = core_event_error, };
 
-static void* audio_loop_thread(void *arg)
-{
-    (void)arg;
-
-    pw_main_loop_run(g_audio_ctx.loop);
-
-    return NULL;
-}
-
 uint32_t ldg_audio_init(void)
 {
-    int ret = 0;
-
     if (g_audio_ctx.is_init) { return LDG_ERR_AOK; }
 
     (void)memset(&g_audio_ctx, 0, sizeof(ldg_audio_ctx_t));
 
     pw_init(NULL, NULL);
 
-    g_audio_ctx.loop = pw_main_loop_new(NULL);
+    g_audio_ctx.loop = pw_thread_loop_new("ldg_audio", NULL);
     if (LDG_UNLIKELY(!g_audio_ctx.loop)) { return LDG_ERR_AUDIO_INIT; }
 
-    g_audio_ctx.context = pw_context_new(pw_main_loop_get_loop(g_audio_ctx.loop), NULL, 0);
+    pw_thread_loop_lock(g_audio_ctx.loop);
+
+    g_audio_ctx.context = pw_context_new(pw_thread_loop_get_loop(g_audio_ctx.loop), NULL, 0);
     if (LDG_UNLIKELY(!g_audio_ctx.context))
     {
-        pw_main_loop_destroy(g_audio_ctx.loop);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
     }
 
@@ -324,7 +309,8 @@ uint32_t ldg_audio_init(void)
     if (LDG_UNLIKELY(!g_audio_ctx.core))
     {
         pw_context_destroy(g_audio_ctx.context);
-        pw_main_loop_destroy(g_audio_ctx.loop);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
     }
 
@@ -335,35 +321,26 @@ uint32_t ldg_audio_init(void)
     {
         pw_core_disconnect(g_audio_ctx.core);
         pw_context_destroy(g_audio_ctx.context);
-        pw_main_loop_destroy(g_audio_ctx.loop);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
     }
 
     pw_registry_add_listener(g_audio_ctx.registry, &g_audio_ctx.registry_listener, &registry_events, NULL);
 
-    ret = ldg_mut_init(&g_audio_ctx.lock, 0);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
-    {
-        pw_proxy_destroy((struct pw_proxy *)g_audio_ctx.registry);
-        pw_core_disconnect(g_audio_ctx.core);
-        pw_context_destroy(g_audio_ctx.context);
-        pw_main_loop_destroy(g_audio_ctx.loop);
-        return LDG_ERR_AUDIO_INIT;
-    }
-
-    g_audio_ctx.is_running = 1;
     g_audio_ctx.is_init = 1;
 
-    ret = pthread_create(&g_audio_ctx.loop_thread, NULL, audio_loop_thread, NULL);
-    if (LDG_UNLIKELY(ret != 0))
+    pw_thread_loop_unlock(g_audio_ctx.loop);
+
+    if (pw_thread_loop_start(g_audio_ctx.loop) < 0)
     {
-        g_audio_ctx.is_running = 0;
         g_audio_ctx.is_init = 0;
-        ldg_mut_destroy(&g_audio_ctx.lock);
+        pw_thread_loop_lock(g_audio_ctx.loop);
         pw_proxy_destroy((struct pw_proxy *)g_audio_ctx.registry);
         pw_core_disconnect(g_audio_ctx.core);
         pw_context_destroy(g_audio_ctx.context);
-        pw_main_loop_destroy(g_audio_ctx.loop);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
     }
 
@@ -376,19 +353,13 @@ void ldg_audio_shutdown(void)
 
     if (!g_audio_ctx.is_init) { return; }
 
-    while (g_audio_ctx.duck_cunt > 0) { (void)ldg_audio_unduck(); }
+    g_audio_ctx.is_init = 0;
 
-    g_audio_ctx.is_running = 0;
+    pw_thread_loop_stop(g_audio_ctx.loop);
 
-    if (g_audio_ctx.loop) { pw_main_loop_quit(g_audio_ctx.loop); }
-
-    (void)pthread_join(g_audio_ctx.loop_thread, NULL);
-
-    ldg_mut_lock(&g_audio_ctx.lock);
-    audio_node_list_free(&g_audio_ctx.streams);
-    audio_node_list_free(&g_audio_ctx.sinks);
-    audio_node_list_free(&g_audio_ctx.sources);
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    audio_node_list_free(&g_audio_ctx.streams, 0);
+    audio_node_list_free(&g_audio_ctx.sinks, 0);
+    audio_node_list_free(&g_audio_ctx.sources, 0);
 
     for (i = 0; i < LDG_AUDIO_DUCK_STACK_MAX; i++)
     {
@@ -400,19 +371,25 @@ void ldg_audio_shutdown(void)
     spa_hook_remove(&g_audio_ctx.registry_listener);
     spa_hook_remove(&g_audio_ctx.core_listener);
 
-    if (g_audio_ctx.registry) { pw_proxy_destroy((struct pw_proxy *)g_audio_ctx.registry); }
-
-    if (g_audio_ctx.core) { pw_core_disconnect(g_audio_ctx.core); }
-
-    if (g_audio_ctx.context) { pw_context_destroy(g_audio_ctx.context); }
-
-    if (g_audio_ctx.loop) { pw_main_loop_destroy(g_audio_ctx.loop); }
-
-    ldg_mut_destroy(&g_audio_ctx.lock);
+    pw_core_disconnect(g_audio_ctx.core);
+    pw_context_destroy(g_audio_ctx.context);
+    pw_thread_loop_destroy(g_audio_ctx.loop);
 
     pw_deinit();
+}
 
-    g_audio_ctx.is_init = 0;
+uint32_t ldg_audio_sync(void)
+{
+    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+
+    pw_thread_loop_lock(g_audio_ctx.loop);
+
+    g_audio_ctx.sync_seq = pw_core_sync(g_audio_ctx.core, PW_ID_CORE, 0);
+    pw_thread_loop_wait(g_audio_ctx.loop);
+
+    pw_thread_loop_unlock(g_audio_ctx.loop);
+
+    return LDG_ERR_AOK;
 }
 
 static uint32_t audio_node_volume_set(ldg_audio_node_t *node, double vol)
@@ -459,16 +436,16 @@ uint32_t ldg_audio_master_volume_get(double *vol)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
     sink = audio_default_sink_find();
     if (!sink)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
     *vol = sink->volume;
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -482,16 +459,16 @@ uint32_t ldg_audio_master_volume_set(double vol)
 
     if (LDG_UNLIKELY(vol < 0.0 || vol > 1.0)) { return LDG_ERR_AUDIO_VOLUME_RANGE; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
     sink = audio_default_sink_find();
     if (!sink)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
     ret = audio_node_volume_set(sink, vol);
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return ret;
 }
@@ -504,16 +481,16 @@ uint32_t ldg_audio_stream_volume_get(uint32_t stream_id, double *vol)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
     node = audio_node_find(g_audio_ctx.streams, stream_id);
     if (!node)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
     *vol = node->volume;
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -527,16 +504,16 @@ uint32_t ldg_audio_stream_volume_set(uint32_t stream_id, double vol)
 
     if (LDG_UNLIKELY(vol < 0.0 || vol > 1.0)) { return LDG_ERR_AUDIO_VOLUME_RANGE; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
     node = audio_node_find(g_audio_ctx.streams, stream_id);
     if (!node)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
     ret = audio_node_volume_set(node, vol);
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return ret;
 }
@@ -549,19 +526,19 @@ uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, int32_t *muted)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     if (stream_id == 0) { node = audio_default_sink_find(); }
     else{ node = audio_node_find(g_audio_ctx.streams, stream_id); }
 
     if (!node)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return (stream_id == 0) ? LDG_ERR_AUDIO_NO_DEFAULT : LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
     *muted = node->muted;
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -575,14 +552,14 @@ uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, int32_t muted)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     if (stream_id == 0) { node = audio_default_sink_find(); }
     else{ node = audio_node_find(g_audio_ctx.streams, stream_id); }
 
     if (!node || !node->proxy)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return (stream_id == 0) ? LDG_ERR_AUDIO_NO_DEFAULT : LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
@@ -590,7 +567,7 @@ uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, int32_t muted)
 
     pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, 0, pod);
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -606,13 +583,13 @@ uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     for (node = g_audio_ctx.streams; node; node = node->next) { n++; }
 
     if (n == 0)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         *streams = NULL;
         *cunt = 0;
         return LDG_ERR_EMPTY;
@@ -621,7 +598,7 @@ uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
     arr = (ldg_audio_stream_t *)ldg_mem_alloc(n * sizeof(ldg_audio_stream_t));
     if (LDG_UNLIKELY(!arr))
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -630,7 +607,6 @@ uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
     for (node = g_audio_ctx.streams; node && i < n; node = node->next, i++)
     {
         arr[i].id = node->id;
-        arr[i].pid = node->pid;
         (void)ldg_strrbrcpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX);
         (void)ldg_strrbrcpy(arr[i].app_name, node->desc, LDG_AUDIO_NAME_MAX);
         arr[i].volume = node->volume;
@@ -638,7 +614,7 @@ uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
         arr[i].sink_id = node->target_id;
     }
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     *streams = arr;
     *cunt = i;
@@ -653,24 +629,23 @@ void ldg_audio_stream_free(ldg_audio_stream_t *streams)
     ldg_mem_dealloc(streams);
 }
 
-uint32_t ldg_audio_stream_pid_get(uint32_t pid, ldg_audio_stream_t *stream)
+uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
 {
     ldg_audio_node_t *node = NULL;
     uint32_t ret = LDG_ERR_AUDIO_STREAM_NOT_FOUND;
 
-    if (LDG_UNLIKELY(!stream)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!name || !stream)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     for (node = g_audio_ctx.streams; node; node = node->next)
     {
-        if (node->pid == pid)
+        if (strcmp(node->name, name) == 0)
         {
             (void)memset(stream, 0, sizeof(ldg_audio_stream_t));
             stream->id = node->id;
-            stream->pid = node->pid;
             (void)ldg_strrbrcpy(stream->name, node->name, LDG_AUDIO_NAME_MAX);
             (void)ldg_strrbrcpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX);
             stream->volume = node->volume;
@@ -681,14 +656,65 @@ uint32_t ldg_audio_stream_pid_get(uint32_t pid, ldg_audio_stream_t *stream)
         }
     }
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return ret;
 }
 
+void ldg_audio_self_register(uint32_t stream_id)
+{
+    g_audio_ctx.self_stream_id = stream_id;
+}
+
+uint32_t ldg_audio_self_id_get(void)
+{
+    return g_audio_ctx.self_stream_id;
+}
+
 uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream)
 {
-    return ldg_audio_stream_pid_get((uint32_t)getpid(), stream);
+    ldg_audio_node_t *node = NULL;
+
+    if (LDG_UNLIKELY(!stream)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+
+    if (LDG_UNLIKELY(g_audio_ctx.self_stream_id == 0)) { return LDG_ERR_AUDIO_STREAM_NOT_FOUND; }
+
+    pw_thread_loop_lock(g_audio_ctx.loop);
+
+    node = audio_node_find(g_audio_ctx.streams, g_audio_ctx.self_stream_id);
+    if (!node)
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_AUDIO_STREAM_NOT_FOUND;
+    }
+
+    (void)memset(stream, 0, sizeof(ldg_audio_stream_t));
+    stream->id = node->id;
+    (void)ldg_strrbrcpy(stream->name, node->name, LDG_AUDIO_NAME_MAX);
+    (void)ldg_strrbrcpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX);
+    stream->volume = node->volume;
+    stream->muted = node->muted;
+    stream->sink_id = node->target_id;
+
+    pw_thread_loop_unlock(g_audio_ctx.loop);
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_audio_self_volume_get(double *vol)
+{
+    if (LDG_UNLIKELY(g_audio_ctx.self_stream_id == 0)) { return LDG_ERR_AUDIO_STREAM_NOT_FOUND; }
+
+    return ldg_audio_stream_volume_get(g_audio_ctx.self_stream_id, vol);
+}
+
+uint32_t ldg_audio_self_volume_set(double vol)
+{
+    if (LDG_UNLIKELY(g_audio_ctx.self_stream_id == 0)) { return LDG_ERR_AUDIO_STREAM_NOT_FOUND; }
+
+    return ldg_audio_stream_volume_set(g_audio_ctx.self_stream_id, vol);
 }
 
 uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
@@ -702,13 +728,13 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     for (node = g_audio_ctx.sinks; node; node = node->next) { n++; }
 
     if (n == 0)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         *sinks = NULL;
         *cunt = 0;
         return LDG_ERR_EMPTY;
@@ -717,7 +743,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
     arr = (ldg_audio_sink_t *)ldg_mem_alloc(n * sizeof(ldg_audio_sink_t));
     if (LDG_UNLIKELY(!arr))
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -733,7 +759,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
         arr[i].is_default = (node->id == g_audio_ctx.default_sink_id || (g_audio_ctx.default_sink_id == 0 && node == g_audio_ctx.sinks)) ? 1 : 0;
     }
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     *sinks = arr;
     *cunt = i;
@@ -759,13 +785,13 @@ uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     for (node = g_audio_ctx.sources; node; node = node->next) { n++; }
 
     if (n == 0)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         *sources = NULL;
         *cunt = 0;
         return LDG_ERR_EMPTY;
@@ -774,7 +800,7 @@ uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
     arr = (ldg_audio_source_t *)ldg_mem_alloc(n * sizeof(ldg_audio_source_t));
     if (LDG_UNLIKELY(!arr))
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -790,7 +816,7 @@ uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
         arr[i].is_default = (node->id == g_audio_ctx.default_source_id || (g_audio_ctx.default_source_id == 0 && node == g_audio_ctx.sources)) ? 1 : 0;
     }
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     *sources = arr;
     *cunt = i;
@@ -813,12 +839,12 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     node = audio_default_sink_find();
     if (!node)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
@@ -830,7 +856,7 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
     sink->muted = node->muted;
     sink->is_default = 1;
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -843,7 +869,7 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     if (g_audio_ctx.default_source_id != 0) { node = audio_node_find(g_audio_ctx.sources, g_audio_ctx.default_source_id); }
 
@@ -851,7 +877,7 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
 
     if (!node)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
@@ -863,12 +889,12 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
     source->muted = node->muted;
     source->is_default = 1;
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid)
+uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
 {
     ldg_audio_duck_entry_t *entry = NULL;
     ldg_audio_node_t *node = NULL;
@@ -879,20 +905,20 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     if (g_audio_ctx.duck_cunt >= LDG_AUDIO_DUCK_STACK_MAX)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_DUCK_FULL;
     }
 
-    for (node = g_audio_ctx.streams; node; node = node->next) { if (node->pid != exclude_pid) { cunt++; } }
+    for (node = g_audio_ctx.streams; node; node = node->next) { if (node->id != exclude_stream_id) { cunt++; } }
 
     entry = &g_audio_ctx.duck_stack[g_audio_ctx.duck_cunt];
     (void)memset(entry, 0, sizeof(ldg_audio_duck_entry_t));
     entry->factor = factor;
-    entry->exclude_pid = exclude_pid;
+    entry->exclude_stream_id = exclude_stream_id;
     entry->stream_cunt = cunt;
 
     if (cunt > 0)
@@ -907,11 +933,11 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid)
             if (entry->orig_volumes) { ldg_mem_dealloc(entry->orig_volumes); }
 
             (void)memset(entry, 0, sizeof(ldg_audio_duck_entry_t));
-            ldg_mut_unlock(&g_audio_ctx.lock);
+            pw_thread_loop_unlock(g_audio_ctx.loop);
             return LDG_ERR_ALLOC_NULL;
         }
 
-        for (node = g_audio_ctx.streams; node && i < cunt; node = node->next) { if (node->pid != exclude_pid)
+        for (node = g_audio_ctx.streams; node && i < cunt; node = node->next) { if (node->id != exclude_stream_id)
             {
                 entry->stream_ids[i] = node->id;
                 entry->orig_volumes[i] = node->volume;
@@ -923,7 +949,7 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid)
 
     g_audio_ctx.duck_cunt++;
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }
@@ -936,11 +962,11 @@ uint32_t ldg_audio_unduck(void)
 
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
-    ldg_mut_lock(&g_audio_ctx.lock);
+    pw_thread_loop_lock(g_audio_ctx.loop);
 
     if (g_audio_ctx.duck_cunt == 0)
     {
-        ldg_mut_unlock(&g_audio_ctx.lock);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_DUCK_EMPTY;
     }
 
@@ -959,7 +985,7 @@ uint32_t ldg_audio_unduck(void)
 
     (void)memset(entry, 0, sizeof(ldg_audio_duck_entry_t));
 
-    ldg_mut_unlock(&g_audio_ctx.lock);
+    pw_thread_loop_unlock(g_audio_ctx.loop);
 
     return LDG_ERR_AOK;
 }

@@ -11,7 +11,6 @@
 typedef struct ldg_audio_stream
 {
     uint32_t id;
-    uint32_t pid;
     char name[LDG_AUDIO_NAME_MAX];
     char app_name[LDG_AUDIO_NAME_MAX];
     double volume;
@@ -43,6 +42,7 @@ typedef struct ldg_audio_source
 // init/shutdown
 LDG_EXPORT uint32_t ldg_audio_init(void);
 LDG_EXPORT void ldg_audio_shutdown(void);
+LDG_EXPORT uint32_t ldg_audio_sync(void);
 
 // volume control
 LDG_EXPORT uint32_t ldg_audio_master_volume_get(double *vol);
@@ -55,8 +55,14 @@ LDG_EXPORT uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, int32_t muted)
 // stream enumeration
 LDG_EXPORT uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt);
 LDG_EXPORT void ldg_audio_stream_free(ldg_audio_stream_t *streams);
-LDG_EXPORT uint32_t ldg_audio_stream_pid_get(uint32_t pid, ldg_audio_stream_t *stream);
+LDG_EXPORT uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream);
+
+// self stream (register once, then use self functions)
+LDG_EXPORT void ldg_audio_self_register(uint32_t stream_id);
+LDG_EXPORT uint32_t ldg_audio_self_id_get(void);
 LDG_EXPORT uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream);
+LDG_EXPORT uint32_t ldg_audio_self_volume_get(double *vol);
+LDG_EXPORT uint32_t ldg_audio_self_volume_set(double vol);
 
 // sink/source enumeration
 LDG_EXPORT uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt);
@@ -67,7 +73,7 @@ LDG_EXPORT uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink);
 LDG_EXPORT uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source);
 
 // stacked ducking
-LDG_EXPORT uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid);
+LDG_EXPORT uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id);
 LDG_EXPORT uint32_t ldg_audio_unduck(void);
 
 #endif
