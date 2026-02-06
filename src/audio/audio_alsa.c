@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define ALSA_CARD_FIRST ((int32_t) ~0u)
+
 typedef struct ldg_audio_ctx
 {
     snd_mixer_t *mixer;
@@ -27,10 +29,10 @@ static ldg_audio_ctx_t g_audio_ctx = { 0 };
 static uint32_t audio_mixer_open(int32_t card_idx)
 {
     char card_name[32] = { 0 };
-    snd_mixer_selem_id_t *sid = NULL;
+    snd_mixer_selem_id_t *sid = 0x0;
     int ret = 0;
 
-    (void)snprintf(card_name, sizeof(card_name), "hw:%d", card_idx);
+    if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", card_idx) < 0)) { return LDG_ERR_AUDIO_INIT; }
 
     ret = snd_mixer_open(&g_audio_ctx.mixer, 0);
     if (LDG_UNLIKELY(ret < 0)) { return LDG_ERR_AUDIO_INIT; }
@@ -39,15 +41,15 @@ static uint32_t audio_mixer_open(int32_t card_idx)
     if (LDG_UNLIKELY(ret < 0))
     {
         snd_mixer_close(g_audio_ctx.mixer);
-        g_audio_ctx.mixer = NULL;
+        g_audio_ctx.mixer = 0x0;
         return LDG_ERR_AUDIO_INIT;
     }
 
-    ret = snd_mixer_selem_register(g_audio_ctx.mixer, NULL, NULL);
+    ret = snd_mixer_selem_register(g_audio_ctx.mixer, 0x0, 0x0);
     if (LDG_UNLIKELY(ret < 0))
     {
         snd_mixer_close(g_audio_ctx.mixer);
-        g_audio_ctx.mixer = NULL;
+        g_audio_ctx.mixer = 0x0;
         return LDG_ERR_AUDIO_INIT;
     }
 
@@ -55,7 +57,7 @@ static uint32_t audio_mixer_open(int32_t card_idx)
     if (LDG_UNLIKELY(ret < 0))
     {
         snd_mixer_close(g_audio_ctx.mixer);
-        g_audio_ctx.mixer = NULL;
+        g_audio_ctx.mixer = 0x0;
         return LDG_ERR_AUDIO_INIT;
     }
 
@@ -74,27 +76,27 @@ static uint32_t audio_mixer_open(int32_t card_idx)
     if (!g_audio_ctx.master_elem)
     {
         snd_mixer_close(g_audio_ctx.mixer);
-        g_audio_ctx.mixer = NULL;
+        g_audio_ctx.mixer = 0x0;
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
-    (void)snd_mixer_selem_get_playback_volume_range(g_audio_ctx.master_elem, &g_audio_ctx.vol_min, &g_audio_ctx.vol_max);
+    if (LDG_UNLIKELY(snd_mixer_selem_get_playback_volume_range(g_audio_ctx.master_elem, &g_audio_ctx.vol_min, &g_audio_ctx.vol_max) < 0)) { return LDG_ERR_AUDIO_INIT; }
 
     return LDG_ERR_AOK;
 }
 
 uint32_t ldg_audio_init(void)
 {
-    char *card_env = NULL;
+    char *card_env = 0x0;
     int32_t card_idx = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(g_audio_ctx.is_init)) { return LDG_ERR_AOK; }
 
-    (void)memset(&g_audio_ctx, 0, sizeof(ldg_audio_ctx_t));
+    if (LDG_UNLIKELY(memset(&g_audio_ctx, 0, sizeof(ldg_audio_ctx_t)) != &g_audio_ctx)) { return LDG_ERR_MEM_BAD; }
 
     card_env = getenv("ALSA_CARD");
-    if (card_env) { card_idx = (int32_t)strtol(card_env, NULL, LDG_BASE_DECIMAL); }
+    if (card_env) { card_idx = (int32_t)strtol(card_env, 0x0, LDG_BASE_DECIMAL); }
 
     ret = audio_mixer_open(card_idx);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -112,10 +114,10 @@ void ldg_audio_shutdown(void)
     if (g_audio_ctx.mixer)
     {
         snd_mixer_close(g_audio_ctx.mixer);
-        g_audio_ctx.mixer = NULL;
+        g_audio_ctx.mixer = 0x0;
     }
 
-    g_audio_ctx.master_elem = NULL;
+    g_audio_ctx.master_elem = 0x0;
     g_audio_ctx.is_init = 0;
 }
 
@@ -248,12 +250,12 @@ uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream)
 
 uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 {
-    int32_t card = -1;
+    int32_t card = ALSA_CARD_FIRST;
     uint32_t n = 0;
     uint32_t i = 0;
-    ldg_audio_sink_t *arr = NULL;
-    snd_ctl_t *ctl = NULL;
-    snd_ctl_card_info_t *info = NULL;
+    ldg_audio_sink_t *arr = 0x0;
+    snd_ctl_t *ctl = 0x0;
+    snd_ctl_card_info_t *info = 0x0;
     char card_name[32] = { 0 };
 
     if (LDG_UNLIKELY(!sinks || !cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -266,7 +268,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 
     if (n == 0)
     {
-        *sinks = NULL;
+        *sinks = 0x0;
         *cunt = 0;
         return LDG_ERR_EMPTY;
     }
@@ -274,20 +276,22 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
     arr = (ldg_audio_sink_t *)ldg_mem_alloc(n * sizeof(ldg_audio_sink_t));
     if (LDG_UNLIKELY(!arr)) { return LDG_ERR_ALLOC_NULL; }
 
-    (void)memset(arr, 0, n * sizeof(ldg_audio_sink_t));
+    if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_sink_t)) != arr)) { ldg_mem_dealloc(arr); return LDG_ERR_MEM_BAD; }
 
-    card = -1;
+    card = ALSA_CARD_FIRST;
     while (snd_card_next(&card) >= 0 && card >= 0 && i < n)
     {
-        (void)snprintf(card_name, sizeof(card_name), "hw:%d", card);
+        if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", card) < 0)) { continue; }
 
         if (snd_ctl_open(&ctl, card_name, 0) >= 0)
         {
             if (snd_ctl_card_info(ctl, info) >= 0)
             {
                 arr[i].id = (uint32_t)card;
-                (void)ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX);
-                (void)ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX);
+                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+
+                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+
                 arr[i].volume = 0.0;
                 arr[i].muted = 0;
                 arr[i].is_default = (card == g_audio_ctx.card_idx) ? 1 : 0;
@@ -313,12 +317,12 @@ void ldg_audio_sink_free(ldg_audio_sink_t *sinks)
 
 uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
 {
-    int32_t card = -1;
+    int32_t card = ALSA_CARD_FIRST;
     uint32_t n = 0;
     uint32_t i = 0;
-    ldg_audio_source_t *arr = NULL;
-    snd_ctl_t *ctl = NULL;
-    snd_ctl_card_info_t *info = NULL;
+    ldg_audio_source_t *arr = 0x0;
+    snd_ctl_t *ctl = 0x0;
+    snd_ctl_card_info_t *info = 0x0;
     char card_name[32] = { 0 };
 
     if (LDG_UNLIKELY(!sources || !cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -331,7 +335,7 @@ uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
 
     if (n == 0)
     {
-        *sources = NULL;
+        *sources = 0x0;
         *cunt = 0;
         return LDG_ERR_EMPTY;
     }
@@ -339,20 +343,22 @@ uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt)
     arr = (ldg_audio_source_t *)ldg_mem_alloc(n * sizeof(ldg_audio_source_t));
     if (LDG_UNLIKELY(!arr)) { return LDG_ERR_ALLOC_NULL; }
 
-    (void)memset(arr, 0, n * sizeof(ldg_audio_source_t));
+    if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_source_t)) != arr)) { ldg_mem_dealloc(arr); return LDG_ERR_MEM_BAD; }
 
-    card = -1;
+    card = ALSA_CARD_FIRST;
     while (snd_card_next(&card) >= 0 && card >= 0 && i < n)
     {
-        (void)snprintf(card_name, sizeof(card_name), "hw:%d", card);
+        if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", card) < 0)) { continue; }
 
         if (snd_ctl_open(&ctl, card_name, 0) >= 0)
         {
             if (snd_ctl_card_info(ctl, info) >= 0)
             {
                 arr[i].id = (uint32_t)card;
-                (void)ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX);
-                (void)ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX);
+                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+
+                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+
                 arr[i].volume = 0.0;
                 arr[i].muted = 0;
                 arr[i].is_default = (card == g_audio_ctx.card_idx) ? 1 : 0;
@@ -378,8 +384,8 @@ void ldg_audio_source_free(ldg_audio_source_t *sources)
 
 uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
 {
-    snd_ctl_t *ctl = NULL;
-    snd_ctl_card_info_t *info = NULL;
+    snd_ctl_t *ctl = 0x0;
+    snd_ctl_card_info_t *info = 0x0;
     char card_name[32] = { 0 };
 
     if (LDG_UNLIKELY(!sink)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -387,7 +393,7 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
-    (void)snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx);
+    if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx) < 0)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
     if (snd_ctl_open(&ctl, card_name, 0) < 0) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -397,14 +403,18 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
-    (void)memset(sink, 0, sizeof(ldg_audio_sink_t));
+    if (LDG_UNLIKELY(memset(sink, 0, sizeof(ldg_audio_sink_t)) != sink)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
     sink->id = (uint32_t)g_audio_ctx.card_idx;
-    (void)ldg_strrbrcpy(sink->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX);
-    (void)ldg_strrbrcpy(sink->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX);
+    if (LDG_UNLIKELY(ldg_strrbrcpy(sink->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
+    if (LDG_UNLIKELY(ldg_strrbrcpy(sink->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
     sink->is_default = 1;
 
-    (void)ldg_audio_master_volume_get(&sink->volume);
-    (void)ldg_audio_stream_mute_get(0, &sink->muted);
+    if (LDG_UNLIKELY(ldg_audio_master_volume_get(&sink->volume) != LDG_ERR_AOK)) { sink->volume = 0.0; }
+
+    if (LDG_UNLIKELY(ldg_audio_stream_mute_get(0, &sink->muted) != LDG_ERR_AOK)) { sink->muted = 0; }
 
     snd_ctl_close(ctl);
 
@@ -413,8 +423,8 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
 
 uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
 {
-    snd_ctl_t *ctl = NULL;
-    snd_ctl_card_info_t *info = NULL;
+    snd_ctl_t *ctl = 0x0;
+    snd_ctl_card_info_t *info = 0x0;
     char card_name[32] = { 0 };
 
     if (LDG_UNLIKELY(!source)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -422,7 +432,7 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
     if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
-    (void)snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx);
+    if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx) < 0)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
     if (snd_ctl_open(&ctl, card_name, 0) < 0) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -432,10 +442,13 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
-    (void)memset(source, 0, sizeof(ldg_audio_source_t));
+    if (LDG_UNLIKELY(memset(source, 0, sizeof(ldg_audio_source_t)) != source)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
     source->id = (uint32_t)g_audio_ctx.card_idx;
-    (void)ldg_strrbrcpy(source->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX);
-    (void)ldg_strrbrcpy(source->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX);
+    if (LDG_UNLIKELY(ldg_strrbrcpy(source->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
+    if (LDG_UNLIKELY(ldg_strrbrcpy(source->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+
     source->is_default = 1;
 
     snd_ctl_close(ctl);

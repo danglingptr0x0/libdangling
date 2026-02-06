@@ -40,7 +40,8 @@ uint32_t ldg_mem_init(void)
 {
     if (g_mem.is_init) { return LDG_ERR_AOK; }
 
-    (void)memset(&g_mem, 0, sizeof(ldg_mem_state_t));
+    if (memset(&g_mem, 0, sizeof(ldg_mem_state_t)) != &g_mem) { return LDG_ERR_MEM_BAD; }
+
     g_mem.is_init = 1;
 
     return LDG_ERR_AOK;
@@ -51,37 +52,36 @@ void ldg_mem_shutdown(void)
     if (!g_mem.is_init) { return; }
 
     ldg_mem_leaks_dump();
-    (void)memset(&g_mem, 0, sizeof(ldg_mem_state_t));
+    if (memset(&g_mem, 0, sizeof(ldg_mem_state_t)) != &g_mem) { LDG_LOG_ERROR("ldg_mem: memset failed in shutdown; ptr: %p", (void *)&g_mem); }
 }
 
 void* ldg_mem_alloc(size_t size)
 {
-    ldg_mem_hdr_t *hdr = NULL;
-    uint8_t *raw = NULL;
-    uint8_t *user_ptr = NULL;
-    uint32_t *sentinel_back = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint8_t *raw = 0x0;
+    uint8_t *user_ptr = 0x0;
+    uint32_t *sentinel_back = 0x0;
     size_t total_size = 0;
 
-    if (LDG_UNLIKELY(size == 0)) { return NULL; }
+    if (LDG_UNLIKELY(size == 0)) { return 0x0; }
 
-    if (LDG_UNLIKELY(!g_mem.is_init)) { return NULL; }
+    if (LDG_UNLIKELY(!g_mem.is_init)) { return 0x0; }
 
     total_size = sizeof(ldg_mem_hdr_t) + size + sizeof(uint32_t);
-    total_size = (total_size + LDG_CACHE_LINE_WIDTH - 1) & ~((size_t)LDG_CACHE_LINE_WIDTH - 1);
+    total_size = (total_size + LDG_AMD64_CACHE_LINE_WIDTH - 1) & ~((size_t)LDG_AMD64_CACHE_LINE_WIDTH - 1);
 
-    raw = aligned_alloc(LDG_CACHE_LINE_WIDTH, total_size);
-    if (LDG_UNLIKELY(!raw)) { return NULL; }
+    if (LDG_UNLIKELY(posix_memalign((void **)&raw, LDG_AMD64_CACHE_LINE_WIDTH, total_size) != 0)) { return 0x0; }
 
     hdr = (ldg_mem_hdr_t *)(void *)raw;
     user_ptr = raw + sizeof(ldg_mem_hdr_t);
     sentinel_back = (uint32_t *)(void *)(user_ptr + size);
 
-    (void)memset(user_ptr, 0, size);
+    if (memset(user_ptr, 0, size) != user_ptr) { free(raw); return 0x0; }
 
     hdr->sentinel_front = LDG_MEM_SENTINEL;
     hdr->size = (uint32_t)size;
     hdr->next = g_mem.alloc_list;
-    hdr->prev = NULL;
+    hdr->prev = 0x0;
     *sentinel_back = LDG_MEM_SENTINEL;
 
     if (g_mem.alloc_list) { g_mem.alloc_list->prev = hdr; }
@@ -99,16 +99,16 @@ void* ldg_mem_alloc(size_t size)
 
 static ldg_mem_hdr_t* mem_hdr_find(const void *ptr)
 {
-    ldg_mem_hdr_t *hdr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
 
-    if (LDG_UNLIKELY(!ptr)) { return NULL; }
+    if (LDG_UNLIKELY(!ptr)) { return 0x0; }
 
     hdr = (ldg_mem_hdr_t *)(void *)((uint8_t *)(uintptr_t)ptr - sizeof(ldg_mem_hdr_t));
 
     if (hdr->sentinel_front != LDG_MEM_SENTINEL)
     {
         LDG_LOG_ERROR("ldg_mem: front sentinel corrupted; ptr: %p", ptr);
-        return NULL;
+        return 0x0;
     }
 
     return hdr;
@@ -116,8 +116,13 @@ static ldg_mem_hdr_t* mem_hdr_find(const void *ptr)
 
 static uint32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
 {
-    uint8_t *user_ptr = (uint8_t *)(void *)hdr + sizeof(ldg_mem_hdr_t);
-    uint32_t *sentinel_back = (uint32_t *)(void *)(user_ptr + hdr->size);
+    uint8_t *user_ptr = 0x0;
+    uint32_t *sentinel_back = 0x0;
+
+    if (LDG_UNLIKELY(!hdr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    user_ptr = (uint8_t *)(void *)hdr + sizeof(ldg_mem_hdr_t);
+    sentinel_back = (uint32_t *)(void *)(user_ptr + hdr->size);
 
     if (*sentinel_back != LDG_MEM_SENTINEL)
     {
@@ -130,8 +135,8 @@ static uint32_t mem_sentinel_back_check(ldg_mem_hdr_t *hdr)
 
 void* ldg_mem_realloc(void *ptr, size_t size)
 {
-    ldg_mem_hdr_t *hdr = NULL;
-    void *new_ptr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
+    void *new_ptr = 0x0;
     size_t copy_size = 0;
 
     if (!ptr) { return ldg_mem_alloc(size); }
@@ -139,19 +144,19 @@ void* ldg_mem_realloc(void *ptr, size_t size)
     if (size == 0)
     {
         ldg_mem_dealloc(ptr);
-        return NULL;
+        return 0x0;
     }
 
     hdr = mem_hdr_find(ptr);
-    if (LDG_UNLIKELY(!hdr)) { return NULL; }
+    if (LDG_UNLIKELY(!hdr)) { return 0x0; }
 
-    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return NULL; }
+    if (mem_sentinel_back_check(hdr) != LDG_ERR_AOK) { return 0x0; }
 
     new_ptr = ldg_mem_alloc(size);
-    if (LDG_UNLIKELY(!new_ptr)) { return NULL; }
+    if (LDG_UNLIKELY(!new_ptr)) { return 0x0; }
 
     copy_size = (hdr->size < size) ? hdr->size : size;
-    (void)memcpy(new_ptr, ptr, copy_size);
+    if (memcpy(new_ptr, ptr, copy_size) != new_ptr) { ldg_mem_dealloc(new_ptr); return 0x0; }
 
     ldg_mem_dealloc(ptr);
 
@@ -160,8 +165,8 @@ void* ldg_mem_realloc(void *ptr, size_t size)
 
 void ldg_mem_dealloc(void *ptr)
 {
-    ldg_mem_hdr_t *hdr = NULL;
-    uint64_t *poison_ptr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint64_t *poison_ptr = 0x0;
     size_t poison_cunt = 0;
     size_t i = 0;
 
@@ -194,23 +199,23 @@ void ldg_mem_dealloc(void *ptr)
 
 ldg_mem_pool_t* ldg_mem_pool_create(size_t item_size, size_t capacity)
 {
-    ldg_mem_pool_t *pool = NULL;
+    ldg_mem_pool_t *pool = 0x0;
     size_t aligned_item_size = 0;
     size_t i = 0;
-    uint8_t *item = NULL;
+    uint8_t *item = 0x0;
 
-    if (LDG_UNLIKELY(item_size == 0 || capacity == 0)) { return NULL; }
+    if (LDG_UNLIKELY(item_size == 0 || capacity == 0)) { return 0x0; }
 
-    aligned_item_size = (item_size + sizeof(void *) + LDG_CACHE_LINE_WIDTH - 1) & ~((size_t)LDG_CACHE_LINE_WIDTH - 1);
+    aligned_item_size = (item_size + sizeof(void *) + LDG_AMD64_CACHE_LINE_WIDTH - 1) & ~((size_t)LDG_AMD64_CACHE_LINE_WIDTH - 1);
 
     pool = ldg_mem_alloc(sizeof(ldg_mem_pool_t));
-    if (LDG_UNLIKELY(!pool)) { return NULL; }
+    if (LDG_UNLIKELY(!pool)) { return 0x0; }
 
     pool->buff = ldg_mem_alloc(aligned_item_size * capacity);
     if (LDG_UNLIKELY(!pool->buff))
     {
         ldg_mem_dealloc(pool);
-        return NULL;
+        return 0x0;
     }
 
     pool->item_size = aligned_item_size;
@@ -224,7 +229,7 @@ ldg_mem_pool_t* ldg_mem_pool_create(size_t item_size, size_t capacity)
         *(uint8_t **)(void *)(item) = pool->buff + ((i + 1) * aligned_item_size);
     }
     item = pool->buff + ((capacity - 1) * aligned_item_size);
-    *(uint8_t **)(void *)(item) = NULL;
+    *(uint8_t **)(void *)(item) = 0x0;
 
     g_mem.stats.pool_cunt++;
 
@@ -233,24 +238,24 @@ ldg_mem_pool_t* ldg_mem_pool_create(size_t item_size, size_t capacity)
 
 void* ldg_mem_pool_alloc(ldg_mem_pool_t *pool)
 {
-    uint8_t *item = NULL;
+    uint8_t *item = 0x0;
 
-    if (LDG_UNLIKELY(!pool)) { return NULL; }
+    if (LDG_UNLIKELY(!pool)) { return 0x0; }
 
-    if (LDG_UNLIKELY(!pool->free_list)) { return NULL; }
+    if (LDG_UNLIKELY(!pool->free_list)) { return 0x0; }
 
     item = pool->free_list;
     pool->free_list = *(uint8_t **)(void *)(item);
     pool->alloc_cunt++;
 
-    (void)memset(item, 0, pool->item_size);
+    if (memset(item, 0, pool->item_size) != item) { return 0x0; }
 
     return item;
 }
 
 void ldg_mem_pool_dealloc(ldg_mem_pool_t *pool, void *ptr)
 {
-    uint8_t *item = NULL;
+    uint8_t *item = 0x0;
 
     if (LDG_UNLIKELY(!pool || !ptr)) { return; }
 
@@ -288,7 +293,7 @@ void ldg_mem_stats_get(ldg_mem_stats_t *stats)
 
 void ldg_mem_leaks_dump(void)
 {
-    ldg_mem_hdr_t *hdr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
     uint32_t leak_cunt = 0;
 
     if (!g_mem.is_init) { return; }
@@ -306,7 +311,7 @@ void ldg_mem_leaks_dump(void)
 
 uint32_t ldg_mem_valid_is(const void *ptr)
 {
-    ldg_mem_hdr_t *hdr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
 
     hdr = mem_hdr_find(ptr);
     if (!hdr) { return 0; }
@@ -318,7 +323,7 @@ uint32_t ldg_mem_valid_is(const void *ptr)
 
 size_t ldg_mem_size_get(const void *ptr)
 {
-    ldg_mem_hdr_t *hdr = NULL;
+    ldg_mem_hdr_t *hdr = 0x0;
 
     hdr = mem_hdr_find(ptr);
     if (!hdr) { return 0; }

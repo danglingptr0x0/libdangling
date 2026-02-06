@@ -23,23 +23,23 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
 {
     size_t i = 0;
     size_t slot_data_offset = 0;
-    ldg_mpmc_slot_t *slot = NULL;
+    ldg_mpmc_slot_t *slot = 0x0;
 
     if (LDG_UNLIKELY(!q || item_size == 0 || capacity == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(!capacity_pow2_is(capacity))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    (void)memset(q, 0, sizeof(ldg_mpmc_queue_t));
+    if (LDG_UNLIKELY(memset(q, 0, sizeof(ldg_mpmc_queue_t)) != q)) { return LDG_ERR_MEM_BAD; }
 
-    slot_data_offset = LDG_CACHE_LINE_WIDTH;
+    slot_data_offset = LDG_AMD64_CACHE_LINE_WIDTH;
     q->slot_size = LDG_ALIGNED_UP(slot_data_offset + item_size);
     q->item_size = item_size;
     q->capacity = capacity;
     q->mask = capacity - 1;
 
-    if (LDG_UNLIKELY(posix_memalign((void **)&q->buff, LDG_CACHE_LINE_WIDTH, q->slot_size * capacity) != 0)) { return LDG_ERR_ALLOC_NULL; }
+    if (LDG_UNLIKELY(posix_memalign((void **)&q->buff, LDG_AMD64_CACHE_LINE_WIDTH, q->slot_size * capacity) != 0)) { return LDG_ERR_ALLOC_NULL; }
 
-    (void)memset(q->buff, 0, q->slot_size * capacity);
+    if (LDG_UNLIKELY(memset(q->buff, 0, q->slot_size * capacity) != q->buff)) { free(q->buff); return LDG_ERR_MEM_BAD; }
 
     for (i = 0; i < capacity; i++)
     {
@@ -53,7 +53,7 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
     if (LDG_UNLIKELY(ldg_mut_init(&q->wait_mut, 0) != LDG_ERR_AOK))
     {
         free(q->buff);
-        q->buff = NULL;
+        q->buff = 0x0;
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -61,7 +61,7 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
     {
         ldg_mut_destroy(&q->wait_mut);
         free(q->buff);
-        q->buff = NULL;
+        q->buff = 0x0;
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -78,7 +78,7 @@ void ldg_mpmc_shutdown(ldg_mpmc_queue_t *q)
     if (q->buff)
     {
         free(q->buff);
-        q->buff = NULL;
+        q->buff = 0x0;
     }
 
     q->slot_size = 0;
@@ -94,7 +94,7 @@ uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
     size_t pos = 0;
     size_t seq = 0;
     int64_t diff = 0;
-    ldg_mpmc_slot_t *slot = NULL;
+    ldg_mpmc_slot_t *slot = 0x0;
 
     if (LDG_UNLIKELY(!q || !item)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -110,7 +110,8 @@ uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
         else{ LDG_PAUSE; }
     }
 
-    (void)memcpy(slot->data, item, q->item_size);
+    if (LDG_UNLIKELY(memcpy(slot->data, item, q->item_size) != slot->data)) { return LDG_ERR_MEM_BAD; }
+
     LDG_STORE_RELEASE(slot->seq, pos + 1);
 
     ldg_cond_signal(&q->wait_cond);
@@ -123,7 +124,7 @@ uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
     size_t pos = 0;
     size_t seq = 0;
     int64_t diff = 0;
-    ldg_mpmc_slot_t *slot = NULL;
+    ldg_mpmc_slot_t *slot = 0x0;
 
     if (LDG_UNLIKELY(!q || !item_out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -139,7 +140,8 @@ uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
         else{ LDG_PAUSE; }
     }
 
-    (void)memcpy(item_out, slot->data, q->item_size);
+    if (LDG_UNLIKELY(memcpy(item_out, slot->data, q->item_size) != item_out)) { return LDG_ERR_MEM_BAD; }
+
     LDG_STORE_RELEASE(slot->seq, pos + q->capacity);
 
     return LDG_ERR_AOK;
@@ -184,7 +186,7 @@ size_t ldg_mpmc_cunt_get(const ldg_mpmc_queue_t *q)
 
 uint32_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q)
 {
-    if (LDG_UNLIKELY(!q)) { return 1; }
+    if (LDG_UNLIKELY(!q)) { return (uint32_t) !0; }
 
     return LDG_LOAD_ACQUIRE(q->head) == LDG_LOAD_ACQUIRE(q->tail);
 }

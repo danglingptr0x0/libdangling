@@ -9,7 +9,7 @@
 typedef struct ldg_mpmc_slot
 {
     size_t seq;
-    uint8_t pudding0[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
+    uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(size_t)];
     uint8_t data[];
 } ldg_mpmc_slot_t;
 
@@ -21,9 +21,9 @@ typedef struct ldg_mpmc_queue
     size_t capacity;
     size_t mask;
     size_t head;
-    uint8_t pudding0[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
+    uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(size_t)];
     size_t tail;
-    uint8_t pudding1[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
+    uint8_t pudding1[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(size_t)];
     ldg_mut_t wait_mut;
     ldg_cond_t wait_cond;
 } LDG_ALIGNED ldg_mpmc_queue_t;

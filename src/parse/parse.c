@@ -17,7 +17,7 @@ int ldg_parse_streq_is(const char *a, const char *b)
 void ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
 {
     size_t pos = 0;
-    ldg_tok_t *tok = NULL;
+    ldg_tok_t *tok = 0x0;
     size_t val_idx = 0;
 
     toks->cunt = 0;

@@ -12,9 +12,9 @@ typedef struct ldg_spsc_queue
     size_t item_size;
     size_t capacity;
     size_t head;
-    uint8_t pudding0[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
+    uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(size_t)];
     size_t tail;
-    uint8_t pudding1[LDG_CACHE_LINE_WIDTH - sizeof(size_t)];
+    uint8_t pudding1[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(size_t)];
 } LDG_ALIGNED ldg_spsc_queue_t;
 
 LDG_EXPORT uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, size_t item_size, size_t capacity);

@@ -20,6 +20,8 @@ LDG_EXPORT uint64_t ldg_rdtscp(uint32_t *aux);
 #define LDG_SYS_MMAP 9
 #define LDG_SYS_MPROTECT 10
 #define LDG_SYS_MUNMAP 11
+#define LDG_SYS_PIPE 22
+#define LDG_SYS_DUP2 33
 #define LDG_SYS_NANOSLEEP 35
 #define LDG_SYS_GETPID 39
 #define LDG_SYS_CLOCK_GETTIME 228

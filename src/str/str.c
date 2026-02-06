@@ -6,7 +6,7 @@
 uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 {
     size_t src_len = 0;
-    int32_t overlap = 0;
+    uint8_t overlap = 0;
 
     if (LDG_UNLIKELY(!dst || !src || abssize == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -15,10 +15,10 @@ uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 
     overlap = (dst < src + src_len) && (src < dst + abssize);
 
-    if (overlap) { (void)memmove(dst, src, src_len); }
-    else{ (void)memcpy(dst, src, src_len); }
+    if (overlap) { if (memmove(dst, src, src_len) != dst) { return LDG_ERR_MEM_BAD; } }
+    else { if (memcpy(dst, src, src_len) != dst) { return LDG_ERR_MEM_BAD; } }
 
-    (void)memset(dst + src_len, 0, abssize - src_len);
+    if (memset(dst + src_len, 0, abssize - src_len) != dst + src_len) { return LDG_ERR_MEM_BAD; }
 
     return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_AOK;
 }
@@ -33,13 +33,13 @@ void ldg_byte_to_hex(byte_t val, char out[3])
 
 void ldg_dword_to_hex(dword_t val, char *buff)
 {
-    int i = 0;
+    uint32_t i = 0;
     byte_t nipple = 0;
 
     for (i = 0; i < 8; i++)
     {
         nipple = (val >> ((7 - i) * 4)) & 0xF;
-        buff[i] = (nipple < 10) ? ('0' + nipple) : ('A' + nipple - 10);
+        buff[i] = (char)((nipple < 10) ? ('0' + nipple) : ('A' + nipple - 10));
     }
 
     buff[8] = '\0';
@@ -47,11 +47,13 @@ void ldg_dword_to_hex(dword_t val, char *buff)
 
 void ldg_str_to_dec(const char *str, dword_t *out)
 {
+    if (!str || !out) { return; }
+
     *out = 0;
 
     while (*str)
     {
-        if (*str >= '0' && *str <= '9') { *out = *out * 10 + (*str - '0'); }
+        if (*str >= '0' && *str <= '9') { *out = *out * 10 + (dword_t)(*str - '0'); }
         else
         {
             *out = 0;
@@ -64,15 +66,19 @@ void ldg_str_to_dec(const char *str, dword_t *out)
 
 void ldg_hex_to_nipple(char c, byte_t *nipple)
 {
-    if (c >= '0' && c <= '9') { *nipple = c - '0'; }
-    else if (c >= 'A' && c <= 'F') { *nipple = c - 'A' + 10; }
-    else if (c >= 'a' && c <= 'f') { *nipple = c - 'a' + 10; }
+    if (!nipple) { return; }
+
+    if (c >= '0' && c <= '9') { *nipple = (byte_t)(c - '0'); }
+    else if (c >= 'A' && c <= 'F') { *nipple = (byte_t)(c - 'A' + 10); }
+    else if (c >= 'a' && c <= 'f') { *nipple = (byte_t)(c - 'a' + 10); }
     else { *nipple = 0xFF; }
 }
 
 void ldg_hex_to_dword(const char *str, dword_t *out)
 {
     byte_t nipple = 0;
+
+    if (!str || !out) { return; }
 
     *out = 0;
 
@@ -99,6 +105,8 @@ void ldg_hex_to_bytes(const char *hex, byte_t *out, size_t max)
     byte_t high = 0;
     byte_t low = 0;
 
+    if (!hex || !out || max == 0) { return; }
+
     while (*hex && *(hex + 1) && i < max)
     {
         ldg_hex_to_nipple(*hex, &high);
@@ -116,6 +124,8 @@ void ldg_hex_to_bytes(const char *hex, byte_t *out, size_t max)
 int ldg_hex_str_is(const char *str)
 {
     byte_t nipple = 0;
+
+    if (!str) { return 0; }
 
     if (str[0] != '0' || (str[1] != 'x' && str[1] != 'X')) { return 0; }
 
