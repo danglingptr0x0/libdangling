@@ -14,7 +14,7 @@ typedef struct ldg_audio_stream
     char name[LDG_AUDIO_NAME_MAX];
     char app_name[LDG_AUDIO_NAME_MAX];
     double volume;
-    int32_t muted;
+    uint8_t muted;
     uint32_t sink_id;
     uint8_t pudding[4];
 } ldg_audio_stream_t;
@@ -25,8 +25,8 @@ typedef struct ldg_audio_sink
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
     double volume;
-    int32_t muted;
-    int32_t is_default;
+    uint8_t muted;
+    uint8_t is_default;
 } ldg_audio_sink_t;
 
 typedef struct ldg_audio_source
@@ -35,8 +35,8 @@ typedef struct ldg_audio_source
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
     double volume;
-    int32_t muted;
-    int32_t is_default;
+    uint8_t muted;
+    uint8_t is_default;
 } ldg_audio_source_t;
 
 // init/shutdown
@@ -49,8 +49,8 @@ LDG_EXPORT uint32_t ldg_audio_master_volume_get(double *vol);
 LDG_EXPORT uint32_t ldg_audio_master_volume_set(double vol);
 LDG_EXPORT uint32_t ldg_audio_stream_volume_get(uint32_t stream_id, double *vol);
 LDG_EXPORT uint32_t ldg_audio_stream_volume_set(uint32_t stream_id, double vol);
-LDG_EXPORT uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, int32_t *muted);
-LDG_EXPORT uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, int32_t muted);
+LDG_EXPORT uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted);
+LDG_EXPORT uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted);
 
 // stream enumeration
 LDG_EXPORT uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt);

@@ -12,7 +12,7 @@ uint32_t ldg_time_init(ldg_time_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    (void)memset(ctx, 0, sizeof(ldg_time_ctx_t));
+    if (memset(ctx, 0, sizeof(ldg_time_ctx_t)) != ctx) { return LDG_ERR_MEM_BAD; }
 
     ctx->time = ldg_time_monotonic_get();
     ctx->time_prev = ctx->time;
@@ -84,13 +84,14 @@ uint32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    (void)memset(ctx, 0, sizeof(ldg_tsc_ctx_t));
+    if (memset(ctx, 0, sizeof(ldg_tsc_ctx_t)) != ctx) { return LDG_ERR_MEM_BAD; }
 
     sleep_req.tv_sec = 0;
     sleep_req.tv_nsec = LDG_TSC_CALIBRATION_MS * 1000000L;
 
     tsc_start = ldg_tsc_serialized_sample(&core_start);
-    (void)clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_req, NULL);
+    if (clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_req, 0x0) != 0) { return LDG_ERR_TIME_NOT_CALIBRATED; }
+
     tsc_end = ldg_tsc_serialized_sample(&core_end);
 
     if (core_start != core_end) { return LDG_ERR_TIME_CORE_MIGRATED; }

@@ -12,11 +12,11 @@
 static void* ldg_thread_pool_worker_enter(void *arg)
 {
     ldg_thread_pool_worker_t *worker = (ldg_thread_pool_worker_t *)arg;
-    ldg_thread_pool_t *pool = NULL;
+    ldg_thread_pool_t *pool = 0x0;
     ldg_thread_pool_task_t task = { 0 };
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!worker)) { return NULL; }
+    if (LDG_UNLIKELY(!worker)) { return 0x0; }
 
     pool = (ldg_thread_pool_t *)worker->pool;
 
@@ -36,7 +36,7 @@ static void* ldg_thread_pool_worker_enter(void *arg)
 
     LDG_WRITE_ONCE(worker->state, LDG_THREAD_POOL_WORKER_STOPPED);
 
-    return NULL;
+    return 0x0;
 }
 
 uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
@@ -47,7 +47,7 @@ uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
 
     if (LDG_UNLIKELY(worker_cunt == 0 || worker_cunt > LDG_THREAD_POOL_MAX_WORKERS)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    (void)memset(pool, 0, sizeof(ldg_thread_pool_t));
+    if (LDG_UNLIKELY(memset(pool, 0, sizeof(ldg_thread_pool_t)) != pool)) { return LDG_ERR_MEM_BAD; }
 
     pool->worker_cunt = worker_cunt;
 
@@ -69,13 +69,13 @@ void ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
 {
     if (LDG_UNLIKELY(!pool || !pool->is_init)) { return; }
 
-    (void)ldg_thread_pool_stop(pool);
+    if (LDG_UNLIKELY(ldg_thread_pool_stop(pool) != LDG_ERR_AOK)) { return; }
 
     if (pool->task_queue)
     {
         ldg_mpmc_shutdown(pool->task_queue);
         free(pool->task_queue);
-        pool->task_queue = NULL;
+        pool->task_queue = 0x0;
     }
 
     pool->submit_mode = 0;
@@ -86,7 +86,7 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
 {
     uint32_t i = 0;
     int ret = 0;
-    pthread_attr_t attr;
+    pthread_attr_t attr = { 0 };
 
     if (LDG_UNLIKELY(!pool || !pool->is_init || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -102,11 +102,11 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
         LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
         LDG_WRITE_ONCE(pool->workers[i].should_stop, 0);
 
-        (void)pthread_attr_init(&attr);
+        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { continue; }
 
         ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
 
-        (void)pthread_attr_destroy(&attr);
+        if (LDG_UNLIKELY(pthread_attr_destroy(&attr) != 0)) { continue; }
 
         if (LDG_UNLIKELY(ret != 0))
         {
@@ -132,7 +132,8 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 
     for (i = 0; i < pool->worker_cunt; i++) { if (pool->workers[i].handle != 0)
         {
-            (void)pthread_join(pool->workers[i].handle, NULL);
+            if (LDG_UNLIKELY(pthread_join(pool->workers[i].handle, 0x0) != 0)) { continue; }
+
             pool->workers[i].handle = 0;
         }
     }
@@ -153,23 +154,23 @@ static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
 {
     uint32_t i = 0;
     int ret = 0;
-    pthread_attr_t attr;
+    pthread_attr_t attr = { 0 };
 
     LDG_WRITE_ONCE(pool->is_running, 1);
 
     for (i = 0; i < pool->worker_cunt; i++)
     {
-        pool->workers[i].func = NULL;
-        pool->workers[i].func_arg = NULL;
+        pool->workers[i].func = 0x0;
+        pool->workers[i].func_arg = 0x0;
 
         LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
         LDG_WRITE_ONCE(pool->workers[i].should_stop, 0);
 
-        (void)pthread_attr_init(&attr);
+        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { continue; }
 
         ret = pthread_create(&pool->workers[i].handle, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
 
-        (void)pthread_attr_destroy(&attr);
+        if (LDG_UNLIKELY(pthread_attr_destroy(&attr) != 0)) { continue; }
 
         if (LDG_UNLIKELY(ret != 0))
         {
@@ -197,14 +198,14 @@ uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             free(pool->task_queue);
-            pool->task_queue = NULL;
+            pool->task_queue = 0x0;
             return ret;
         }
 
         LDG_WRITE_ONCE(pool->submit_mode, 1);
     }
 
-    if (!LDG_READ_ONCE(pool->is_running)) { (void)thread_pool_submit_workers_start(pool); }
+    if (!LDG_READ_ONCE(pool->is_running)) { if (LDG_UNLIKELY(thread_pool_submit_workers_start(pool) != LDG_ERR_AOK)) { return LDG_ERR_FUNC_ARG_INVALID; } }
 
     task.func = func;
     task.arg = arg;

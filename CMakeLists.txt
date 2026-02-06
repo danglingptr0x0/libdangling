@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(dangling VERSION 0.1.0 LANGUAGES C ASM_NASM)
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
+list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
+include(std)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
@@ -72,6 +73,8 @@ set_target_properties(dangling_shared PROPERTIES OUTPUT_NAME dangling)
 target_include_directories(dangling_shared PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+)
+target_include_directories(dangling_shared SYSTEM PUBLIC
     ${YDER_INCLUDE_DIRS}
     ${CURL_INCLUDE_DIRS}
     ${LDG_AUDIO_INCLUDE_DIRS}
@@ -84,6 +87,8 @@ set_target_properties(dangling_static PROPERTIES OUTPUT_NAME dangling)
 target_include_directories(dangling_static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+)
+target_include_directories(dangling_static SYSTEM PUBLIC
     ${YDER_INCLUDE_DIRS}
     ${CURL_INCLUDE_DIRS}
     ${LDG_AUDIO_INCLUDE_DIRS}
@@ -105,3 +110,6 @@ configure_file(
     @ONLY
 )
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc" DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+std_invalidate_test_state(dangling_shared)
+qemu_add_run_target()

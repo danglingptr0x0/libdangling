@@ -31,8 +31,8 @@ typedef struct ldg_thread_pool_worker
     pthread_t handle;
     uint32_t id;
     uint32_t core_id;
-    volatile int32_t state;
-    volatile int32_t should_stop;
+    volatile uint8_t state;
+    volatile uint8_t should_stop;
     ldg_thread_pool_worker_func_t func;
     void *func_arg;
     void *pool;
@@ -44,8 +44,8 @@ typedef struct ldg_thread_pool
     ldg_thread_pool_worker_t workers[LDG_THREAD_POOL_MAX_WORKERS];
     ldg_mpmc_queue_t *task_queue;
     uint32_t worker_cunt;
-    volatile int32_t is_running;
-    volatile int32_t submit_mode;
+    volatile uint8_t is_running;
+    volatile uint8_t submit_mode;
     uint8_t is_init;
     uint8_t pudding[43];
 } LDG_ALIGNED ldg_thread_pool_t;
