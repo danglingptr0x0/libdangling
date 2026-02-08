@@ -133,6 +133,11 @@ if(LDG_WITH_FMT)
     install(FILES share/dangling/uncrustify.cfg DESTINATION ${CMAKE_INSTALL_DATADIR}/dangling)
 endif()
 
+set(LDG_PC_REQUIRES "libyder")
+if(LDG_WITH_NET)
+    string(APPEND LDG_PC_REQUIRES " libcurl")
+endif()
+
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/dangling.pc.in"
     "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc"
