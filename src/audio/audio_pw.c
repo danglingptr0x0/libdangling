@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #define LDG_AUDIO_NODE_STREAM 1
-#define LDG_AUDIO_NODE_SINK   2
+#define LDG_AUDIO_NODE_SINK 2
 #define LDG_AUDIO_NODE_SOURCE 3
 
 #define LDG_AUDIO_DUCK_STACK_MAX 16

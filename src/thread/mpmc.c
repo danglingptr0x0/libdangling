@@ -9,12 +9,12 @@
 
 // slot
 
-static ldg_mpmc_slot_t* slot_get(ldg_mpmc_queue_t *q, size_t idx)
+static ldg_mpmc_slot_t* mpmc_slot_get(ldg_mpmc_queue_t *q, size_t idx)
 {
     return (ldg_mpmc_slot_t *)(q->buff + (idx * q->slot_size));
 }
 
-static uint32_t capacity_pow2_is(size_t capacity)
+static uint32_t mpmc_capacity_pow2_is(size_t capacity)
 {
     return (capacity > 0) && ((capacity & (capacity - 1)) == 0);
 }
@@ -27,7 +27,7 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
 
     if (LDG_UNLIKELY(!q || item_size == 0 || capacity == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!capacity_pow2_is(capacity))) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(!mpmc_capacity_pow2_is(capacity))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     if (LDG_UNLIKELY(memset(q, 0, sizeof(ldg_mpmc_queue_t)) != q)) { return LDG_ERR_MEM_BAD; }
 
@@ -43,7 +43,7 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, size_t item_size, size_t capacity)
 
     for (i = 0; i < capacity; i++)
     {
-        slot = slot_get(q, i);
+        slot = mpmc_slot_get(q, i);
         LDG_STORE_RELEASE(slot->seq, i);
     }
 
@@ -101,7 +101,7 @@ uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
     for (;;)
     {
         pos = LDG_LOAD_ACQUIRE(q->head);
-        slot = slot_get(q, pos & q->mask);
+        slot = mpmc_slot_get(q, pos & q->mask);
         seq = LDG_LOAD_ACQUIRE(slot->seq);
         diff = (int64_t)seq - (int64_t)pos;
 
@@ -131,7 +131,7 @@ uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
     for (;;)
     {
         pos = LDG_LOAD_ACQUIRE(q->tail);
-        slot = slot_get(q, pos & q->mask);
+        slot = mpmc_slot_get(q, pos & q->mask);
         seq = LDG_LOAD_ACQUIRE(slot->seq);
         diff = (int64_t)seq - (int64_t)(pos + 1);
 

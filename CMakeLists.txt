@@ -8,34 +8,63 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
 
+option(LDG_WITH_AUDIO "Build audio subsystem (auto-detects PipeWire or ALSA)" ON)
+option(LDG_WITH_NET "Build network subsystem (requires libcurl)" ON)
+option(LDG_WITH_FMT "Build format config subsystem" ON)
+
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(YDER REQUIRED libyder)
-pkg_check_modules(CURL REQUIRED libcurl)
 
-pkg_check_modules(PIPEWIRE libpipewire-0.3)
-pkg_check_modules(ALSA alsa)
+set(LDG_OPT_SOURCES "")
+set(LDG_OPT_INCLUDE_DIRS "")
+set(LDG_OPT_LIBRARIES "")
+set(LDG_OPT_DEFINES "")
 
-if(PIPEWIRE_FOUND)
-    set(LDG_AUDIO_BACKEND "pipewire")
-    set(LDG_AUDIO_SOURCES src/audio/audio_pw.c)
-    set(LDG_AUDIO_CFLAGS ${PIPEWIRE_CFLAGS})
-    set(LDG_AUDIO_INCLUDE_DIRS ${PIPEWIRE_INCLUDE_DIRS})
-    set(LDG_AUDIO_LIBRARIES ${PIPEWIRE_LIBRARIES})
-    set(LDG_AUDIO_DEFINES LDG_AUDIO_PIPEWIRE)
-    message(STATUS "Audio backend: PipeWire")
-elseif(ALSA_FOUND)
-    set(LDG_AUDIO_BACKEND "alsa")
-    set(LDG_AUDIO_SOURCES src/audio/audio_alsa.c)
-    set(LDG_AUDIO_CFLAGS ${ALSA_CFLAGS})
-    set(LDG_AUDIO_INCLUDE_DIRS ${ALSA_INCLUDE_DIRS})
-    set(LDG_AUDIO_LIBRARIES ${ALSA_LIBRARIES})
-    set(LDG_AUDIO_DEFINES LDG_AUDIO_ALSA)
-    message(STATUS "Audio backend: ALSA")
+if(LDG_WITH_NET)
+    pkg_check_modules(CURL REQUIRED libcurl)
+    list(APPEND LDG_OPT_SOURCES src/net/curl.c)
+    list(APPEND LDG_OPT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS})
+    list(APPEND LDG_OPT_LIBRARIES ${CURL_LIBRARIES})
+    list(APPEND LDG_OPT_DEFINES LDG_NET)
+    message(STATUS "net: libcurl")
+else()
+    message(STATUS "net: off")
+endif()
+
+if(LDG_WITH_FMT)
+    list(APPEND LDG_OPT_SOURCES src/fmt/fmt.c)
+    list(APPEND LDG_OPT_DEFINES LDG_FMT)
+    message(STATUS "fmt: on")
+else()
+    message(STATUS "fmt: off")
+endif()
+
+if(LDG_WITH_AUDIO)
+    pkg_check_modules(PIPEWIRE libpipewire-0.3)
+    pkg_check_modules(ALSA alsa)
+
+    if(PIPEWIRE_FOUND)
+        set(LDG_AUDIO_BACKEND "pipewire")
+        list(APPEND LDG_OPT_SOURCES src/audio/audio_pw.c)
+        list(APPEND LDG_OPT_INCLUDE_DIRS ${PIPEWIRE_INCLUDE_DIRS})
+        list(APPEND LDG_OPT_LIBRARIES ${PIPEWIRE_LIBRARIES})
+        list(APPEND LDG_OPT_DEFINES LDG_AUDIO_PIPEWIRE)
+        message(STATUS "audio: pipewire")
+    elseif(ALSA_FOUND)
+        set(LDG_AUDIO_BACKEND "alsa")
+        list(APPEND LDG_OPT_SOURCES src/audio/audio_alsa.c)
+        list(APPEND LDG_OPT_INCLUDE_DIRS ${ALSA_INCLUDE_DIRS})
+        list(APPEND LDG_OPT_LIBRARIES ${ALSA_LIBRARIES})
+        list(APPEND LDG_OPT_DEFINES LDG_AUDIO_ALSA)
+        message(STATUS "audio: alsa")
+    else()
+        set(LDG_AUDIO_BACKEND "none")
+        message(STATUS "audio: none; libpipewire-0.3 or alsa not found")
+    endif()
 else()
     set(LDG_AUDIO_BACKEND "none")
-    set(LDG_AUDIO_SOURCES "")
-    message(STATUS "Audio backend: none (libpipewire-0.3 or alsa not found)")
+    message(STATUS "audio: off")
 endif()
 
 set(LDG_SOURCES
@@ -43,14 +72,14 @@ set(LDG_SOURCES
     src/str/str.c
     src/time/time.c
     src/time/perf.c
-    src/net/curl.c
-    src/fmt/fmt.c
     src/thread/spsc.c
     src/thread/sync.c
     src/thread/pool.c
     src/thread/mpmc.c
     src/parse/parse.c
-    ${LDG_AUDIO_SOURCES}
+    src/proto/emiru.c
+    src/proto/emiemi.c
+    ${LDG_OPT_SOURCES}
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
@@ -68,33 +97,30 @@ endif()
 
 set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")
 
-add_library(dangling_shared SHARED ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
-set_target_properties(dangling_shared PROPERTIES OUTPUT_NAME dangling)
-target_include_directories(dangling_shared PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-target_include_directories(dangling_shared SYSTEM PUBLIC
-    ${YDER_INCLUDE_DIRS}
-    ${CURL_INCLUDE_DIRS}
-    ${LDG_AUDIO_INCLUDE_DIRS}
-)
-target_link_libraries(dangling_shared PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} ${LDG_AUDIO_LIBRARIES} Threads::Threads)
-target_compile_definitions(dangling_shared PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}" ${LDG_AUDIO_DEFINES})
+foreach(LDG_TARGET dangling_shared dangling_static)
+    if(LDG_TARGET STREQUAL "dangling_shared")
+        add_library(${LDG_TARGET} SHARED ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
+    else()
+        add_library(${LDG_TARGET} STATIC ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
+    endif()
 
-add_library(dangling_static STATIC ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
-set_target_properties(dangling_static PROPERTIES OUTPUT_NAME dangling)
-target_include_directories(dangling_static PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-target_include_directories(dangling_static SYSTEM PUBLIC
-    ${YDER_INCLUDE_DIRS}
-    ${CURL_INCLUDE_DIRS}
-    ${LDG_AUDIO_INCLUDE_DIRS}
-)
-target_link_libraries(dangling_static PUBLIC ${YDER_LIBRARIES} ${CURL_LIBRARIES} ${LDG_AUDIO_LIBRARIES} Threads::Threads)
-target_compile_definitions(dangling_static PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}" ${LDG_AUDIO_DEFINES})
+    set_target_properties(${LDG_TARGET} PROPERTIES OUTPUT_NAME dangling)
+
+    target_include_directories(${LDG_TARGET} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_include_directories(${LDG_TARGET} SYSTEM PUBLIC
+        ${YDER_INCLUDE_DIRS}
+        ${LDG_OPT_INCLUDE_DIRS}
+    )
+    target_link_libraries(${LDG_TARGET} PUBLIC ${YDER_LIBRARIES} ${LDG_OPT_LIBRARIES} Threads::Threads)
+    target_compile_definitions(${LDG_TARGET} PRIVATE ${LDG_OPT_DEFINES})
+
+    if(LDG_WITH_FMT)
+        target_compile_definitions(${LDG_TARGET} PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}")
+    endif()
+endforeach()
 
 install(TARGETS dangling_shared dangling_static
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -102,7 +128,10 @@ install(TARGETS dangling_shared dangling_static
 )
 
 install(DIRECTORY include/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES share/dangling/uncrustify.cfg DESTINATION ${CMAKE_INSTALL_DATADIR}/dangling)
+
+if(LDG_WITH_FMT)
+    install(FILES share/dangling/uncrustify.cfg DESTINATION ${CMAKE_INSTALL_DATADIR}/dangling)
+endif()
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/dangling.pc.in"
