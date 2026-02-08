@@ -28,7 +28,7 @@ static size_t ldg_curl_resp_write_cb(void *contents, size_t size, size_t nmemb, 
 
         if (LDG_UNLIKELY(posix_memalign(&new_data, LDG_AMD64_CACHE_LINE_WIDTH, new_cap) != 0))
         {
-            LDG_LOG_ERROR("ldg_curl: couldn't memalign resp buff%s", "");
+            LDG_LOG_ERROR("ldg_curl: memalign failed; cap: %zu", new_cap);
             return 0;
         }
 

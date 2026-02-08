@@ -276,7 +276,7 @@ void ldg_mem_pool_destroy(ldg_mem_pool_t *pool)
 {
     if (LDG_UNLIKELY(!pool)) { return; }
 
-    if (pool->alloc_cunt > 0) { LDG_LOG_WARNING("ldg_mem_pool: destroying pool with %zu active allocs", pool->alloc_cunt); }
+    if (pool->alloc_cunt > 0) { LDG_LOG_WARNING("ldg_mem_pool: destroy with active allocs; cunt: %zu", pool->alloc_cunt); }
 
     ldg_mem_dealloc(pool->buff);
     ldg_mem_dealloc(pool);

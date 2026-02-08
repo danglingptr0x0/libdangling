@@ -178,7 +178,7 @@ uint32_t ldg_audio_stream_volume_set(uint32_t stream_id, double vol)
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
 }
 
-uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, int32_t *muted)
+uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted)
 {
     int val = 0;
     int ret = 0;
@@ -205,7 +205,7 @@ uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, int32_t *muted)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, int32_t muted)
+uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted)
 {
     int ret = 0;
 
@@ -235,17 +235,46 @@ void ldg_audio_stream_free(ldg_audio_stream_t *streams)
     (void)streams;
 }
 
-uint32_t ldg_audio_stream_pid_get(uint32_t pid, ldg_audio_stream_t *stream)
+uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
 {
-    (void)pid;
+    (void)name;
     (void)stream;
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
+}
+
+void ldg_audio_self_register(uint32_t stream_id)
+{
+    (void)stream_id;
+}
+
+uint32_t ldg_audio_self_id_get(void)
+{
+    return 0;
 }
 
 uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream)
 {
     (void)stream;
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
+}
+
+uint32_t ldg_audio_self_volume_get(double *vol)
+{
+    (void)vol;
+    return LDG_ERR_AUDIO_NOT_AVAILABLE;
+}
+
+uint32_t ldg_audio_self_volume_set(double vol)
+{
+    (void)vol;
+    return LDG_ERR_AUDIO_NOT_AVAILABLE;
+}
+
+uint32_t ldg_audio_sync(void)
+{
+    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+
+    return LDG_ERR_AOK;
 }
 
 uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
@@ -456,10 +485,10 @@ uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_audio_duck(double factor, uint32_t exclude_pid)
+uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
 {
     (void)factor;
-    (void)exclude_pid;
+    (void)exclude_stream_id;
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
 }
 

@@ -17,4 +17,7 @@
 
 #include <dangling/fmt/fmt.h>
 
+#include <dangling/proto/emiru.h>
+#include <dangling/proto/emiemi.h>
+
 #endif
