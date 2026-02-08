@@ -7,6 +7,6 @@ datadir=@CMAKE_INSTALL_FULL_DATADIR@/dangling
 Name: dangling
 Description: Personal utility library
 Version: @PROJECT_VERSION@
-Requires: libyder libcurl
+Requires: @LDG_PC_REQUIRES@
 Libs: -L${libdir} -ldangling
 Cflags: -I${includedir}
