@@ -44,7 +44,7 @@ after install: `pkg-config --cflags --libs dangling`
 
 ### mem
 
-`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc
+`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc (fixed-size and variable-size)
 
 ```c
 ldg_mem_init();
@@ -53,10 +53,18 @@ ldg_mem_dealloc(p);
 ldg_mem_leaks_dump();
 ldg_mem_shutdown();
 
+// fixed-size pool
 ldg_mem_pool_t *pool = ldg_mem_pool_create(sizeof(thing_t), 256);
-thing_t *t = ldg_mem_pool_alloc(pool);
+thing_t *t = ldg_mem_pool_alloc(pool, sizeof(thing_t));
 ldg_mem_pool_dealloc(pool, t);
 ldg_mem_pool_destroy(pool);
+
+// variable-size pool (bulk reset only; no per-item free)
+ldg_mem_pool_t *vpool = ldg_mem_pool_create(0, 4096);
+void *a = ldg_mem_pool_alloc(vpool, 128);
+void *b = ldg_mem_pool_alloc(vpool, 64);
+ldg_mem_pool_reset(vpool);
+ldg_mem_pool_destroy(vpool);
 ```
 
 `mem/secure.h`: constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()`; NASM on x86_64
