@@ -1,12 +1,12 @@
 # libdangling
 
-my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. mostly C99-compliant, POSIX.1-2008, AMD64. canonical source of types, err codes, mem, threading, strings, timing, net, audio, math, parsing, and binary protocols for all my projects
+my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, math, parsing, binary protocols, I/O, and system utilities for all my projects
 
-conforms to [OC Std 2.0](https://github.com/danglingptr0x0/dangstd)
+conforms to [OC Std 2.5](https://github.com/danglingptr0x0/dangstd)
 
 ## build
 
-CMake 3.16+, NASM, [libyder](https://github.com/babelouest/yder), pkg-config
+CMake 3.16+, NASM, pkg-config
 
 ```sh
 cmake -B build
@@ -14,11 +14,18 @@ cmake --build build -j$(nproc)
 sudo cmake --install build
 ```
 
+Windows cross-compile:
+
+```sh
+cmake -B build-win -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_ASM_NASM_COMPILER=nasm
+cmake --build build-win -j$(nproc)
+```
+
 optional deps controlled via flags:
 
 | Flag | Default | What |
 |------|---------|------|
-| `LDG_WITH_AUDIO` | `ON` | PipeWire or ALSA auto-detect |
+| `LDG_WITH_AUDIO` | `ON` | PipeWire/ALSA (Linux), WASAPI (Windows) |
 | `LDG_WITH_NET` | `ON` | libcurl |
 | `LDG_WITH_FMT` | `ON` | embedded uncrustify cfg |
 
@@ -42,24 +49,40 @@ after install: `pkg-config --cflags --libs dangling`
 
 `core/bits.h`: `LDG_BYTE_BITS/MASK`, `LDG_NIBBLE_BITS/MASK`, `LDG_IS_POW2()`
 
+`core/arith.h`: overflow-checked arithmetic; `ldg_arith_32/64_add/sub/mul/div()`; inline, uses `__builtin_*_overflow`
+
 ### mem
 
-`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc
+`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc (fixed-size and variable-size)
 
 ```c
 ldg_mem_init();
-void *p = ldg_mem_alloc(1024);
+void *p = 0x0;
+ldg_mem_alloc(1024, &p);
 ldg_mem_dealloc(p);
 ldg_mem_leaks_dump();
 ldg_mem_shutdown();
 
-ldg_mem_pool_t *pool = ldg_mem_pool_create(sizeof(thing_t), 256);
-thing_t *t = ldg_mem_pool_alloc(pool);
+// fixed-size pool
+ldg_mem_pool_t *pool = 0x0;
+thing_t *t = 0x0;
+ldg_mem_pool_create(sizeof(thing_t), 256, &pool);
+ldg_mem_pool_alloc(pool, sizeof(thing_t), (void **)&t);
 ldg_mem_pool_dealloc(pool, t);
-ldg_mem_pool_destroy(pool);
+ldg_mem_pool_destroy(&pool);
+
+// variable-size pool (bulk reset only; no per-item free)
+ldg_mem_pool_t *vpool = 0x0;
+void *a = 0x0;
+void *b = 0x0;
+ldg_mem_pool_create(0, 4096, &vpool);
+ldg_mem_pool_alloc(vpool, 128, &a);
+ldg_mem_pool_alloc(vpool, 64, &b);
+ldg_mem_pool_reset(vpool);
+ldg_mem_pool_destroy(&vpool);
 ```
 
-`mem/secure.h`: constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()`; NASM on x86_64
+`mem/secure.h`: constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()`; NASM on amd64
 
 ### str
 
@@ -73,11 +96,11 @@ ldg_mem_pool_destroy(pool);
 
 ### thread
 
-`thread/sync.h`: `ldg_mut_t`, `ldg_cond_t`, `ldg_sem_t`; all support process-shared
+`thread/sync.h`: `ldg_mut_t`, `ldg_cond_t`, `ldg_sem_t`; all support process-shared (Linux); CRITICAL_SECTION/CONDITION_VARIABLE/Win32 semaphores (Windows). `ldg_cond_bcast()`, `ldg_cond_sig()`, `ldg_cond_timedwait()` all return `uint32_t`
 
-`thread/spsc.h`: lock-free SPSC queue; fixed capacity, arbitrary item size
+`thread/spsc.h`: lock-free SPSC queue; fixed capacity, arbitrary item size; bounds-checked buffer access
 
-`thread/mpmc.h`: lock-free MPMC queue; sequence-based coordination, blocking wait with timeout
+`thread/mpmc.h`: lock-free MPMC queue; sequence-based coordination, blocking wait with timeout, bounded CAS spin (1024 iters), bounded wait loop (4096 iters)
 
 ```c
 ldg_mpmc_queue_t q;
@@ -87,7 +110,23 @@ ldg_mpmc_wait(&q, &out, 5000);
 ldg_mpmc_shutdown(&q);
 ```
 
-`thread/pool.h`: thread pool; two modes: long-running workers (`ldg_thread_pool_start`) or job submission (`ldg_thread_pool_submit`, backed by MPMC)
+`thread/pool.h`: thread pool; two modes: long-running workers (`ldg_thread_pool_start`) or job submission (`ldg_thread_pool_submit`, backed by MPMC). `start()` and `submit()` are mutually exclusive
+
+### io
+
+`io/file.h`: `ldg_io_file_open/close/rd/wr/seek/sync/truncate/lock/unlock/dup()`; `ldg_io_pipe_create()`, `ldg_io_file_stat/fstat()`
+
+`io/dir.h`: `ldg_io_dir_create/destroy/open/rd/close()`; `ldg_io_dirent_name_get()`, `ldg_io_dirent_dir_is()`
+
+`io/path.h`: `ldg_io_path_rename/unlink/exists_is/join/resolve/expand/normalize()`; basename, dirname, ext extraction; symlink create/read; home/tmp dir getters
+
+### sys
+
+`sys/info.h`: `ldg_sys_hostname_get()`, `ldg_sys_cpu_cunt_get()`, `ldg_sys_page_size_get()`, `ldg_sys_env_get()`, `ldg_sys_pid_get()`
+
+`sys/tty.h`: `ldg_sys_tty_stdout_is()`, `ldg_sys_tty_width_get()`
+
+`sys/uuid.h`: `ldg_sys_uuid_gen()`, `ldg_sys_uuid_to_str()`
 
 ### net
 
@@ -95,7 +134,7 @@ ldg_mpmc_shutdown(&q);
 
 ### audio
 
-`audio/audio.h`: PipeWire preferred, ALSA fallback; master volume, per-stream volume/mute, sink/source enumeration, self-stream registration, stacked ducking
+`audio/audio.h`: PipeWire preferred, ALSA fallback (Linux); WASAPI (Windows). master volume, per-stream volume/mute, sink/source enumeration, self-stream registration, stacked ducking
 
 ### math
 
@@ -111,7 +150,7 @@ ldg_mpmc_shutdown(&q);
 
 `proto/emiemi.h`: EMIEMI transfer protocol; `<<EMIEMI>XXXXXX>..payload..<<EMIEMI>>` framing; streaming recv via cb, buff encode/decode, FNV-1a integrity. max payload 16M
 
-### arch/x86_64
+### arch/amd64
 
 `atomic.h`: `LDG_READ/WRITE_ONCE`, `LDG_LOAD_ACQUIRE/STORE_RELEASE`, `LDG_CAS`, `LDG_FETCH_ADD/SUB`
 
@@ -125,17 +164,17 @@ ldg_mpmc_shutdown(&q);
 
 `syscall.h`: `ldg_syscall0` through `ldg_syscall4`
 
+### arch/misc
+
+`misc/misc.h`: 32-bit fixed-width ISA; 16 opcodes: cpy; ldd; std; cph; add; sub; and; or; xor; shl; shr; jmp; jnz; call; ret; and cpl; 8 regs: dr0; dr1; dr2; dr3; dr4; dr5; dr6 (LOC); and dr7 (SP); memory map (RAM/CPU ctrl/IO); encode, decode, validate, disassemble
+
 ### fmt
 
 `fmt/fmt.h`: embedded uncrustify cfg; `ldg_fmt_cfg_get()` returns the string; `ldg_fmt_cfg_path_get()` returns the install path
 
-### log
-
-`log/log.h`: `LDG_LOG_DEBUG/INFO/WARNING/ERROR()` over libyder
-
 ## tests
 
-QEMU/KVM only, not host; see [OC Std 2.0 SS5.10](https://github.com/danglingptr0x0/dangstd)
+QEMU/KVM only, not host; see [OC Std 2.5 SS5.10](https://github.com/danglingptr0x0/dangstd)
 
 ```sh
 make tests-run

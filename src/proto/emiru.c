@@ -77,13 +77,15 @@ LDG_EXPORT uint32_t ldg_emiru_encode(const ldg_emiru_hdr_t *hdr, const ldg_byte_
 
     if (LDG_UNLIKELY(out_len < required)) { return LDG_ERR_PROTO_EMIRU_BUFF_TOO_SMALL; }
 
-    memcpy(out, hdr, LDG_EMIRU_HDR_SIZE);
+    if (LDG_UNLIKELY(memcpy(out, hdr, LDG_EMIRU_HDR_SIZE) != out)) { return LDG_ERR_MEM_BAD; }
+
     offset = LDG_EMIRU_HDR_SIZE;
 
-    memcpy(out + offset, text, text_len);
+    if (LDG_UNLIKELY(memcpy(out + offset, text, text_len) != out + offset)) { return LDG_ERR_MEM_BAD; }
+
     offset += text_len;
 
-    if (data_len > 0) { memcpy(out + offset, data, data_len); }
+    if (data_len > 0) { if (LDG_UNLIKELY(memcpy(out + offset, data, data_len) != out + offset)) { return LDG_ERR_MEM_BAD; } }
 
     return LDG_ERR_AOK;
 }

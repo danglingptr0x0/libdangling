@@ -146,13 +146,17 @@ static inline double ldg_mat3_trace(const double M[9])
     return M[0] + M[4] + M[8];
 }
 
+#define LDG_MAT3_DET_EPSILON 1e-14
+#define LDG_MAT3_POLAR_EPSILON 1e-12
+#define LDG_MAT3_POLAR_MAX_ITER 10
+
 static inline uint32_t ldg_mat3_inv(double dst[9], const double M[9])
 {
     double det = 0.0;
     double inv_det = 0.0;
 
     det = ldg_mat3_det(M);
-    if (fabs(det) < 1e-14) { return 1; }
+    if (__builtin_fabs(det) < LDG_MAT3_DET_EPSILON) { return 1; }
 
     inv_det = 1.0 / det;
     dst[0] = (M[4] * M[8] - M[5] * M[7]) * inv_det;
@@ -199,7 +203,7 @@ static inline void ldg_mat3_polar(double R[9], double S[9], const double F[9])
 
     ldg_mat3_copy(R, F);
 
-    for (iter = 0; iter < 10; iter++)
+    for (iter = 0; iter < LDG_MAT3_POLAR_MAX_ITER; iter++)
     {
         ldg_mat3_transpose(Rt, R);
 
@@ -221,7 +225,7 @@ static inline void ldg_mat3_polar(double R[9], double S[9], const double F[9])
 
         ldg_mat3_copy(R, R_next);
 
-        if (diff < 1e-12) { break; }
+        if (diff < LDG_MAT3_POLAR_EPSILON) { break; }
     }
 
     if (ldg_mat3_det(R) < 0.0) { for (i = 0; i < 9; i++) { R[i] = -R[i]; } }

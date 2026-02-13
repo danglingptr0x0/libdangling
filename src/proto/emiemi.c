@@ -70,22 +70,20 @@ LDG_EXPORT uint32_t ldg_emiemi_hdr_recv(ldg_emiemi_io_ctx_t *io, ldg_dword_t *pa
 
     if (LDG_UNLIKELY(!payload_len)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    // start marker
     while (idx < LDG_EMIEMI_START_MARKER_LEN)
     {
         ch = io->rd_byte(io->ctx);
-        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_READ; }
+        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_RD; }
 
         if ((ldg_byte_t)ch == marker[idx]) { idx++; }
         else if ((ldg_byte_t)ch == marker[0]) { idx = 1; }
         else { idx = 0; }
     }
 
-    // size field
     for (i = 0; i < LDG_EMIEMI_SIZE_FIELD_LEN; i++)
     {
         ch = io->rd_byte(io->ctx);
-        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_READ; }
+        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_RD; }
 
         hex[i] = (ldg_byte_t)ch;
     }
@@ -95,9 +93,8 @@ LDG_EXPORT uint32_t ldg_emiemi_hdr_recv(ldg_emiemi_io_ctx_t *io, ldg_dword_t *pa
 
     if (LDG_UNLIKELY(*payload_len > LDG_EMIEMI_MAX_PAYLOAD)) { return LDG_ERR_PROTO_EMIEMI_BAD_SIZE; }
 
-    // delimiter
     ch = io->rd_byte(io->ctx);
-    if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_READ; }
+    if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_RD; }
 
     if (LDG_UNLIKELY((ldg_byte_t)ch != LDG_EMIEMI_DELIM)) { return LDG_ERR_PROTO_EMIEMI_BAD_DELIM; }
 
@@ -117,22 +114,20 @@ LDG_EXPORT uint32_t ldg_emiemi_payload_recv(ldg_emiemi_io_ctx_t *io, ldg_byte_t 
 
     if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    // payload
     for (i = 0; i < payload_len; i++)
     {
         ch = io->rd_byte(io->ctx);
-        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_READ; }
+        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_RD; }
 
         buff[i] = (ldg_byte_t)ch;
         hash ^= (ldg_byte_t)ch;
         hash *= LDG_EMIEMI_FNV1A_PRIME;
     }
 
-    // end marker
     for (i = 0; i < LDG_EMIEMI_END_MARKER_LEN; i++)
     {
         ch = io->rd_byte(io->ctx);
-        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_READ; }
+        if (LDG_UNLIKELY(ch < 0)) { return LDG_ERR_PROTO_EMIEMI_IO_RD; }
 
         if (LDG_UNLIKELY((ldg_byte_t)ch != end[i])) { return LDG_ERR_PROTO_EMIEMI_BAD_MARKER; }
     }
@@ -182,13 +177,13 @@ LDG_EXPORT uint32_t ldg_emiemi_send(ldg_emiemi_io_ctx_t *io, const ldg_byte_t *p
     hdr[LDG_EMIEMI_HDR_LEN - 1] = LDG_EMIEMI_DELIM;
 
     err = io->wr(hdr, LDG_EMIEMI_HDR_LEN, io->ctx);
-    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WRITE; }
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WR; }
 
     err = io->wr(payload, payload_len, io->ctx);
-    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WRITE; }
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WR; }
 
     err = io->wr(end, LDG_EMIEMI_END_MARKER_LEN, io->ctx);
-    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WRITE; }
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_PROTO_EMIEMI_IO_WR; }
 
     if (checksum) { *checksum = ldg_emiemi_fnv1a(payload, payload_len); }
 
@@ -250,25 +245,20 @@ LDG_EXPORT uint32_t ldg_emiemi_decode(const ldg_byte_t *frame, ldg_dword_t frame
 
     if (LDG_UNLIKELY(frame_len < LDG_EMIEMI_OVERHEAD)) { return LDG_ERR_PROTO_EMIEMI_TRUNCATED; }
 
-    // start marker
     for (i = 0; i < LDG_EMIEMI_START_MARKER_LEN; i++) { if (LDG_UNLIKELY(frame[i] != start[i])) { return LDG_ERR_PROTO_EMIEMI_BAD_MARKER; } }
 
-    // size field
     err = emiemi_hex_to_size(frame + LDG_EMIEMI_START_MARKER_LEN, &len);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
     if (LDG_UNLIKELY(len > LDG_EMIEMI_MAX_PAYLOAD)) { return LDG_ERR_PROTO_EMIEMI_BAD_SIZE; }
 
-    // delimiter
     if (LDG_UNLIKELY(frame[LDG_EMIEMI_HDR_LEN - 1] != LDG_EMIEMI_DELIM)) { return LDG_ERR_PROTO_EMIEMI_BAD_DELIM; }
 
-    // frame length
     expected_len = LDG_EMIEMI_OVERHEAD + len;
     if (LDG_UNLIKELY(expected_len < len)) { return LDG_ERR_OVERFLOW; }
 
     if (LDG_UNLIKELY(frame_len < expected_len)) { return LDG_ERR_PROTO_EMIEMI_TRUNCATED; }
 
-    // end marker
     end_offset = LDG_EMIEMI_HDR_LEN + len;
     for (i = 0; i < LDG_EMIEMI_END_MARKER_LEN; i++) { if (LDG_UNLIKELY(frame[end_offset + i] != end[i])) { return LDG_ERR_PROTO_EMIEMI_BAD_MARKER; } }
 
