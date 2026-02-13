@@ -380,19 +380,22 @@ static uint32_t audio_node_vol_set(ldg_audio_node_t *node, double vol)
 {
     ldg_mem_pool_t *scratch = 0x0;
     uint8_t *buff = 0x0;
+    float *vols = 0x0;
     struct spa_pod_builder b = { 0 };
     struct spa_pod_frame f = { 0 };
-    float vols[SPA_AUDIO_MAX_CHANNELS] = { 0 };
     uint32_t i = 0;
     uint32_t cunt = 0;
     uint32_t ret = 0;
 
     if (!node || !node->proxy) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = ldg_mem_pool_create(0, 1024, &scratch);
+    ret = ldg_mem_pool_create(0, 1024 + SPA_AUDIO_MAX_CHANNELS * sizeof(float), &scratch);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ret = ldg_mem_pool_alloc(scratch, 1024, (void **)&buff);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
+
+    ret = ldg_mem_pool_alloc(scratch, SPA_AUDIO_MAX_CHANNELS * sizeof(float), (void **)&vols);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
 
     b = SPA_POD_BUILDER_INIT(buff, 1024);
