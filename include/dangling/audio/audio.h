@@ -2,7 +2,6 @@
 #define LDG_AUDIO_AUDIO_H
 
 #include <stdint.h>
-#include <stddef.h>
 #include <dangling/core/macros.h>
 
 #define LDG_AUDIO_NAME_MAX 128
@@ -13,7 +12,7 @@ typedef struct ldg_audio_stream
     uint32_t id;
     char name[LDG_AUDIO_NAME_MAX];
     char app_name[LDG_AUDIO_NAME_MAX];
-    double volume;
+    double vol;
     uint8_t muted;
     uint32_t sink_id;
     uint8_t pudding[4];
@@ -24,31 +23,31 @@ typedef struct ldg_audio_sink
     uint32_t id;
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
-    double volume;
+    double vol;
     uint8_t muted;
     uint8_t is_default;
 } ldg_audio_sink_t;
 
-typedef struct ldg_audio_source
+typedef struct ldg_audio_src
 {
     uint32_t id;
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
-    double volume;
+    double vol;
     uint8_t muted;
     uint8_t is_default;
-} ldg_audio_source_t;
+} ldg_audio_src_t;
 
 // init/shutdown
 LDG_EXPORT uint32_t ldg_audio_init(void);
 LDG_EXPORT void ldg_audio_shutdown(void);
 LDG_EXPORT uint32_t ldg_audio_sync(void);
 
-// volume control
-LDG_EXPORT uint32_t ldg_audio_master_volume_get(double *vol);
-LDG_EXPORT uint32_t ldg_audio_master_volume_set(double vol);
-LDG_EXPORT uint32_t ldg_audio_stream_volume_get(uint32_t stream_id, double *vol);
-LDG_EXPORT uint32_t ldg_audio_stream_volume_set(uint32_t stream_id, double vol);
+// vol control
+LDG_EXPORT uint32_t ldg_audio_master_vol_get(double *vol);
+LDG_EXPORT uint32_t ldg_audio_master_vol_set(double vol);
+LDG_EXPORT uint32_t ldg_audio_stream_vol_get(uint32_t stream_id, double *vol);
+LDG_EXPORT uint32_t ldg_audio_stream_vol_set(uint32_t stream_id, double vol);
 LDG_EXPORT uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted);
 LDG_EXPORT uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted);
 
@@ -59,18 +58,18 @@ LDG_EXPORT uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream
 
 // self stream
 LDG_EXPORT void ldg_audio_self_register(uint32_t stream_id);
-LDG_EXPORT uint32_t ldg_audio_self_id_get(void);
+LDG_EXPORT uint64_t ldg_audio_self_id_get(void);
 LDG_EXPORT uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream);
-LDG_EXPORT uint32_t ldg_audio_self_volume_get(double *vol);
-LDG_EXPORT uint32_t ldg_audio_self_volume_set(double vol);
+LDG_EXPORT uint32_t ldg_audio_self_vol_get(double *vol);
+LDG_EXPORT uint32_t ldg_audio_self_vol_set(double vol);
 
-// sink/source enumeration
+// sink/src enumeration
 LDG_EXPORT uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt);
 LDG_EXPORT void ldg_audio_sink_free(ldg_audio_sink_t *sinks);
-LDG_EXPORT uint32_t ldg_audio_source_list(ldg_audio_source_t **sources, uint32_t *cunt);
-LDG_EXPORT void ldg_audio_source_free(ldg_audio_source_t *sources);
+LDG_EXPORT uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt);
+LDG_EXPORT void ldg_audio_src_free(ldg_audio_src_t *srcs);
 LDG_EXPORT uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink);
-LDG_EXPORT uint32_t ldg_audio_default_source_get(ldg_audio_source_t *source);
+LDG_EXPORT uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src);
 
 // stacked ducking
 LDG_EXPORT uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id);

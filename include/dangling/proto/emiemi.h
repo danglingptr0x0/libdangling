@@ -2,7 +2,6 @@
 #define LDG_PROTO_EMIEMI_H
 
 #include <stdint.h>
-#include <stddef.h>
 #include <dangling/core/types.h>
 #include <dangling/core/macros.h>
 

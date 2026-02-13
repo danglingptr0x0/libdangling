@@ -2,18 +2,17 @@
 #define LDG_NET_CURL_H
 
 #include <stdint.h>
-#include <stddef.h>
-#include <curl/curl.h>
 #include <dangling/core/macros.h>
 
 #define LDG_CURL_RESP_INITIAL_CAP 4096
 #define LDG_CURL_RESP_RESIZE_FACTOR 2
+#define LDG_CURL_RESP_MAX_CAP (256 * LDG_MIB)
 
 typedef struct ldg_curl_resp
 {
     char *data;
-    size_t size;
-    size_t cap;
+    uint64_t size;
+    uint64_t cap;
 } ldg_curl_resp_t;
 
 typedef struct ldg_curl_multi_req
@@ -21,56 +20,56 @@ typedef struct ldg_curl_multi_req
     void *curl;
     char *url;
     char *post_data;
-    struct curl_slist *headers;
+    void *headers;
     ldg_curl_resp_t response;
     void *user_data;
-    int idx;
-    curl_off_t dl_total;
-    curl_off_t dl_now;
-    curl_off_t ul_total;
-    curl_off_t ul_now;
+    uint32_t idx;
+    int64_t dl_total;
+    int64_t dl_now;
+    int64_t ul_total;
+    int64_t ul_now;
     uint64_t last_progress_ms;
     uint8_t pudding[4];
 } LDG_ALIGNED ldg_curl_multi_req_t;
 
 typedef struct ldg_curl_multi_ctx
 {
-    CURLM *multi;
+    void *multi;
     ldg_curl_multi_req_t *reqs;
-    size_t req_cunt;
-    size_t req_cap;
+    uint64_t req_cunt;
+    uint64_t req_cap;
     uint8_t pudding[40];
 } LDG_ALIGNED ldg_curl_multi_ctx_t;
 
 typedef struct ldg_curl_easy_ctx
 {
-    CURL *curl;
+    void *curl;
     uint8_t is_init;
     uint8_t pudding[7];
 } ldg_curl_easy_ctx_t;
 
-typedef size_t (*ldg_curl_stream_cb_t)(void *chunk, size_t size, void *user_data);
+typedef uint64_t (*ldg_curl_stream_cb_t)(void *chunk, uint64_t size, void *user_data);
 
 LDG_EXPORT void ldg_curl_resp_init(ldg_curl_resp_t *resp);
 LDG_EXPORT void ldg_curl_resp_free(ldg_curl_resp_t *resp);
 
-LDG_EXPORT uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, size_t capacity);
+LDG_EXPORT uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, uint64_t capacity);
 LDG_EXPORT void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx);
 
-LDG_EXPORT uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, struct curl_slist *headers);
-LDG_EXPORT uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, struct curl_slist *headers);
-LDG_EXPORT uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers);
+LDG_EXPORT uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, void *headers);
+LDG_EXPORT uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, void *headers);
+LDG_EXPORT uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const char *data, void *headers);
 LDG_EXPORT uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx);
 LDG_EXPORT double ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx);
 
-LDG_EXPORT uint32_t ldg_curl_headers_append(struct curl_slist **list, const char *header);
-LDG_EXPORT void ldg_curl_headers_destroy(struct curl_slist **list);
+LDG_EXPORT uint32_t ldg_curl_headers_append(void **list, const char *header);
+LDG_EXPORT void ldg_curl_headers_destroy(void **list);
 
 LDG_EXPORT uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx);
 LDG_EXPORT void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx);
-LDG_EXPORT uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_resp_t *resp);
-LDG_EXPORT uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_resp_t *resp);
-LDG_EXPORT uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data);
-LDG_EXPORT uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, struct curl_slist *headers, ldg_curl_stream_cb_t cb, void *user_data);
+LDG_EXPORT uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *headers, ldg_curl_resp_t *resp);
+LDG_EXPORT uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *headers, ldg_curl_resp_t *resp);
+LDG_EXPORT uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, void *headers, ldg_curl_stream_cb_t cb, void *user_data);
+LDG_EXPORT uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *headers, ldg_curl_stream_cb_t cb, void *user_data);
 
 #endif

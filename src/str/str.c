@@ -1,16 +1,17 @@
-#include <dangling/str/str.h>
-#include <dangling/core/err.h>
-
 #include <string.h>
 
-uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
+#include <dangling/str/str.h>
+#include <dangling/core/err.h>
+#include <dangling/core/arith.h>
+
+uint32_t ldg_strrbrcpy(char *dst, const char *src, uint64_t abssize)
 {
-    size_t src_len = 0;
+    uint64_t src_len = 0;
     uint8_t overlap = 0;
 
     if (LDG_UNLIKELY(!dst || !src || abssize == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    src_len = strnlen(src, abssize);
+    src_len = (uint64_t)strnlen(src, abssize);
     if (LDG_UNLIKELY(src_len >= abssize)) { return LDG_ERR_STR_TRUNC; }
 
     overlap = (dst < src + src_len) && (src < dst + abssize);
@@ -26,6 +27,9 @@ uint32_t ldg_strrbrcpy(char *dst, const char *src, size_t abssize)
 void ldg_byte_to_hex(byte_t val, char out[3])
 {
     const char *diggies = "0123456789ABCDEF";
+
+    if (!out) { return; }
+
     out[0] = diggies[(val >> 4) & 0xF];
     out[1] = diggies[val & 0xF];
     out[2] = '\0';
@@ -36,6 +40,8 @@ void ldg_dword_to_hex(dword_t val, char *buff)
     uint32_t i = 0;
     byte_t nipple = 0;
 
+    if (!buff) { return; }
+
     for (i = 0; i < 8; i++)
     {
         nipple = (val >> ((7 - i) * 4)) & 0xF;
@@ -45,23 +51,29 @@ void ldg_dword_to_hex(dword_t val, char *buff)
     buff[8] = '\0';
 }
 
-void ldg_str_to_dec(const char *str, dword_t *out)
+uint32_t ldg_str_to_dec(const char *str, dword_t *out)
 {
-    if (!str || !out) { return; }
+    dword_t tmp = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!str || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0;
 
     while (*str)
     {
-        if (*str >= '0' && *str <= '9') { *out = *out * 10 + (dword_t)(*str - '0'); }
-        else
-        {
-            *out = 0;
-            return;
-        }
+        if (*str < '0' || *str > '9') { *out = 0; return LDG_ERR_FUNC_ARG_INVALID; }
+
+        ret = ldg_arith_32_mul(*out, 10, &tmp);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { *out = 0; return LDG_ERR_OVERFLOW; }
+
+        ret = ldg_arith_32_add(tmp, (dword_t)(*str - '0'), out);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { *out = 0; return LDG_ERR_OVERFLOW; }
 
         str++;
     }
+
+    return LDG_ERR_AOK;
 }
 
 void ldg_hex_to_nipple(char c, byte_t *nipple)
@@ -74,11 +86,12 @@ void ldg_hex_to_nipple(char c, byte_t *nipple)
     else { *nipple = 0xFF; }
 }
 
-void ldg_hex_to_dword(const char *str, dword_t *out)
+uint32_t ldg_hex_to_dword(const char *str, dword_t *out)
 {
     byte_t nipple = 0;
+    uint32_t digit_cunt = 0;
 
-    if (!str || !out) { return; }
+    if (LDG_UNLIKELY(!str || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0;
 
@@ -88,20 +101,21 @@ void ldg_hex_to_dword(const char *str, dword_t *out)
     {
         ldg_hex_to_nipple(*str, &nipple);
 
-        if (nipple == 0xFF)
-        {
-            *out = 0;
-            return;
-        }
+        if (nipple == 0xFF) { *out = 0; return LDG_ERR_FUNC_ARG_INVALID; }
+
+        if (LDG_UNLIKELY(digit_cunt >= 8)) { *out = 0; return LDG_ERR_OVERFLOW; }
 
         *out = (*out << 4) | nipple;
+        digit_cunt++;
         str++;
     }
+
+    return LDG_ERR_AOK;
 }
 
-void ldg_hex_to_bytes(const char *hex, byte_t *out, size_t max)
+void ldg_hex_to_bytes(const char *hex, byte_t *out, uint64_t max)
 {
-    size_t i = 0;
+    uint64_t i = 0;
     byte_t high = 0;
     byte_t low = 0;
 
@@ -114,14 +128,14 @@ void ldg_hex_to_bytes(const char *hex, byte_t *out, size_t max)
 
         if (high == 0xFF || low == 0xFF) { break; }
 
-        out[i++] = (high << 4) | low;
+        out[i++] = (uint8_t)((high << 4) | low);
         hex += 2;
     }
 
     while (i < max) { out[i++] = 0; }
 }
 
-int ldg_hex_str_is(const char *str)
+uint8_t ldg_hex_str_is(const char *str)
 {
     byte_t nipple = 0;
 

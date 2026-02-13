@@ -2,13 +2,12 @@
 #define LDG_PARSE_PARSE_H
 
 #include <stdint.h>
-#include <stddef.h>
 #include <dangling/core/macros.h>
 
 #define LDG_TOK_MAX 16
 #define LDG_TOK_LEN_MAX 32
 
-typedef enum
+typedef enum ldg_tok_type
 {
     LDG_TOK_WORD,
     LDG_TOK_NUM,
@@ -16,22 +15,22 @@ typedef enum
     LDG_TOK_END
 } ldg_tok_type_t;
 
-typedef struct
+typedef struct ldg_tok
 {
     ldg_tok_type_t type;
     char val[LDG_TOK_LEN_MAX];
-    size_t pos;
+    uint64_t pos;
 } ldg_tok_t;
 
-typedef struct
+typedef struct ldg_tok_arr
 {
     ldg_tok_t toks[LDG_TOK_MAX];
-    size_t cunt;
+    uint64_t cunt;
 } ldg_tok_arr_t;
 
 typedef void (*ldg_cmd_handler_t)(ldg_tok_arr_t *toks);
 
-typedef struct
+typedef struct ldg_cmd_entry
 {
     const char *name;
     ldg_cmd_handler_t handler;
@@ -39,6 +38,6 @@ typedef struct
 } ldg_cmd_entry_t;
 
 LDG_EXPORT void ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks);
-LDG_EXPORT int ldg_parse_streq_is(const char *a, const char *b);
+LDG_EXPORT uint8_t ldg_parse_streq_is(const char *a, const char *b);
 
 #endif

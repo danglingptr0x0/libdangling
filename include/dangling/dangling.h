@@ -5,6 +5,7 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/core/bits.h>
+#include <dangling/core/arith.h>
 
 #include <dangling/mem/mem.h>
 #include <dangling/mem/alloc.h>
@@ -19,5 +20,15 @@
 
 #include <dangling/proto/emiru.h>
 #include <dangling/proto/emiemi.h>
+
+#include <dangling/io/file.h>
+#include <dangling/io/dir.h>
+#include <dangling/io/path.h>
+
+#include <dangling/sys/uuid.h>
+#include <dangling/sys/tty.h>
+#include <dangling/sys/info.h>
+
+#include <dangling/arch/misc/misc.h>
 
 #endif
