@@ -1,8 +1,10 @@
 #include <dangling/parse/parse.h>
 #include <dangling/str/str.h>
 
-int ldg_parse_streq_is(const char *a, const char *b)
+uint8_t ldg_parse_streq_is(const char *a, const char *b)
 {
+    if (LDG_UNLIKELY(!a || !b)) { return 0; }
+
     while (*a && *b)
     {
         if (*a != *b) { return 0; }
@@ -16,15 +18,17 @@ int ldg_parse_streq_is(const char *a, const char *b)
 
 void ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
 {
-    size_t pos = 0;
+    uint64_t pos = 0;
     ldg_tok_t *tok = 0x0;
-    size_t val_idx = 0;
+    uint64_t val_idx = 0;
+
+    if (LDG_UNLIKELY(!input || !toks)) { return; }
 
     toks->cunt = 0;
 
     while (*input && toks->cunt < LDG_TOK_MAX)
     {
-        while (ldg_char_space_is(*input))
+        while (ldg_char_space_is((uint8_t)*input))
         {
             input++;
             pos++;
@@ -36,19 +40,19 @@ void ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
         tok->pos = pos;
         val_idx = 0;
 
-        if (ldg_char_alpha_is(*input))
+        if (ldg_char_alpha_is((uint8_t)*input))
         {
             tok->type = LDG_TOK_WORD;
-            while (ldg_char_alpha_is(*input) && val_idx < LDG_TOK_LEN_MAX - 1)
+            while (ldg_char_alpha_is((uint8_t)*input) && val_idx < LDG_TOK_LEN_MAX - 1)
             {
                 tok->val[val_idx++] = *input++;
                 pos++;
             }
         }
-        else if (ldg_char_digit_is(*input))
+        else if (ldg_char_digit_is((uint8_t)*input))
         {
             tok->type = LDG_TOK_NUM;
-            while ((ldg_char_digit_is(*input) || ldg_char_hex_is(*input) || *input == 'x' || *input == 'X') && val_idx < LDG_TOK_LEN_MAX - 1)
+            while ((ldg_char_digit_is((uint8_t)*input) || ldg_char_hex_is((uint8_t)*input) || *input == 'x' || *input == 'X') && val_idx < LDG_TOK_LEN_MAX - 1)
             {
                 tok->val[val_idx++] = *input++;
                 pos++;

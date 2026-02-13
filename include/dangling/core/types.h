@@ -2,7 +2,6 @@
 #define LDG_CORE_TYPES_H
 
 #include <stdint.h>
-#include <stddef.h>
 
 typedef uint8_t ldg_byte_t;
 typedef uint16_t ldg_word_t;

@@ -1,5 +1,8 @@
 #include <dangling/fmt/fmt.h>
+#include <dangling/core/err.h>
+#include <dangling/core/macros.h>
 
+// compile-time config embed; file-scope static required for const string literal
 static const char g_uncrustify_cfg[] =
     "indent_with_tabs = 0\n"
     "indent_columns = 4\n"
@@ -106,12 +109,22 @@ static const char g_uncrustify_cfg[] =
     "pos_compare = join\n"
     "pos_conditional = join\n";
 
-const char* ldg_fmt_cfg_get(void)
+uint32_t ldg_fmt_cfg_get(const char **out)
 {
-    return g_uncrustify_cfg;
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+    *out = g_uncrustify_cfg;
+
+    return LDG_ERR_AOK;
 }
 
-const char* ldg_fmt_cfg_path_get(void)
+uint32_t ldg_fmt_cfg_path_get(const char **out)
 {
-    return LDG_FMT_CFG_PATH;
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+    *out = LDG_FMT_CFG_PATH;
+
+    return LDG_ERR_AOK;
 }
