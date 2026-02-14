@@ -10,12 +10,6 @@
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
 
-struct ldg_io_file
-{
-    int32_t fd;
-    uint8_t pudding[60];
-};
-
 // errno
 static uint32_t ldg_io_errno_translate(void)
 {

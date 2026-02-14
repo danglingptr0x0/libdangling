@@ -2,7 +2,7 @@
 
 my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, math, parsing, binary protocols, I/O, and system utilities for all my projects
 
-conforms to [OC Std 2.5](https://github.com/danglingptr0x0/dangstd)
+conforms to [dangstd 2.5](https://github.com/danglingptr0x0/dangstd)
 
 ## build
 
@@ -25,8 +25,8 @@ optional deps controlled via flags:
 
 | Flag | Default | What |
 |------|---------|------|
-| `LDG_WITH_AUDIO` | `ON` | PipeWire/ALSA (Linux), WASAPI (Windows) |
-| `LDG_WITH_NET` | `ON` | libcurl |
+| `LDG_WITH_AUDIO` | `ON` | pw/ALSA (Linux), WASAPI (Windows) |
+| `LDG_WITH_NET` | `ON` | `libcurl` |
 | `LDG_WITH_FMT` | `ON` | embedded uncrustify cfg |
 
 strip everything optional:
@@ -37,13 +37,25 @@ cmake -B build -DLDG_WITH_AUDIO=OFF -DLDG_WITH_NET=OFF -DLDG_WITH_FMT=OFF
 
 after install: `pkg-config --cflags --libs dangling`
 
+## API
+
+API lvl `DANGLING_1.0`. `symbols.txt` is the authoritative surface: 210 exported subroutines, 1 data sym, 46 inline subroutines, 37 types, ~230 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
+
+ABI ck (requires `abi-dumper` and `abi-compliance-checker`):
+
+```sh
+cmake -B build -DSTD_DEBUG=ON && cmake --build build
+make -C build abi-dump       # -> build/abi/dangling-1.0.0.abi.tar.gz
+make -C build abi-check      # diffs against abi/dangling-baseline.abi.tar.gz
+```
+
 ## modules
 
 ### core
 
 `core/types.h`: `ldg_byte_t`, `ldg_word_t`, `ldg_dword_t`, `ldg_qword_t` (short aliases: `byte_t`, `word_t`, `dword_t`, `qword_t`)
 
-`core/err.h`: err codes 0-690 (libdangling reserved); 700-990 (projects). every func returns `uint32_t`. `LDG_ERR_AOK` = 0. logging: `LDG_ERRLOG_ERR/WARN/INFO()`
+`core/err.h`: err codes 0-690 (libdangling reserved); 700-990 (projects). every subroutine rets `uint32_t`. `LDG_ERR_AOK` = 0. logging: `LDG_ERRLOG_ERR/WARN/INFO()`
 
 `core/macros.h`: `LDG_LIKELY/UNLIKELY`, `LDG_KIB/MIB/GIB`, `LDG_MS_PER_SEC`, `LDG_NS_PER_SEC`, `LDG_STRUCT_ZERO_INIT`, `LDG_AMD64_CACHE_LINE_WIDTH`, `LDG_ALIGNED_UP/DOWN()`
 
@@ -53,7 +65,7 @@ after install: `pkg-config --cflags --libs dangling`
 
 ### mem
 
-`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc (fixed-size and variable-size)
+`mem/alloc.h`: tracked allocator; sentinel-guarded, leak detection, pool alloc (fixed-size and variable-size). `exit()`s if subsystem not init
 
 ```c
 ldg_mem_init();
@@ -78,11 +90,11 @@ void *b = 0x0;
 ldg_mem_pool_create(0, 4096, &vpool);
 ldg_mem_pool_alloc(vpool, 128, &a);
 ldg_mem_pool_alloc(vpool, 64, &b);
-ldg_mem_pool_reset(vpool);
+ldg_mem_pool_rst(vpool);
 ldg_mem_pool_destroy(&vpool);
 ```
 
-`mem/secure.h`: constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()`; NASM on amd64
+`mem/secure.h`: constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()` (all ret `uint32_t`); NASM on amd64
 
 ### str
 
@@ -90,13 +102,13 @@ ldg_mem_pool_destroy(&vpool);
 
 ### time
 
-`time/time.h`: `ldg_time_epoch_ms_get()`, `ldg_time_epoch_ns_get()`, `ldg_time_monotonic_get()`
+`time/time.h`: `ldg_time_epoch_ms_get()`, `ldg_time_epoch_ns_get()`, `ldg_time_monotonic_get(double *out)`
 
-`time/perf.h`: frame timing via `ldg_time_ctx_t`; call `ldg_time_tick()` per frame, read `ldg_time_dt_get()`, `ldg_time_fps_get()`, `ldg_time_frame_cunt_get()`. TSC calibration via `ldg_tsc_ctx_t`
+`time/perf.h`: frame timing via `ldg_time_ctx_t`; call `ldg_time_tick()` per frame, read `ldg_time_dt_get(ctx, &out)`, `ldg_time_fps_get(ctx, &out)`, `ldg_time_frame_cunt_get()`. TSC calibration via `ldg_tsc_ctx_t`
 
 ### thread
 
-`thread/sync.h`: `ldg_mut_t`, `ldg_cond_t`, `ldg_sem_t`; all support process-shared (Linux); CRITICAL_SECTION/CONDITION_VARIABLE/Win32 semaphores (Windows). `ldg_cond_bcast()`, `ldg_cond_sig()`, `ldg_cond_timedwait()` all return `uint32_t`
+`thread/sync.h`: `ldg_mut_t`, `ldg_cond_t`, `ldg_sem_t`; all support process-shared (Linux); CRITICAL_SECTION/CONDITION_VARIABLE/Win32 semaphores (Windows). `ldg_cond_bcast()`, `ldg_cond_sig()`, `ldg_cond_timedwait()` all ret `uint32_t`
 
 `thread/spsc.h`: lock-free SPSC queue; fixed capacity, arbitrary item size; bounds-checked buffer access
 
@@ -130,7 +142,9 @@ ldg_mpmc_shutdown(&q);
 
 ### net
 
-`net/curl.h`: libcurl multi (concurrent + progress) and easy (single + streaming cb) interfaces; hdr list helpers
+`net/curl.h`: cURL multi (concurrent + progress via `ldg_curl_multi_progress_get(ctx, &out)`) and easy (single + streaming cb) interfaces; hdr list helpers
+
+`net/gql.h`: GraphQL client; `ldg_gql_ctx_create/destroy()`, `ldg_gql_exec()`. wraps cURL easy for JSON POST to a GQL endpoint
 
 ### audio
 
@@ -160,7 +174,7 @@ ldg_mpmc_shutdown(&q);
 
 `tsc.h`: TSC sampling, serialized reads, calibration
 
-`cpuid.h`: `ldg_cpuid()`; feature detection, vendor/brand, core ID
+`cpuid.h`: `ldg_cpuid()`; `ldg_cpuid_feat_get()`, vendor/brand, core ID
 
 `syscall.h`: `ldg_syscall0` through `ldg_syscall4`
 
@@ -170,7 +184,7 @@ ldg_mpmc_shutdown(&q);
 
 ### fmt
 
-`fmt/fmt.h`: embedded uncrustify cfg; `ldg_fmt_cfg_get()` returns the string; `ldg_fmt_cfg_path_get()` returns the install path
+`fmt/fmt.h`: embedded uncrustify cfg; `ldg_fmt_cfg_get()` rets the string; `ldg_fmt_cfg_path_get()` rets the install path
 
 ## tests
 

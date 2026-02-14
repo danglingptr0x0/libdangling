@@ -2,12 +2,16 @@
 ; Microsoft x64 ABI: args in rcx, rdx, r8, r9; return in rax
 ; Callee-saved: rbx, rbp, rdi, rsi, r12-r15
 
+%include "dangling/core/err.inc"
+
 section .text
 
-; void ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
+; uint32_t ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
 ; rcx=leaf, edx=subleaf, r8=regs
 global ldg_cpuid
 ldg_cpuid:
+    test    r8, r8
+    jz      .cpuid_null_err
     push    rbx
     mov     eax, ecx
     mov     ecx, edx
@@ -20,14 +24,21 @@ ldg_cpuid:
     mov     [r9 + 8], ecx
     mov     [r9 + 12], edx
 
+    xor     eax, eax
     pop     rbx
     ret
 
+.cpuid_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_vendor_get(char out[13])
+
+; uint32_t ldg_cpuid_vendor_get(char out[13])
 ; rcx=out
 global ldg_cpuid_vendor_get
 ldg_cpuid_vendor_get:
+    test    rcx, rcx
+    jz      .vendor_null_err
     push    rbx
     mov     r8, rcx
 
@@ -39,14 +50,21 @@ ldg_cpuid_vendor_get:
     mov     [r8 + 8], ecx
     mov     byte [r8 + 12], 0
 
+    xor     eax, eax
     pop     rbx
     ret
 
+.vendor_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_brand_get(char out[49])
+
+; uint32_t ldg_cpuid_brand_get(char out[49])
 ; rcx=out
 global ldg_cpuid_brand_get
 ldg_cpuid_brand_get:
+    test    rcx, rcx
+    jz      .brand_null_err
     push    rbx
     push    r12
     mov     r12, rcx
@@ -84,15 +102,22 @@ ldg_cpuid_brand_get:
     mov     byte [r12], 0
 
 .done:
+    xor     eax, eax
     pop     r12
     pop     rbx
     ret
 
+.brand_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_features_get(ldg_cpuid_features_t *features)
-; rcx=features
-global ldg_cpuid_features_get
-ldg_cpuid_features_get:
+
+; uint32_t ldg_cpuid_feat_get(ldg_cpuid_feat_t *feat)
+; rcx=feat
+global ldg_cpuid_feat_get
+ldg_cpuid_feat_get:
+    test    rcx, rcx
+    jz      .feat_null_err
     push    rbx
     push    r12
     mov     r12, rcx
@@ -164,8 +189,13 @@ ldg_cpuid_features_get:
 
     mov     [r12], r8d
 
+    xor     eax, eax
     pop     r12
     pop     rbx
+    ret
+
+.feat_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
 
