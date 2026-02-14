@@ -177,7 +177,7 @@ if(LDG_ARCH STREQUAL "amd64")
     add_custom_target(err_nasm_gen DEPENDS ${LDG_ERR_INC})
     set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include/")
 else()
-    set(LDG_ARCH_SOURCES src/mem/secure.c)
+    set(LDG_ARCH_SOURCES src/none/none/mem/secure.c)
 endif()
 
 set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")
@@ -204,7 +204,8 @@ foreach(LDG_TARGET dangling_shared dangling_static)
     target_include_directories(${LDG_TARGET} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/none/none>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${LDG_ARCH}/none>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include/none/none>
+        $<INSTALL_INTERFACE:include/${LDG_ARCH}/none>
     )
     if(LDG_OPT_INCLUDE_DIRS)
         target_include_directories(${LDG_TARGET} SYSTEM PUBLIC ${LDG_OPT_INCLUDE_DIRS})
@@ -229,8 +230,8 @@ install(TARGETS dangling_shared dangling_static
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(DIRECTORY include/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/none/none)
+install(DIRECTORY include/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${LDG_ARCH}/none)
 
 if(EXISTS ${LDG_ERR_INC})
     install(FILES ${LDG_ERR_INC} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dangling/core)
