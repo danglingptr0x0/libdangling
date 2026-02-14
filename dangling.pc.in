@@ -9,4 +9,4 @@ Description: Personal utility library
 Version: @PROJECT_VERSION@
 Requires: @LDG_PC_REQUIRES@
 Libs: -L${libdir} -ldangling
-Cflags: -I${includedir}/none/none -I${includedir}/@LDG_ARCH@/none
+Cflags: -I${includedir}
