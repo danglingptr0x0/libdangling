@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 1.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 1.0.1 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
