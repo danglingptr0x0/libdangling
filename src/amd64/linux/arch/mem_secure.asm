@@ -1,6 +1,8 @@
 ; mem_secure.asm - secure memory operations
 ; System V AMD64 ABI: args in rdi, rsi, rdx, rcx, r8, r9; return in rax
 
+%include "dangling/core/err.inc"
+
 section .data
     align 64
 
@@ -12,9 +14,9 @@ section .text
 global ldg_mem_secure_zero
 ldg_mem_secure_zero:
     test    rdi, rdi
-    jz      .done
+    jz      .null_err
     test    rsi, rsi
-    jz      .done
+    jz      .invalid_err
 
     mov     rcx, rsi
     xor     eax, eax
@@ -67,18 +69,24 @@ ldg_mem_secure_zero:
 .done:
     ret
 
+.null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
+
+.invalid_err:
+    mov     eax, LDG_ERR_FUNC_ARG_INVALID
+    ret
+
 
 global ldg_mem_secure_copy
 ldg_mem_secure_copy:
     test    rdi, rdi
-    jz      .copy_done
+    jz      .copy_null_err
     test    rsi, rsi
-    jz      .copy_done
+    jz      .copy_null_err
     test    rdx, rdx
-    jz      .copy_done
+    jz      .copy_invalid_err
 
-    push    rsi
-    push    rdx
     mov     rcx, rdx
 
     mov     r8, rcx
@@ -98,7 +106,7 @@ ldg_mem_secure_copy:
     mov     rcx, r8
     and     rcx, 7
     test    rcx, rcx
-    jz      .copy_clear_src
+    jz      .copy_clear_regs
 
 .copy_byte_loop:
     mov     al, byte [rsi]
@@ -107,36 +115,6 @@ ldg_mem_secure_copy:
     inc     rsi
     dec     rcx
     jnz     .copy_byte_loop
-
-.copy_clear_src:
-    pop     rdx
-    pop     rsi
-    mov     rdi, rsi
-    mov     rcx, rdx
-    xor     eax, eax
-
-    mov     r8, rcx
-    shr     rcx, 3
-    test    rcx, rcx
-    jz      .clear_src_byte_setup
-
-.clear_src_qword_loop:
-    mov     qword [rdi], rax
-    add     rdi, 8
-    dec     rcx
-    jnz     .clear_src_qword_loop
-
-.clear_src_byte_setup:
-    mov     rcx, r8
-    and     rcx, 7
-    test    rcx, rcx
-    jz      .copy_clear_regs
-
-.clear_src_byte_loop:
-    mov     byte [rdi], al
-    inc     rdi
-    dec     rcx
-    jnz     .clear_src_byte_loop
 
 .copy_clear_regs:
     mfence
@@ -163,18 +141,33 @@ ldg_mem_secure_copy:
 .copy_done:
     ret
 
+.copy_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
+.copy_invalid_err:
+    mov     eax, LDG_ERR_FUNC_ARG_INVALID
+    ret
+
+
+; uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
+; rdi=a, rsi=b, rdx=len, rcx=result
 global ldg_mem_secure_cmp
 ldg_mem_secure_cmp:
     test    rdi, rdi
-    jz      .cmp_fail
+    jz      .cmp_null_err
     test    rsi, rsi
-    jz      .cmp_fail
-    test    rdx, rdx
-    jz      .cmp_equal
+    jz      .cmp_null_err
+    test    rcx, rcx
+    jz      .cmp_null_err
 
-    xor     eax, eax
+    mov     dword [rcx], 0
+    test    rdx, rdx
+    jz      .cmp_done
+
+    push    rcx
     mov     rcx, rdx
+    xor     eax, eax
 
 .cmp_loop:
     mov     r8b, byte [rdi]
@@ -185,18 +178,128 @@ ldg_mem_secure_cmp:
     dec     rcx
     jnz     .cmp_loop
 
+    mov     r8b, al
+    shr     r8b, 4
+    or      al, r8b
+    mov     r8b, al
+    shr     r8b, 2
+    or      al, r8b
+    mov     r8b, al
+    shr     r8b, 1
+    or      al, r8b
+    and     eax, 1
+
+    pop     rcx
+    mov     dword [rcx], eax
+
+    xor     eax, eax
     xor     ecx, ecx
     xor     edx, edx
     xor     esi, esi
     xor     edi, edi
     xor     r8d, r8d
-    movzx   eax, al
+
+.cmp_done:
+    xor     eax, eax
     ret
 
-.cmp_fail:
-    mov     eax, -1
+.cmp_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-.cmp_equal:
+
+; uint32_t ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
+; rdi=dst, rsi=src, rdx=len, rcx=cond (cl)
+global ldg_mem_secure_cmov
+ldg_mem_secure_cmov:
+    test    rdi, rdi
+    jz      .cmov_null_err
+    test    rsi, rsi
+    jz      .cmov_null_err
+    test    rdx, rdx
+    jz      .cmov_invalid_err
+
+    and     ecx, 1
+    neg     cl
+    mov     r8, rdx
+    xor     eax, eax
+
+.cmov_loop:
+    mov     al, byte [rdi]
+    xor     al, byte [rsi]
+    and     al, cl
+    xor     byte [rdi], al
+    inc     rdi
+    inc     rsi
+    dec     r8
+    jnz     .cmov_loop
+
+    mfence
+
+    xor     eax, eax
+    xor     ecx, ecx
+    xor     edx, edx
+    xor     esi, esi
+    xor     edi, edi
+    xor     r8d, r8d
+
+    ret
+
+.cmov_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
+
+.cmov_invalid_err:
+    mov     eax, LDG_ERR_FUNC_ARG_INVALID
+    ret
+
+
+; uint8_t ldg_mem_secure_neq_is(const void *a, const void *b, uint64_t len)
+; rdi=a, rsi=b, rdx=len; returns 0 or 1
+global ldg_mem_secure_neq_is
+ldg_mem_secure_neq_is:
+    test    rdi, rdi
+    jz      .neq_null
+    test    rsi, rsi
+    jz      .neq_null
+    test    rdx, rdx
+    jz      .neq_zero_len
+
+    mov     rcx, rdx
+    xor     eax, eax
+
+.neq_loop:
+    mov     r8b, byte [rdi]
+    xor     r8b, byte [rsi]
+    or      al, r8b
+    inc     rdi
+    inc     rsi
+    dec     rcx
+    jnz     .neq_loop
+
+    mov     r8b, al
+    shr     r8b, 4
+    or      al, r8b
+    mov     r8b, al
+    shr     r8b, 2
+    or      al, r8b
+    mov     r8b, al
+    shr     r8b, 1
+    or      al, r8b
+    and     eax, 1
+
+    xor     ecx, ecx
+    xor     edx, edx
+    xor     esi, esi
+    xor     edi, edi
+    xor     r8d, r8d
+
+    ret
+
+.neq_null:
+    mov     eax, 1
+    ret
+
+.neq_zero_len:
     xor     eax, eax
     ret

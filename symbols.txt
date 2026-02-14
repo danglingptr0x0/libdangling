@@ -1,0 +1,843 @@
+libdangling API Reference
+=========================
+Version: 1.0.0
+API Level: DANGLING_1.0
+Status: FROZEN
+
+This file is the authoritative public API surface. Every symbol listed
+here is part of the stable ABI contract. Additions require a version
+bump. Removals or signature changes require a major version bump.
+
+Symbols marked [conditional] are only present when the corresponding
+build option is enabled.
+
+Legend:
+    F   = LDG_EXPORT function (linker symbol)
+    I   = static inline function (header-only, no linker symbol)
+    T   = typedef (struct, enum, callback)
+    D   = extern data symbol (linker symbol)
+    M   = macro / constant
+
+===============================================================================
+core/types.h
+===============================================================================
+
+T   ldg_byte_t                          uint8_t alias
+T   ldg_word_t                          uint16_t alias
+T   ldg_dword_t                         uint32_t alias
+T   ldg_qword_t                         uint64_t alias
+T   byte_t                              uint8_t alias (short form)
+T   word_t                              uint16_t alias (short form)
+T   dword_t                             uint32_t alias (short form)
+T   qword_t                             uint64_t alias (short form)
+
+===============================================================================
+core/macros.h
+===============================================================================
+
+M   LDG_LIKELY(x)
+M   LDG_UNLIKELY(x)
+M   LDG_KIB                             1024ULL
+M   LDG_MIB                             1048576ULL
+M   LDG_GIB                             1073741824ULL
+M   LDG_MS_PER_SEC                      1000ULL
+M   LDG_NS_PER_MS                       1000000ULL
+M   LDG_NS_PER_SEC                      1000000000ULL
+M   LDG_SECS_PER_MIN                    60
+M   LDG_SECS_PER_HOUR                   3600
+M   LDG_BASE_DEC                        10
+M   LDG_BASE_HEX                        16
+M   LDG_STR_TERM                        '\0'
+M   LDG_STR_TERM_SIZE                   1
+M   LDG_IO_PIPE_BUFF_SIZE               4096
+M   LDG_TRUTH_TRUE                      1
+M   LDG_TRUTH_FALSE                     0
+M   LDG_TRUTH_MAYBE                     2
+M   LDG_STRUCT_ZERO_INIT                { 0 }
+M   LDG_ARR_ZERO_INIT                   { 0 }
+M   LDG_AMD64_CACHE_LINE_WIDTH          64
+M   LDG_ALIGNED                         __attribute__((aligned(64)))
+M   LDG_ALIGNED_UP(x)
+M   LDG_ALIGNED_DOWN(x)
+M   LDG_BOOL_ASSERT(cond)
+M   LDG_EXPORT
+
+===============================================================================
+core/bits.h
+===============================================================================
+
+M   LDG_BYTE_BITS                        8
+M   LDG_BYTE_MASK                        0xFFU
+M   LDG_BYTE_SHIFT_3                     24
+M   LDG_BYTE_SHIFT_2                     16
+M   LDG_BYTE_SHIFT_1                     8
+M   LDG_NIBBLE_BITS                      4
+M   LDG_NIBBLE_MASK                      0xFU
+M   LDG_WORD_BYTES                       4
+M   LDG_WORD_MASK                        3
+M   LDG_IS_POW2(x)
+
+===============================================================================
+core/err.h
+===============================================================================
+
+M   LDG_ERR_AOK                          0
+M   LDG_ERR_FUNC_ARG_NULL                1
+M   LDG_ERR_FUNC_ARG_INVALID             2
+M   LDG_ERR_ALLOC_NULL                   3
+M   LDG_ERR_NOT_INIT                     4
+M   LDG_ERR_FULL                         5
+M   LDG_ERR_OVERFLOW                     6
+M   LDG_ERR_EMPTY                        7
+M   LDG_ERR_BUSY                         8
+M   LDG_ERR_INVALID                      9
+M   LDG_ERR_TIMEOUT                      10
+M   LDG_ERR_NOT_FOUND                    11
+M   LDG_ERR_EXISTS                       12
+M   LDG_ERR_DENIED                       13
+M   LDG_ERR_UNSUPPORTED                  14
+M   LDG_ERR_CANCELLED                    15
+M   LDG_ERR_INTERRUPTED                  16
+M   LDG_ERR_RANGE                        17
+M   LDG_ERR_BOUNDS                       18
+M   LDG_ERR_WOULD_BLOCK                  19
+M   LDG_ERR_AGAIN                        20
+M   LDG_ERR_CLOSED                       21
+M   LDG_ERR_EOF                          22
+M   LDG_ERR_MEM_BAD                      100
+M   LDG_ERR_MEM_STR_TRUNC                101
+M   LDG_ERR_MEM_MEMMOVE_ALLOCD           102
+M   LDG_ERR_MEM_SENTINEL                 103
+M   LDG_ERR_MEM_POOL_FULL                104
+M   LDG_ERR_MEM_POOL_INVALID             105
+M   LDG_ERR_MEM_DOUBLE_FREE              106
+M   LDG_ERR_MEM_ALIGNMENT                107
+M   LDG_ERR_MEM_CORRUPTION               108
+M   LDG_ERR_IO_NOT_FOUND                 200
+M   LDG_ERR_IO_RD                        201
+M   LDG_ERR_IO_WR                        202
+M   LDG_ERR_IO_FMT                       203
+M   LDG_ERR_IO_OPEN                      204
+M   LDG_ERR_IO_CLOSE                     205
+M   LDG_ERR_IO_SEEK                      206
+M   LDG_ERR_IO_FLUSH                     207
+M   LDG_ERR_IO_PERM                      208
+M   LDG_ERR_IO_IS_DIR                    209
+M   LDG_ERR_IO_NOT_DIR                   210
+M   LDG_ERR_TIME_CORE_MIGRATED           300
+M   LDG_ERR_TIME_NOT_CALIBRATED          301
+M   LDG_ERR_NET_INIT                     400
+M   LDG_ERR_NET_PERFORM                  401
+M   LDG_ERR_NET_TIMEOUT                  402
+M   LDG_ERR_NET_CONN                     403
+M   LDG_ERR_NET_DISCONNECTED             404
+M   LDG_ERR_NET_REFUSED                  405
+M   LDG_ERR_NET_UNREACHABLE              406
+M   LDG_ERR_NET_DNS                      407
+M   LDG_ERR_NET_TLS                      408
+M   LDG_ERR_NET_PROTOCOL                 409
+M   LDG_ERR_NET_RST                      410
+M   LDG_ERR_NET_SEND                     411
+M   LDG_ERR_NET_RECV                     412
+M   LDG_ERR_STR_TRUNC                    500
+M   LDG_ERR_STR_OVERLAP                  501
+M   LDG_ERR_STR_INVALID                  502
+M   LDG_ERR_STR_EMPTY                    503
+M   LDG_ERR_STR_FMT                      504
+M   LDG_ERR_AUDIO_INIT                   600
+M   LDG_ERR_AUDIO_NOT_INIT               601
+M   LDG_ERR_AUDIO_NOT_AVAILABLE          602
+M   LDG_ERR_AUDIO_STREAM_NOT_FOUND       603
+M   LDG_ERR_AUDIO_SINK_NOT_FOUND         604
+M   LDG_ERR_AUDIO_SOURCE_NOT_FOUND       605
+M   LDG_ERR_AUDIO_NO_DEFAULT             606
+M   LDG_ERR_AUDIO_DUCK_FULL              607
+M   LDG_ERR_AUDIO_DUCK_EMPTY             608
+M   LDG_ERR_AUDIO_VOL_RANGE              609
+M   LDG_ERR_PROTO_EMIRU_BAD_MAGIC        650
+M   LDG_ERR_PROTO_EMIRU_BAD_REV          651
+M   LDG_ERR_PROTO_EMIRU_BAD_RING         652
+M   LDG_ERR_PROTO_EMIRU_BAD_ENTRY        653
+M   LDG_ERR_PROTO_EMIRU_TRUNCATED        654
+M   LDG_ERR_PROTO_EMIRU_BUFF_TOO_SMALL   655
+M   LDG_ERR_PROTO_EMIEMI_BAD_MARKER      660
+M   LDG_ERR_PROTO_EMIEMI_BAD_SIZE        661
+M   LDG_ERR_PROTO_EMIEMI_BAD_DELIM       662
+M   LDG_ERR_PROTO_EMIEMI_TRUNCATED       663
+M   LDG_ERR_PROTO_EMIEMI_BUFF_TOO_SMALL  664
+M   LDG_ERR_PROTO_EMIEMI_IO_RD           665
+M   LDG_ERR_PROTO_EMIEMI_IO_WR           666
+M   LDG_ERRLOG_LVL_ERR                   0
+M   LDG_ERRLOG_LVL_WARN                  1
+M   LDG_ERRLOG_LVL_INFO                  2
+M   LDG_ERRLOG_HANDLER(lvl, msg)
+M   LDG_ERRLOG(lvl, msg)
+M   LDG_ERRLOG_ERR(msg)
+M   LDG_ERRLOG_WARN(msg)
+M   LDG_ERRLOG_INFO(msg)
+
+===============================================================================
+core/arith.h
+===============================================================================
+
+I   uint32_t ldg_arith_32_add(uint32_t a, uint32_t b, uint32_t *ret)
+I   uint32_t ldg_arith_32_sub(uint32_t a, uint32_t b, uint32_t *ret)
+I   uint32_t ldg_arith_32_mul(uint32_t a, uint32_t b, uint32_t *ret)
+I   uint32_t ldg_arith_32_div(uint32_t a, uint32_t b, uint32_t *ret)
+I   uint32_t ldg_arith_64_add(uint64_t a, uint64_t b, uint64_t *ret)
+I   uint32_t ldg_arith_64_sub(uint64_t a, uint64_t b, uint64_t *ret)
+I   uint32_t ldg_arith_64_mul(uint64_t a, uint64_t b, uint64_t *ret)
+I   uint32_t ldg_arith_64_div(uint64_t a, uint64_t b, uint64_t *ret)
+
+===============================================================================
+mem/mem.h
+===============================================================================
+
+M   LDG_MEM_SENTINEL                     0x00454D49
+M   LDG_MEM_POISON                       0x505553534C49434BULL
+M   LDG_MEM_POISON_BYTE                  0x4B
+M   LDG_MEM_POOL_MAX                     64
+M   LDG_MEM_POOL_VAR_ALIGN               8
+
+===============================================================================
+mem/alloc.h
+===============================================================================
+
+T   ldg_mem_stats_t                      Memory statistics aggregate
+T   ldg_mem_pool_t                       Pool allocator (fixed or variable)
+
+F   uint32_t ldg_mem_init(void)
+F   uint32_t ldg_mem_shutdown(void)
+F   uint32_t ldg_mem_lock(void)
+F   uint8_t  ldg_mem_locked_is(void)
+F   uint32_t ldg_mem_alloc(uint64_t size, void **out)
+F   uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out)
+F   uint32_t ldg_mem_dealloc(void *ptr)
+F   uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool_t **out)
+F   uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
+F   uint32_t ldg_mem_pool_dealloc(ldg_mem_pool_t *pool, void *ptr)
+F   uint32_t ldg_mem_pool_destroy(ldg_mem_pool_t **pool)
+F   uint32_t ldg_mem_pool_rst(ldg_mem_pool_t *pool)
+F   uint64_t ldg_mem_pool_remaining_get(ldg_mem_pool_t *pool)
+F   uint64_t ldg_mem_pool_used_get(ldg_mem_pool_t *pool)
+F   uint64_t ldg_mem_pool_capacity_get(ldg_mem_pool_t *pool)
+F   uint8_t  ldg_mem_pool_var_is(ldg_mem_pool_t *pool)
+F   uint32_t ldg_mem_stats_get(ldg_mem_stats_t *stats)
+F   uint32_t ldg_mem_leaks_dump(void)
+F   uint8_t  ldg_mem_valid_is(const void *ptr)
+F   uint64_t ldg_mem_size_get(const void *ptr)
+
+===============================================================================
+mem/secure.h
+===============================================================================
+
+F   uint32_t ldg_mem_secure_zero(void *ptr, uint64_t len)
+F   uint32_t ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
+F   uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
+F   uint32_t ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
+F   uint8_t  ldg_mem_secure_neq_is(const void *a, const void *b, uint64_t len)
+
+===============================================================================
+str/str.h
+===============================================================================
+
+M   LDG_ASCII_PRINTABLE_MIN              32
+M   LDG_ASCII_PRINTABLE_MAX              126
+M   LDG_ASCII_NONPRINT_CHAR              '.'
+M   LDG_DJB2_HASH_INIT                   5381
+
+F   uint32_t ldg_strrbrcpy(char *dst, const char *src, uint64_t abssize)
+F   uint32_t ldg_byte_to_hex(byte_t val, char out[3])
+F   uint32_t ldg_dword_to_hex(dword_t val, char *buff)
+F   uint32_t ldg_str_to_dec(const char *str, dword_t *out)
+F   uint32_t ldg_hex_to_nipple(char c, byte_t *nipple)
+F   uint32_t ldg_hex_to_dword(const char *str, dword_t *out)
+F   uint32_t ldg_hex_to_bytes(const char *hex, byte_t *out, uint64_t max)
+F   uint8_t  ldg_hex_str_is(const char *str)
+
+I   uint8_t  ldg_char_space_is(uint8_t c)
+I   uint8_t  ldg_char_digit_is(uint8_t c)
+I   uint8_t  ldg_char_alpha_is(uint8_t c)
+I   uint8_t  ldg_char_alnum_is(uint8_t c)
+I   uint8_t  ldg_char_hex_is(uint8_t c)
+
+===============================================================================
+fmt/fmt.h                                                        [conditional: LDG_WITH_FMT]
+===============================================================================
+
+F   uint32_t ldg_fmt_cfg_get(const char **out)
+F   uint32_t ldg_fmt_cfg_path_get(const char **out)
+
+===============================================================================
+parse/parse.h
+===============================================================================
+
+M   LDG_TOK_MAX                          16
+M   LDG_TOK_LEN_MAX                      32
+
+T   ldg_tok_type_t                       Token type enum (TOK_WORD, TOK_QUOTED, ...)
+T   ldg_tok_t                            Single token
+T   ldg_tok_arr_t                        Token array
+T   ldg_cmd_handler_t                    Command handler callback
+T   ldg_cmd_entry_t                      Command table entry
+
+F   uint32_t ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
+F   uint8_t  ldg_parse_streq_is(const char *a, const char *b)
+
+===============================================================================
+io/file.h
+===============================================================================
+
+M   LDG_IO_RDONLY                        0x01
+M   LDG_IO_WRONLY                        0x02
+M   LDG_IO_RDWR                          0x03
+M   LDG_IO_CREATE                        0x04
+M   LDG_IO_TRUNC                         0x08
+M   LDG_IO_APPEND                        0x10
+M   LDG_IO_EXCL                          0x20
+M   LDG_IO_SEEK_SET                      0
+M   LDG_IO_SEEK_CUR                      1
+M   LDG_IO_SEEK_END                      2
+
+T   ldg_io_file_t                        File handle
+T   ldg_io_stat_t                        File stat result
+
+F   uint32_t ldg_io_file_open(const char *path, uint32_t flags, uint32_t mode, ldg_io_file_t **out)
+F   uint32_t ldg_io_file_close(ldg_io_file_t *f)
+F   uint32_t ldg_io_file_rd(ldg_io_file_t *f, void *buff, uint64_t size, uint64_t *bytes_rd)
+F   uint32_t ldg_io_file_wr(ldg_io_file_t *f, const void *buff, uint64_t size, uint64_t *bytes_wr)
+F   uint32_t ldg_io_file_seek(ldg_io_file_t *f, uint64_t offset, uint32_t whence)
+F   uint32_t ldg_io_file_pos_get(ldg_io_file_t *f, uint64_t *pos)
+F   uint32_t ldg_io_file_stat(const char *path, ldg_io_stat_t *st)
+F   uint32_t ldg_io_file_fstat(ldg_io_file_t *f, ldg_io_stat_t *st)
+F   uint32_t ldg_io_file_sync(ldg_io_file_t *f)
+F   uint32_t ldg_io_file_truncate(ldg_io_file_t *f, uint64_t size)
+F   uint32_t ldg_io_file_lock(ldg_io_file_t *f)
+F   uint32_t ldg_io_file_unlock(ldg_io_file_t *f)
+F   uint32_t ldg_io_pipe_create(ldg_io_file_t **rd, ldg_io_file_t **wr)
+F   uint32_t ldg_io_file_dup(ldg_io_file_t *src, ldg_io_file_t **out)
+
+===============================================================================
+io/dir.h
+===============================================================================
+
+M   LDG_IO_DIR_PATH_MAX                  4096
+
+T   ldg_io_dir_t                         Directory handle
+T   ldg_io_dirent_t                      Directory entry
+
+F   uint32_t ldg_io_dir_create(const char *path, uint32_t mode)
+F   uint32_t ldg_io_dir_destroy(const char *path)
+F   uint32_t ldg_io_dir_open(const char *path, ldg_io_dir_t **out)
+F   uint32_t ldg_io_dir_rd(ldg_io_dir_t *d, ldg_io_dirent_t **out)
+F   uint32_t ldg_io_dir_close(ldg_io_dir_t *d)
+F   uint32_t ldg_io_dirent_name_get(ldg_io_dirent_t *e, const char **name)
+F   uint32_t ldg_io_dirent_dir_is(ldg_io_dirent_t *e, uint8_t *is_dir)
+
+===============================================================================
+io/path.h
+===============================================================================
+
+F   uint32_t ldg_io_path_rename(const char *old_path, const char *new_path)
+F   uint32_t ldg_io_path_unlink(const char *path)
+F   uint32_t ldg_io_path_mode_set(const char *path, uint32_t mode)
+F   uint32_t ldg_io_path_exists_is(const char *path, uint8_t *exists)
+F   uint32_t ldg_io_symlink_create(const char *target, const char *link_path)
+F   uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size, uint64_t *len)
+F   uint8_t  ldg_io_path_sep_get(void)
+F   uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_basename_get(const char *path, char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
+F   uint8_t  ldg_io_path_absolute_is(const char *path)
+F   uint32_t ldg_io_path_normalize(const char *path, char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
+F   uint32_t ldg_io_path_expand(const char *path, char *buff, uint64_t buff_size)
+
+===============================================================================
+sys/info.h
+===============================================================================
+
+F   uint32_t ldg_sys_hostname_get(char *buff, uint64_t buff_size)
+F   uint32_t ldg_sys_cpu_cunt_get(uint32_t *cunt)
+F   uint32_t ldg_sys_page_size_get(uint64_t *size)
+F   uint32_t ldg_sys_env_get(const char *name, char *buff, uint64_t buff_size)
+F   uint32_t ldg_sys_pid_get(uint64_t *pid)
+
+===============================================================================
+sys/tty.h
+===============================================================================
+
+F   uint32_t ldg_sys_tty_stdout_is(uint8_t *is_tty)
+F   uint32_t ldg_sys_tty_width_get(uint32_t *cols)
+
+===============================================================================
+sys/uuid.h
+===============================================================================
+
+M   LDG_UUID_BYTE_SIZE                   16
+M   LDG_UUID_STR_SIZE                    37
+
+F   uint32_t ldg_sys_uuid_gen(uint8_t uuid[LDG_UUID_BYTE_SIZE])
+F   uint32_t ldg_sys_uuid_to_str(const uint8_t uuid[LDG_UUID_BYTE_SIZE], char *str, uint64_t str_size)
+
+===============================================================================
+time/time.h
+===============================================================================
+
+F   uint64_t ldg_time_epoch_ms_get(void)
+F   uint64_t ldg_time_epoch_ns_get(void)
+F   uint32_t ldg_time_monotonic_get(double *out)
+
+===============================================================================
+time/perf.h
+===============================================================================
+
+M   LDG_TIME_SMOOTH_ALPHA                0.1
+
+T   ldg_time_ctx_t                       Performance timing context
+
+F   uint32_t ldg_time_init(ldg_time_ctx_t *ctx)
+F   void     ldg_time_tick(ldg_time_ctx_t *ctx)
+F   uint32_t ldg_time_get(ldg_time_ctx_t *ctx, double *out)
+F   uint32_t ldg_time_dt_get(ldg_time_ctx_t *ctx, double *out)
+F   uint32_t ldg_time_dt_smoothed_get(ldg_time_ctx_t *ctx, double *out)
+F   uint32_t ldg_time_fps_get(ldg_time_ctx_t *ctx, double *out)
+F   uint64_t ldg_time_frame_cunt_get(ldg_time_ctx_t *ctx)
+
+===============================================================================
+thread/sync.h
+===============================================================================
+
+M   LDG_MUT_IMPL_SIZE                    48
+M   LDG_COND_IMPL_SIZE                   56
+M   LDG_SEM_NAME_MAX                     32
+
+T   ldg_mut_t                            Mutex
+T   ldg_cond_t                           Condition variable
+T   ldg_sem_t                            Named semaphore
+
+F   uint32_t ldg_mut_init(ldg_mut_t *m, uint8_t shared)
+F   uint32_t ldg_mut_destroy(ldg_mut_t *m)
+F   uint32_t ldg_mut_lock(ldg_mut_t *m)
+F   uint32_t ldg_mut_unlock(ldg_mut_t *m)
+F   uint32_t ldg_mut_trylock(ldg_mut_t *m)
+F   uint32_t ldg_cond_init(ldg_cond_t *c, uint8_t shared)
+F   uint32_t ldg_cond_destroy(ldg_cond_t *c)
+F   uint32_t ldg_cond_wait(ldg_cond_t *c, ldg_mut_t *m)
+F   uint32_t ldg_cond_timedwait(ldg_cond_t *c, ldg_mut_t *m, uint64_t timeout_ms)
+F   uint32_t ldg_cond_sig(ldg_cond_t *c)
+F   uint32_t ldg_cond_bcast(ldg_cond_t *c)
+F   uint32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
+F   uint32_t ldg_sem_open(ldg_sem_t *s, const char *name)
+F   uint32_t ldg_sem_destroy(ldg_sem_t *s)
+F   uint32_t ldg_sem_wait(ldg_sem_t *s)
+F   uint32_t ldg_sem_trywait(ldg_sem_t *s)
+F   uint32_t ldg_sem_post(ldg_sem_t *s)
+
+===============================================================================
+thread/spsc.h
+===============================================================================
+
+T   ldg_spsc_queue_t                     Single-producer single-consumer queue
+
+F   uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, uint64_t item_size, uint64_t capacity)
+F   uint32_t ldg_spsc_shutdown(ldg_spsc_queue_t *q)
+F   uint32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item)
+F   uint32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out)
+F   uint32_t ldg_spsc_peek(ldg_spsc_queue_t *q, void *item_out)
+F   uint64_t ldg_spsc_cunt_get(const ldg_spsc_queue_t *q)
+F   uint8_t  ldg_spsc_empty_is(const ldg_spsc_queue_t *q)
+F   uint8_t  ldg_spsc_full_is(const ldg_spsc_queue_t *q)
+
+===============================================================================
+thread/mpmc.h
+===============================================================================
+
+T   ldg_mpmc_slot_t                      MPMC queue slot (internal)
+T   ldg_mpmc_queue_t                     Multi-producer multi-consumer queue
+
+F   uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t capacity)
+F   uint32_t ldg_mpmc_shutdown(ldg_mpmc_queue_t *q)
+F   uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
+F   uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
+F   uint32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms)
+F   uint64_t ldg_mpmc_cunt_get(const ldg_mpmc_queue_t *q)
+F   uint8_t  ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q)
+F   uint8_t  ldg_mpmc_full_is(const ldg_mpmc_queue_t *q)
+
+===============================================================================
+thread/pool.h
+===============================================================================
+
+M   LDG_THREAD_POOL_MAX_WORKERS          64
+M   LDG_THREAD_POOL_TASK_QUEUE_CAPACITY  1024
+M   LDG_THREAD_POOL_WAIT_TIMEOUT_MS      10
+
+T   ldg_thread_pool_worker_func_t        Worker callback: uint32_t (*)(void *arg)
+T   ldg_thread_pool_task_t               Task descriptor
+T   ldg_thread_pool_worker_state_t       Worker state enum
+T   ldg_thread_pool_worker_t             Worker descriptor
+T   ldg_thread_pool_t                    Thread pool
+
+F   uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
+F   uint32_t ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
+F   uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
+F   uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
+F   uint64_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool)
+F   uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
+
+===============================================================================
+net/curl.h                                                       [conditional: LDG_WITH_NET]
+===============================================================================
+
+M   LDG_CURL_RESP_INITIAL_CAP            4096
+M   LDG_CURL_RESP_RESIZE_FACTOR          2
+M   LDG_CURL_RESP_MAX_CAP               256 MiB
+
+T   ldg_curl_resp_t                      HTTP response (data + size + status)
+T   ldg_curl_multi_req_t                 Multi request descriptor
+T   ldg_curl_multi_ctx_t                 Multi-handle context
+T   ldg_curl_easy_ctx_t                  Easy-handle context
+T   ldg_curl_stream_cb_t                 Streaming callback
+
+F   void     ldg_curl_resp_init(ldg_curl_resp_t *resp)
+F   void     ldg_curl_resp_free(ldg_curl_resp_t *resp)
+F   uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, uint64_t capacity)
+F   void     ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
+F   uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, void *headers)
+F   uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, void *headers)
+F   uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const char *data, void *headers)
+F   uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
+F   uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
+F   uint32_t ldg_curl_headers_append(void **list, const char *header)
+F   uint32_t ldg_curl_headers_copy(void *src, void **dst)
+F   void     ldg_curl_headers_destroy(void **list)
+F   uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
+F   void     ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
+F   uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *headers, ldg_curl_resp_t *resp)
+F   uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *headers, ldg_curl_resp_t *resp)
+F   uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, void *headers, ldg_curl_stream_cb_t cb, void *user_data)
+F   uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *headers, ldg_curl_stream_cb_t cb, void *user_data)
+
+===============================================================================
+net/gql.h                                                        [conditional: LDG_WITH_NET]
+===============================================================================
+
+T   ldg_gql_ctx_t                        GraphQL client context
+
+F   uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
+F   void     ldg_gql_ctx_destroy(ldg_gql_ctx_t *ctx)
+F   uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *headers, ldg_curl_resp_t *resp)
+
+===============================================================================
+audio/audio.h                                                    [conditional: LDG_WITH_AUDIO]
+===============================================================================
+
+M   LDG_AUDIO_NAME_MAX                   128
+M   LDG_AUDIO_DESC_MAX                   256
+
+T   ldg_audio_stream_t                   Audio stream descriptor
+T   ldg_audio_sink_t                     Audio sink (output device)
+T   ldg_audio_src_t                      Audio source (input device)
+
+F   uint32_t ldg_audio_init(void)
+F   void     ldg_audio_shutdown(void)
+F   uint32_t ldg_audio_sync(void)
+F   uint32_t ldg_audio_master_vol_get(double *vol)
+F   uint32_t ldg_audio_master_vol_set(double vol)
+F   uint32_t ldg_audio_stream_vol_get(uint32_t stream_id, double *vol)
+F   uint32_t ldg_audio_stream_vol_set(uint32_t stream_id, double vol)
+F   uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted)
+F   uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted)
+F   uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
+F   void     ldg_audio_stream_free(ldg_audio_stream_t *streams)
+F   uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
+F   void     ldg_audio_self_register(uint32_t stream_id)
+F   uint64_t ldg_audio_self_id_get(void)
+F   uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream)
+F   uint32_t ldg_audio_self_vol_get(double *vol)
+F   uint32_t ldg_audio_self_vol_set(double vol)
+F   uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
+F   void     ldg_audio_sink_free(ldg_audio_sink_t *sinks)
+F   uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
+F   void     ldg_audio_src_free(ldg_audio_src_t *srcs)
+F   uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
+F   uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src)
+F   uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
+F   uint32_t ldg_audio_unduck(void)
+
+===============================================================================
+proto/emiru.h
+===============================================================================
+
+M   LDG_EMIRU_MAGIC                      "EMIRU"
+M   LDG_EMIRU_MAGIC_LEN                  6
+M   LDG_EMIRU_HDR_SIZE                   32
+M   LDG_EMIRU_REV                        1
+M   LDG_EMIRU_FLAG_PIC                   (1 << 0)
+M   LDG_EMIRU_RING_MAX                   3
+
+T   ldg_emiru_hdr_t                      EMIRU binary header
+T   ldg_emiru_decoded_t                  Decoded EMIRU binary
+
+F   uint32_t     ldg_emiru_hdr_validate(const ldg_byte_t *buff, ldg_dword_t buff_len)
+F   uint32_t     ldg_emiru_decode(const ldg_byte_t *buff, ldg_dword_t buff_len, ldg_emiru_decoded_t *out)
+F   uint32_t     ldg_emiru_encode(const ldg_emiru_hdr_t *hdr, const ldg_byte_t *text, ldg_dword_t text_len, const ldg_byte_t *data, ldg_dword_t data_len, ldg_byte_t *out, ldg_dword_t out_len)
+I   ldg_dword_t  ldg_emiru_encoded_size_get(ldg_dword_t text_len, ldg_dword_t data_len)
+
+===============================================================================
+proto/emiemi.h
+===============================================================================
+
+M   LDG_EMIEMI_START_MARKER              "<<EMIEMI>"
+M   LDG_EMIEMI_END_MARKER               "<<EMIEMI>>"
+M   LDG_EMIEMI_START_MARKER_LEN          9
+M   LDG_EMIEMI_END_MARKER_LEN           10
+M   LDG_EMIEMI_SIZE_FIELD_LEN            6
+M   LDG_EMIEMI_DELIM                     '>'
+M   LDG_EMIEMI_HDR_LEN                   16
+M   LDG_EMIEMI_OVERHEAD                  26
+M   LDG_EMIEMI_MAX_PAYLOAD               0xFFFFFF
+M   LDG_EMIEMI_FNV1A_OFFSET              2166136261U
+M   LDG_EMIEMI_FNV1A_PRIME               16777619U
+
+T   ldg_emiemi_rd_byte_cb_t              I/O read callback
+T   ldg_emiemi_wr_cb_t                   I/O write callback
+T   ldg_emiemi_io_ctx_t                  I/O context (rd/wr callbacks + user ctx)
+
+F   uint32_t     ldg_emiemi_hdr_recv(ldg_emiemi_io_ctx_t *io, ldg_dword_t *payload_len)
+F   uint32_t     ldg_emiemi_payload_recv(ldg_emiemi_io_ctx_t *io, ldg_byte_t *buff, ldg_dword_t payload_len, ldg_dword_t *checksum)
+F   uint32_t     ldg_emiemi_recv(ldg_emiemi_io_ctx_t *io, ldg_byte_t *buff, ldg_dword_t buff_len, ldg_dword_t *payload_len, ldg_dword_t *checksum)
+F   uint32_t     ldg_emiemi_send(ldg_emiemi_io_ctx_t *io, const ldg_byte_t *payload, ldg_dword_t payload_len, ldg_dword_t *checksum)
+F   uint32_t     ldg_emiemi_encode(const ldg_byte_t *payload, ldg_dword_t payload_len, ldg_byte_t *out, ldg_dword_t out_len, ldg_dword_t *checksum)
+F   uint32_t     ldg_emiemi_decode(const ldg_byte_t *frame, ldg_dword_t frame_len, const ldg_byte_t **payload, ldg_dword_t *payload_len, ldg_dword_t *checksum)
+F   ldg_dword_t  ldg_emiemi_fnv1a(const ldg_byte_t *data, ldg_dword_t len)
+I   ldg_dword_t  ldg_emiemi_encoded_size_get(ldg_dword_t payload_len)
+
+===============================================================================
+math/linalg.h
+===============================================================================
+
+M   LDG_MAT3_DET_EPSILON                 1e-14
+M   LDG_MAT3_POLAR_EPSILON               1e-12
+M   LDG_MAT3_POLAR_MAX_ITER              10
+
+I   void     ldg_vec3_zero(double v[3])
+I   void     ldg_vec3_copy(double dst[3], const double src[3])
+I   void     ldg_vec3_add(double dst[3], const double a[3], const double b[3])
+I   void     ldg_vec3_sub(double dst[3], const double a[3], const double b[3])
+I   void     ldg_vec3_scale(double v[3], double s)
+I   void     ldg_vec3_scaled_add(double dst[3], const double v[3], double s)
+I   double   ldg_vec3_dot(const double a[3], const double b[3])
+I   double   ldg_vec3_length(const double v[3])
+I   void     ldg_vec3_cross(double dst[3], const double a[3], const double b[3])
+I   void     ldg_mat3_zero(double M[9])
+I   void     ldg_mat3_identity(double M[9])
+I   void     ldg_mat3_copy(double dst[9], const double src[9])
+I   void     ldg_mat3_transpose(double dst[9], const double src[9])
+I   void     ldg_mat3_add(double dst[9], const double A[9], const double B[9])
+I   void     ldg_mat3_sub(double dst[9], const double A[9], const double B[9])
+I   void     ldg_mat3_scale(double M[9], double s)
+I   void     ldg_mat3_mul(double dst[9], const double A[9], const double B[9])
+I   void     ldg_mat3_vec_mul(double dst[3], const double M[9], const double v[3])
+I   double   ldg_mat3_det(const double M[9])
+I   double   ldg_mat3_trace(const double M[9])
+I   uint32_t ldg_mat3_inv(double dst[9], const double M[9])
+I   void     ldg_mat3_cols_from(double M[9], const double c0[3], const double c1[3], const double c2[3])
+I   void     ldg_mat3_col(double dst[3], const double M[9], uint32_t col)
+I   void     ldg_mat3_polar(double R[9], double S[9], const double F[9])
+
+===============================================================================
+arch/amd64/fence.h                                               [arch: amd64]
+===============================================================================
+
+M   LDG_MFENCE
+M   LDG_SFENCE
+M   LDG_LFENCE
+M   LDG_BARRIER
+M   LDG_PAUSE
+M   LDG_SMP_MB()
+M   LDG_SMP_WMB()
+M   LDG_SMP_RMB()
+M   LDG_SMP_SIG_FENCE()
+
+===============================================================================
+arch/amd64/atomic.h                                              [arch: amd64]
+===============================================================================
+
+M   LDG_READ_ONCE(x)
+M   LDG_WRITE_ONCE(x, val)
+M   LDG_READ_ONCE_AGGREGATE(x)
+M   LDG_WRITE_ONCE_AGGREGATE(x, val)
+M   LDG_LOAD_ACQUIRE(x)
+M   LDG_STORE_RELEASE(x, val)
+M   LDG_FETCH_ADD(x, val)
+M   LDG_FETCH_SUB(x, val)
+M   LDG_ADD_FETCH(x, val)
+M   LDG_SUB_FETCH(x, val)
+M   LDG_CAS(ptr, expected, desired)
+M   LDG_CAS_WEAK(ptr, expected, desired)
+
+===============================================================================
+arch/amd64/prefetch.h                                            [arch: amd64]
+===============================================================================
+
+M   LDG_PREFETCH_R(addr)
+M   LDG_PREFETCH_W(addr)
+M   LDG_PREFETCH_NTA(addr)
+
+===============================================================================
+arch/amd64/cpuid.h                                               [arch: amd64]
+===============================================================================
+
+M   LDG_CPUID_VENDOR_LEN                 12
+M   LDG_CPUID_BRAND_LEN                  48
+
+T   ldg_cpuid_regs_t                     CPUID register set (eax, ebx, ecx, edx)
+T   ldg_cpuid_feat_t                     CPU feature flags
+
+F   uint32_t ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
+F   uint32_t ldg_cpuid_vendor_get(char out[LDG_CPUID_VENDOR_LEN + 1])
+F   uint32_t ldg_cpuid_brand_get(char out[LDG_CPUID_BRAND_LEN + 1])
+F   uint32_t ldg_cpuid_feat_get(ldg_cpuid_feat_t *feat)
+F   uint32_t ldg_cpuid_max_leaf_get(void)
+F   uint32_t ldg_cpuid_max_ext_leaf_get(void)
+F   uint32_t ldg_cpu_core_id_get(void)
+F   void     ldg_cpu_relax(void)
+
+===============================================================================
+arch/amd64/tsc.h                                                 [arch: amd64]
+===============================================================================
+
+T   ldg_tsc_ctx_t                        TSC calibration context
+
+F   uint32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
+F   uint32_t ldg_tsc_to_sec(ldg_tsc_ctx_t *ctx, uint64_t cycles, double *out)
+F   uint64_t ldg_tsc_sample(uint32_t *core_id)
+F   void     ldg_tsc_serialize(void)
+F   uint64_t ldg_tsc_serialized_sample(uint32_t *core_id)
+F   uint64_t ldg_tsc_delta(uint64_t start, uint64_t end)
+
+===============================================================================
+arch/amd64/syscall.h                                             [arch: amd64]
+===============================================================================
+
+M   LDG_SYS_RD                           0
+M   LDG_SYS_WR                           1
+M   LDG_SYS_OPEN                         2
+M   LDG_SYS_CLOSE                        3
+M   LDG_SYS_MMAP                         9
+M   LDG_SYS_MPROTECT                     10
+M   LDG_SYS_MUNMAP                       11
+M   LDG_SYS_PIPE                         22
+M   LDG_SYS_DUP2                         33
+M   LDG_SYS_NANOSLEEP                    35
+M   LDG_SYS_GETPID                       39
+M   LDG_SYS_CLOCK_GETTIME                228
+M   LDG_SYS_OPENAT                       257
+M   LDG_SYS_GETRANDOM                    318
+
+F   int64_t  ldg_syscall0(int64_t n)
+F   int64_t  ldg_syscall1(int64_t n, int64_t a1)
+F   int64_t  ldg_syscall2(int64_t n, int64_t a1, int64_t a2)
+F   int64_t  ldg_syscall3(int64_t n, int64_t a1, int64_t a2, int64_t a3)
+F   int64_t  ldg_syscall4(int64_t n, int64_t a1, int64_t a2, int64_t a3, int64_t a4)
+F   uint64_t ldg_rdtsc(void)
+F   uint64_t ldg_rdtscp(uint32_t *aux)
+
+===============================================================================
+arch/misc/misc.h
+===============================================================================
+
+M   LDG_MISC_OP_CPY                      0x0
+M   LDG_MISC_OP_LDD                      0x1
+M   LDG_MISC_OP_STD                      0x2
+M   LDG_MISC_OP_CPH                      0x3
+M   LDG_MISC_OP_ADD                      0x4
+M   LDG_MISC_OP_SUB                      0x5
+M   LDG_MISC_OP_AND                      0x6
+M   LDG_MISC_OP_OR                       0x7
+M   LDG_MISC_OP_XOR                      0x8
+M   LDG_MISC_OP_SHL                      0x9
+M   LDG_MISC_OP_SHR                      0xA
+M   LDG_MISC_OP_JMP                      0xB
+M   LDG_MISC_OP_JNZ                      0xC
+M   LDG_MISC_OP_CALL                     0xD
+M   LDG_MISC_OP_RET                      0xE
+M   LDG_MISC_OP_CPL                      0xF
+M   LDG_MISC_OP_CUNT                     16
+M   LDG_MISC_OP_MAX                      0xF
+M   LDG_MISC_DR0                         0
+M   LDG_MISC_DR1                         1
+M   LDG_MISC_DR2                         2
+M   LDG_MISC_DR3                         3
+M   LDG_MISC_DR4                         4
+M   LDG_MISC_DR5                         5
+M   LDG_MISC_DR6                         6
+M   LDG_MISC_DR7                         7
+M   LDG_MISC_LOC                         6
+M   LDG_MISC_SP                          7
+M   LDG_MISC_REG_CUNT                    8
+M   LDG_MISC_REG_MAX                     7
+M   LDG_MISC_OPCODE_SHIFT                28
+M   LDG_MISC_OPCODE_MASK                 0xF0000000
+M   LDG_MISC_DST_SHIFT                   25
+M   LDG_MISC_DST_MASK                    0x0E000000
+M   LDG_MISC_SRC_SHIFT                   22
+M   LDG_MISC_SRC_MASK                    0x01C00000
+M   LDG_MISC_CONFIG_MASK                 0x003FFFFF
+M   LDG_MISC_MODE_BIT                    21
+M   LDG_MISC_MODE_MASK
+M   LDG_MISC_ARITH_BIT                   20
+M   LDG_MISC_ARITH_MASK
+M   LDG_MISC_IMM16_MASK                  0x0000FFFF
+M   LDG_MISC_SHIFT_AMT_MASK              0x0000003F
+M   LDG_MISC_WORD_SIZE                   4
+M   LDG_MISC_INSN_WIDTH                  32
+M   LDG_MISC_ALIGNMENT                   4
+M   LDG_MISC_RESET_VEC                   0x00000000
+M   LDG_MISC_RAM_END                     0x7FFFFFFF
+M   LDG_MISC_CPU_CTRL_BASE               0x80000000
+M   LDG_MISC_CPU_CTRL_END                0x8FFFFFFF
+M   LDG_MISC_IO_BASE                     0x90000000
+M   LDG_MISC_IO_END                      0xFFFFFFFF
+M   LDG_MISC_EXCEPTION_HANDLER           0x80000000
+M   LDG_MISC_EXCEPTION_CAUSE             0x80000004
+M   LDG_MISC_EXC_NONE                    0x00000000
+M   LDG_MISC_EXC_INVALID_OPCODE          0x00000001
+M   LDG_MISC_EXC_UNALIGNED               0x00000002
+M   LDG_MISC_EXC_STACK_OVERFLOW          0x00000003
+M   LDG_MISC_EXC_STACK_UNDERFLOW         0x00000004
+M   LDG_MISC_DISASM_BUFF_MIN             32
+
+T   ldg_misc_decoded_t                   Decoded MISC instruction
+
+D   const char *const LDG_MISC_MNEMONICS[LDG_MISC_OP_CUNT]
+
+I   ldg_dword_t ldg_misc_encode(uint8_t opcode, uint8_t dst, uint8_t src, ldg_dword_t config)
+I   uint32_t    ldg_misc_decode(ldg_dword_t raw, ldg_misc_decoded_t *out)
+I   uint32_t    ldg_misc_validate(const ldg_misc_decoded_t *decoded)
+I   uint8_t     ldg_misc_opcode_get(ldg_dword_t raw)
+I   uint8_t     ldg_misc_dst_get(ldg_dword_t raw)
+I   uint8_t     ldg_misc_src_get(ldg_dword_t raw)
+I   ldg_dword_t ldg_misc_config_get(ldg_dword_t raw)
+I   ldg_dword_t ldg_misc_cph_encode(uint8_t dst, ldg_word_t imm16)
+I   ldg_dword_t ldg_misc_cpl_encode(uint8_t dst, ldg_word_t imm16)
+I   ldg_dword_t ldg_misc_shl_imm_encode(uint8_t dst, uint8_t amt)
+I   ldg_dword_t ldg_misc_shr_imm_encode(uint8_t dst, uint8_t amt, uint8_t arith)
+I   uint32_t    ldg_misc_disasm(const ldg_misc_decoded_t *decoded, char *buff, uint64_t buff_len)
+
+===============================================================================
+Summary
+===============================================================================
+
+Functions (F):     210 exported linker symbols
+Inline (I):         46 header-only functions
+Types (T):          37 public type definitions
+Data (D):            1 extern data symbol
+Macros (M):        ~230 public macros and constants
+
+Linker symbols total: 211 (210 functions + 1 data)

@@ -1,10 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 0.1.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 1.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(STD_NO_INSTR ON CACHE BOOL "" FORCE)
+endif()
 include(std)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_compile_definitions(_WIN32_WINNT=0x0600)
@@ -12,9 +16,9 @@ endif()
 
 include(GNUInstallDirs)
 
-option(LDG_WITH_AUDIO "Build audio subsystem (auto-detects PipeWire or ALSA)" ON)
-option(LDG_WITH_NET "Build network subsystem (requires libcurl)" ON)
-option(LDG_WITH_FMT "Build format config subsystem" ON)
+option(LDG_WITH_AUDIO "Build audio subsystem (auto-detects pw or ALSA)" ON)
+option(LDG_WITH_NET "Build net subsystem (requires libcurl)" ON)
+option(LDG_WITH_FMT "Build fmt config subsys" ON)
 
 if(NOT CMAKE_SYSTEM_PROCESSOR)
     if(CMAKE_C_COMPILER MATCHES "x86_64")
@@ -61,6 +65,7 @@ if(LDG_WITH_NET)
     endif()
     if(CURL_FOUND OR CURL_LIBRARIES)
         list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/curl.c)
+        list(APPEND LDG_OPT_SOURCES src/none/none/net/gql.c)
         list(APPEND LDG_OPT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS})
         list(APPEND LDG_OPT_LIBRARIES ${CURL_LIBRARIES})
         list(APPEND LDG_OPT_DEFINES LDG_NET)
@@ -81,7 +86,7 @@ else()
 endif()
 
 if(LDG_WITH_FMT)
-    list(APPEND LDG_OPT_SOURCES src/fmt/fmt.c)
+    list(APPEND LDG_OPT_SOURCES src/none/none/fmt/fmt.c)
     list(APPEND LDG_OPT_DEFINES LDG_FMT)
     message(STATUS "fmt: on")
 else()
@@ -124,11 +129,11 @@ else()
 endif()
 
 set(LDG_SOURCES
-    src/str/str.c
-    src/parse/parse.c
-    src/proto/emiru.c
-    src/proto/emiemi.c
-    src/misc/misc.c
+    src/none/none/str/str.c
+    src/none/none/parse/parse.c
+    src/none/none/proto/emiru.c
+    src/none/none/proto/emiemi.c
+    src/none/none/misc/misc.c
     ${LDG_PLATFORM_DIR}/thread/sync.c
     ${LDG_PLATFORM_DIR}/thread/pool.c
     ${LDG_PLATFORM_DIR}/thread/spsc.c
@@ -158,6 +163,19 @@ if(LDG_ARCH STREQUAL "amd64")
     else()
         set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -f elf64")
     endif()
+
+    set(LDG_ERR_INC "${CMAKE_CURRENT_BINARY_DIR}/include/dangling/core/err.inc")
+    add_custom_command(
+        OUTPUT ${LDG_ERR_INC}
+        COMMAND ${CMAKE_COMMAND}
+            -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/include/none/none/dangling/core/err.h
+            -DOUTPUT=${LDG_ERR_INC}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/err_nasm_gen.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/none/none/dangling/core/err.h
+        COMMENT "gen NASM err codes from err.h"
+    )
+    add_custom_target(err_nasm_gen DEPENDS ${LDG_ERR_INC})
+    set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include/")
 else()
     set(LDG_ARCH_SOURCES src/mem/secure.c)
 endif()
@@ -173,8 +191,19 @@ foreach(LDG_TARGET dangling_shared dangling_static)
 
     set_target_properties(${LDG_TARGET} PROPERTIES OUTPUT_NAME dangling)
 
+    if(LDG_TARGET STREQUAL "dangling_shared" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set(LDG_VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/libdangling.map")
+        set_target_properties(${LDG_TARGET} PROPERTIES
+            LINK_DEPENDS ${LDG_VERSION_SCRIPT}
+        )
+        target_link_options(${LDG_TARGET} PRIVATE
+            -Wl,--version-script=${LDG_VERSION_SCRIPT}
+        )
+    endif()
+
     target_include_directories(${LDG_TARGET} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/none/none>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${LDG_ARCH}/none>
         $<INSTALL_INTERFACE:include>
     )
     if(LDG_OPT_INCLUDE_DIRS)
@@ -189,6 +218,10 @@ foreach(LDG_TARGET dangling_shared dangling_static)
     if(LDG_WITH_FMT)
         target_compile_definitions(${LDG_TARGET} PRIVATE LDG_FMT_CFG_PATH="${LDG_FMT_CFG_INSTALL_PATH}")
     endif()
+
+    if(TARGET err_nasm_gen)
+        add_dependencies(${LDG_TARGET} err_nasm_gen)
+    endif()
 endforeach()
 
 install(TARGETS dangling_shared dangling_static
@@ -196,7 +229,12 @@ install(TARGETS dangling_shared dangling_static
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+if(EXISTS ${LDG_ERR_INC})
+    install(FILES ${LDG_ERR_INC} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dangling/core)
+endif()
 
 if(LDG_WITH_FMT)
     install(FILES share/dangling/uncrustify.cfg DESTINATION ${CMAKE_INSTALL_DATADIR}/dangling)
@@ -213,6 +251,35 @@ configure_file(
     @ONLY
 )
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dangling.pc" DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+set(LDG_ABI_DIR "${CMAKE_BINARY_DIR}/abi")
+set(LDG_ABI_DUMP "${LDG_ABI_DIR}/dangling-${PROJECT_VERSION}.abi.tar.gz")
+
+find_program(ABI_DUMPER abi-dumper)
+find_program(ABI_CHECKER abi-compliance-checker)
+
+if(ABI_DUMPER)
+    add_custom_target(abi-dump
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${LDG_ABI_DIR}
+        COMMAND ${ABI_DUMPER} $<TARGET_FILE:dangling_shared>
+            -o ${LDG_ABI_DUMP}
+            -lver ${PROJECT_VERSION}
+            -public-headers ${CMAKE_CURRENT_SOURCE_DIR}/include
+        DEPENDS dangling_shared
+        COMMENT "abi-dumper: dangling ${PROJECT_VERSION}"
+    )
+endif()
+
+if(ABI_DUMPER AND ABI_CHECKER)
+    add_custom_target(abi-check
+        COMMAND ${ABI_CHECKER}
+            -l dangling
+            -old ${CMAKE_CURRENT_SOURCE_DIR}/abi/dangling-baseline.abi.tar.gz
+            -new ${LDG_ABI_DUMP}
+        DEPENDS abi-dump
+        COMMENT "abi-compliance-checker: baseline vs ${PROJECT_VERSION}"
+    )
+endif()
 
 std_invalidate_test_state(dangling_shared)
 qemu_add_run_target()

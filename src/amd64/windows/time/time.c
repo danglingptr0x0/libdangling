@@ -22,14 +22,18 @@ uint64_t ldg_time_epoch_ns_get(void)
     return ((uint64_t)ts.tv_sec * LDG_NS_PER_SEC + (uint64_t)ts.tv_nsec);
 }
 
-double ldg_time_monotonic_get(void)
+uint32_t ldg_time_monotonic_get(double *out)
 {
     LARGE_INTEGER freq = { 0 };
     LARGE_INTEGER ctr = { 0 };
 
-    if (LDG_UNLIKELY(!QueryPerformanceFrequency(&freq))) { return 0.0; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!QueryPerformanceCounter(&ctr))) { return 0.0; }
+    if (LDG_UNLIKELY(!QueryPerformanceFrequency(&freq))) { return LDG_ERR_TIME_NOT_CALIBRATED; }
 
-    return (double)ctr.QuadPart / (double)freq.QuadPart;
+    if (LDG_UNLIKELY(!QueryPerformanceCounter(&ctr))) { return LDG_ERR_TIME_NOT_CALIBRATED; }
+
+    *out = (double)ctr.QuadPart / (double)freq.QuadPart;
+
+    return LDG_ERR_AOK;
 }

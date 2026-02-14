@@ -19,26 +19,6 @@ typedef struct ldg_mem_hdr
     uint8_t pudding[24];
 } LDG_ALIGNED ldg_mem_hdr_t;
 
-struct ldg_mem_pool
-{
-    uint8_t *buff;
-    uint8_t *free_list;
-    uint64_t item_size;
-    uint64_t capacity;
-    uint64_t alloc_cunt;
-    uint64_t buff_size;
-    union
-    {
-        uint64_t user_item_size;
-        uint64_t bump_offset;
-    }
-    u;
-    ldg_mut_t mut;
-    uint8_t is_var;
-    uint8_t is_destroying;
-    uint8_t pudding[14];
-};
-
 typedef struct ldg_mem_state
 {
     ldg_mem_hdr_t *alloc_list;
@@ -52,7 +32,7 @@ typedef struct ldg_mem_state
 static ldg_mem_state_t g_mem = LDG_STRUCT_ZERO_INIT;
 static ldg_mut_t g_mem_mut = LDG_STRUCT_ZERO_INIT;
 
-static uint32_t ldg_mem_leaks_dump_unlocked(void)
+static uint32_t ldg_mem_unlocked_leaks_dump(void)
 {
     ldg_mem_hdr_t *hdr = 0x0;
     uint64_t leak_cunt = 0;
@@ -119,7 +99,7 @@ static uint32_t ldg_mem_hdr_find(const void *ptr, ldg_mem_hdr_t **out)
     return LDG_ERR_AOK;
 }
 
-static uint32_t ldg_mem_alloc_unlocked(uint64_t size, void **out)
+static uint32_t ldg_mem_unlocked_alloc(uint64_t size, void **out)
 {
     ldg_mem_hdr_t *hdr = 0x0;
     uint8_t *raw = 0x0;
@@ -134,7 +114,7 @@ static uint32_t ldg_mem_alloc_unlocked(uint64_t size, void **out)
 
     if (LDG_UNLIKELY(size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(!g_mem.is_init)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); exit(LDG_ERR_NOT_INIT); }
 
     if (LDG_UNLIKELY(g_mem.is_locked)) { return LDG_ERR_DENIED; }
 
@@ -198,14 +178,15 @@ static uint32_t ldg_mem_alloc_unlocked(uint64_t size, void **out)
     return LDG_ERR_AOK;
 }
 
-static uint32_t ldg_mem_dealloc_unlocked(void *ptr)
+static uint32_t ldg_mem_unlocked_dealloc(void *ptr)
 {
     ldg_mem_hdr_t *hdr = 0x0;
+    uint64_t poison_len = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_mem.is_init)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); exit(LDG_ERR_NOT_INIT); }
 
     ret = ldg_mem_hdr_find(ptr, &hdr);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
@@ -226,9 +207,8 @@ static uint32_t ldg_mem_dealloc_unlocked(void *ptr)
     g_mem.stats.dealloc_cunt++;
     g_mem.stats.active_alloc_cunt--;
 
-    if (LDG_UNLIKELY(memset(ptr, LDG_MEM_POISON_BYTE, hdr->size) != ptr)) { return LDG_ERR_MEM_BAD; }
-
-    hdr->sentinel_front = 0;
+    poison_len = (uint64_t)sizeof(ldg_mem_hdr_t) + hdr->size + (uint64_t)sizeof(uint32_t);
+    memset((uint8_t *)ptr - (uint64_t)sizeof(ldg_mem_hdr_t), LDG_MEM_POISON_BYTE, poison_len);
 
     free(hdr);
 
@@ -273,13 +253,14 @@ uint32_t ldg_mem_shutdown(void)
 
     if (LDG_UNLIKELY(!g_mem.is_init))
     {
+        LDG_ERRLOG_ERR("mem: subsystem not init");
         ldg_mut_unlock(&g_mem_mut);
-        return LDG_ERR_NOT_INIT;
+        exit(LDG_ERR_NOT_INIT);
     }
 
     if (LDG_UNLIKELY(g_mem.stats.active_alloc_cunt > 0))
     {
-        ldg_mem_leaks_dump_unlocked();
+        ldg_mem_unlocked_leaks_dump();
 
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_BUSY;
@@ -305,8 +286,9 @@ uint32_t ldg_mem_lock(void)
 
     if (LDG_UNLIKELY(!g_mem.is_init))
     {
+        LDG_ERRLOG_ERR("mem: subsystem not init");
         ldg_mut_unlock(&g_mem_mut);
-        return LDG_ERR_NOT_INIT;
+        exit(LDG_ERR_NOT_INIT);
     }
 
     g_mem.is_locked = 1;
@@ -322,7 +304,7 @@ uint8_t ldg_mem_locked_is(void)
 
     if (LDG_UNLIKELY(ldg_mut_lock(&g_mem_mut) != LDG_ERR_AOK)) { return 0; }
 
-    if (LDG_UNLIKELY(!g_mem.is_init)) { ldg_mut_unlock(&g_mem_mut); return 0; }
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); ldg_mut_unlock(&g_mem_mut); exit(LDG_ERR_NOT_INIT); }
 
     locked = g_mem.is_locked;
     ldg_mut_unlock(&g_mem_mut);
@@ -337,7 +319,7 @@ uint32_t ldg_mem_alloc(uint64_t size, void **out)
     ret = ldg_mut_lock(&g_mem_mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_mem_alloc_unlocked(size, out);
+    ret = ldg_mem_unlocked_alloc(size, out);
 
     ldg_mut_unlock(&g_mem_mut);
 
@@ -364,8 +346,9 @@ uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out)
 
     if (LDG_UNLIKELY(!g_mem.is_init))
     {
+        LDG_ERRLOG_ERR("mem: subsystem not init");
         ldg_mut_unlock(&g_mem_mut);
-        return LDG_ERR_NOT_INIT;
+        exit(LDG_ERR_NOT_INIT);
     }
 
     if (LDG_UNLIKELY(g_mem.is_locked))
@@ -388,7 +371,7 @@ uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out)
         return LDG_ERR_MEM_CORRUPTION;
     }
 
-    ret = ldg_mem_alloc_unlocked(size, &new_ptr);
+    ret = ldg_mem_unlocked_alloc(size, &new_ptr);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mut_unlock(&g_mem_mut);
@@ -398,15 +381,16 @@ uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out)
     copy_size = (hdr->size < size) ? hdr->size : size;
     if (LDG_UNLIKELY(memcpy(new_ptr, ptr, copy_size) != new_ptr))
     {
-        ldg_mem_dealloc_unlocked(new_ptr);
+        ldg_mem_unlocked_dealloc(new_ptr);
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_MEM_BAD;
     }
 
-    ret = ldg_mem_dealloc_unlocked(ptr);
+    ret = ldg_mem_unlocked_dealloc(ptr);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        *out = new_ptr;
+        ldg_mem_unlocked_dealloc(new_ptr);
+        *out = ptr;
         ldg_mut_unlock(&g_mem_mut);
         return ret;
     }
@@ -425,7 +409,7 @@ uint32_t ldg_mem_dealloc(void *ptr)
     ret = ldg_mut_lock(&g_mem_mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_mem_dealloc_unlocked(ptr);
+    ret = ldg_mem_unlocked_dealloc(ptr);
 
     ldg_mut_unlock(&g_mem_mut);
 
@@ -452,7 +436,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
     ret = ldg_mut_lock(&g_mem_mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (LDG_UNLIKELY(!g_mem.is_init)) { ldg_mut_unlock(&g_mem_mut); return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); ldg_mut_unlock(&g_mem_mut); exit(LDG_ERR_NOT_INIT); }
 
     if (LDG_UNLIKELY(g_mem.is_locked)) { ldg_mut_unlock(&g_mem_mut); return LDG_ERR_DENIED; }
 
@@ -462,7 +446,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
         return LDG_ERR_FULL;
     }
 
-    ret = ldg_mem_alloc_unlocked((uint64_t)sizeof(ldg_mem_pool_t), &pool_tmp);
+    ret = ldg_mem_unlocked_alloc((uint64_t)sizeof(ldg_mem_pool_t), &pool_tmp);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mut_unlock(&g_mem_mut);
@@ -473,10 +457,10 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
 
     if (item_size == 0)
     {
-        ret = ldg_mem_alloc_unlocked(capacity, &buff);
+        ret = ldg_mem_unlocked_alloc(capacity, &buff);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
-            ldg_mem_dealloc_unlocked(pool);
+            ldg_mem_unlocked_dealloc(pool);
             ldg_mut_unlock(&g_mem_mut);
             return LDG_ERR_ALLOC_NULL;
         }
@@ -487,15 +471,15 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
         pool->capacity = capacity;
         pool->alloc_cunt = 0;
         pool->buff_size = capacity;
-        pool->u.bump_offset = 0;
+        pool->mode.bump_offset = 0;
         pool->is_var = 1;
         pool->is_destroying = 0;
 
         ret = ldg_mut_init(&pool->mut, 0);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
-            ldg_mem_dealloc_unlocked(buff);
-            ldg_mem_dealloc_unlocked(pool);
+            ldg_mem_unlocked_dealloc(buff);
+            ldg_mem_unlocked_dealloc(pool);
             ldg_mut_unlock(&g_mem_mut);
             return ret;
         }
@@ -511,7 +495,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
     ret = ldg_arith_64_add(item_size, (uint64_t)sizeof(void *), &aligned_item_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ldg_mem_dealloc_unlocked(pool);
+        ldg_mem_unlocked_dealloc(pool);
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_OVERFLOW;
     }
@@ -519,7 +503,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
     ret = ldg_arith_64_add(aligned_item_size, (uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1), &aligned_item_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ldg_mem_dealloc_unlocked(pool);
+        ldg_mem_unlocked_dealloc(pool);
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_OVERFLOW;
     }
@@ -528,15 +512,15 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
 
     if (LDG_UNLIKELY(ldg_arith_64_mul(aligned_item_size, capacity, &buff_size) != LDG_ERR_AOK))
     {
-        ldg_mem_dealloc_unlocked(pool);
+        ldg_mem_unlocked_dealloc(pool);
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_OVERFLOW;
     }
 
-    ret = ldg_mem_alloc_unlocked(buff_size, &buff);
+    ret = ldg_mem_unlocked_alloc(buff_size, &buff);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ldg_mem_dealloc_unlocked(pool);
+        ldg_mem_unlocked_dealloc(pool);
         ldg_mut_unlock(&g_mem_mut);
         return LDG_ERR_ALLOC_NULL;
     }
@@ -546,7 +530,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
     pool->capacity = capacity;
     pool->alloc_cunt = 0;
     pool->buff_size = buff_size;
-    pool->u.user_item_size = item_size;
+    pool->mode.user_item_size = item_size;
     pool->is_var = 0;
     pool->is_destroying = 0;
 
@@ -562,8 +546,8 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool
     ret = ldg_mut_init(&pool->mut, 0);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ldg_mem_dealloc_unlocked(buff);
-        ldg_mem_dealloc_unlocked(pool);
+        ldg_mem_unlocked_dealloc(buff);
+        ldg_mem_unlocked_dealloc(pool);
         ldg_mut_unlock(&g_mem_mut);
         return ret;
     }
@@ -597,8 +581,8 @@ uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
     {
         if (LDG_UNLIKELY(size == 0)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_FUNC_ARG_INVALID; }
 
-        aligned = (pool->u.bump_offset + LDG_MEM_POOL_VAR_ALIGN - 1) & ~((uint64_t)LDG_MEM_POOL_VAR_ALIGN - 1);
-        if (LDG_UNLIKELY(aligned < pool->u.bump_offset)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_OVERFLOW; }
+        aligned = (pool->mode.bump_offset + LDG_MEM_POOL_VAR_ALIGN - 1) & ~((uint64_t)LDG_MEM_POOL_VAR_ALIGN - 1);
+        if (LDG_UNLIKELY(aligned < pool->mode.bump_offset)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_OVERFLOW; }
 
         if (LDG_UNLIKELY(aligned + size < aligned)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_OVERFLOW; }
 
@@ -607,7 +591,7 @@ uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
         item = pool->buff + aligned;
         if (LDG_UNLIKELY(memset(item, 0, size) != item)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_MEM_BAD; }
 
-        pool->u.bump_offset = aligned + size;
+        pool->mode.bump_offset = aligned + size;
         pool->alloc_cunt++;
 
         *out = item;
@@ -617,7 +601,7 @@ uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
         return LDG_ERR_AOK;
     }
 
-    if (LDG_UNLIKELY(size != pool->u.user_item_size)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(size != pool->mode.user_item_size)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_FUNC_ARG_INVALID; }
 
     if (LDG_UNLIKELY(!pool->free_list)) { ldg_mut_unlock(&pool->mut); return LDG_ERR_MEM_POOL_FULL; }
 
@@ -625,7 +609,7 @@ uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
     pool->free_list = *(uint8_t **)(void *)(item);
     pool->alloc_cunt++;
 
-    if (LDG_UNLIKELY(memset(item, 0, pool->u.user_item_size) != item))
+    if (LDG_UNLIKELY(memset(item, 0, pool->mode.user_item_size) != item))
     {
         *(uint8_t **)(void *)(item) = pool->free_list;
         pool->free_list = item;
@@ -741,8 +725,7 @@ uint32_t ldg_mem_pool_destroy(ldg_mem_pool_t **pool)
 
     ret = ldg_mem_dealloc(*pool);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { if (first_err == 0) { first_err = ret; } }
-
-    *pool = 0x0;
+    else { *pool = 0x0; }
 
     ret = ldg_mut_lock(&g_mem_mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return (first_err != 0) ? first_err : ret; }
@@ -782,7 +765,7 @@ uint32_t ldg_mem_pool_rst(ldg_mem_pool_t *pool)
         return LDG_ERR_MEM_BAD;
     }
 
-    pool->u.bump_offset = 0;
+    pool->mode.bump_offset = 0;
     pool->alloc_cunt = 0;
 
     ldg_mut_unlock(&pool->mut);
@@ -799,14 +782,18 @@ uint64_t ldg_mem_pool_remaining_get(ldg_mem_pool_t *pool)
 
     if (LDG_UNLIKELY(ldg_mut_lock(&pool->mut) != LDG_ERR_AOK)) { return UINT64_MAX; }
 
-    if (LDG_UNLIKELY(pool->is_destroying || !pool->is_var)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
+    if (LDG_UNLIKELY(pool->is_destroying)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
 
-    aligned = (pool->u.bump_offset + LDG_MEM_POOL_VAR_ALIGN - 1) & ~((uint64_t)LDG_MEM_POOL_VAR_ALIGN - 1);
-    if (LDG_UNLIKELY(aligned < pool->u.bump_offset)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
+    if (pool->is_var)
+    {
+        aligned = (pool->mode.bump_offset + LDG_MEM_POOL_VAR_ALIGN - 1) & ~((uint64_t)LDG_MEM_POOL_VAR_ALIGN - 1);
+        if (LDG_UNLIKELY(aligned < pool->mode.bump_offset)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
 
-    if (LDG_UNLIKELY(aligned >= pool->capacity)) { ldg_mut_unlock(&pool->mut); return 0; }
+        if (LDG_UNLIKELY(aligned >= pool->capacity)) { ldg_mut_unlock(&pool->mut); return 0; }
 
-    remaining = pool->capacity - aligned;
+        remaining = pool->capacity - aligned;
+    }
+    else{ remaining = pool->capacity - pool->alloc_cunt; }
 
     ldg_mut_unlock(&pool->mut);
 
@@ -821,9 +808,10 @@ uint64_t ldg_mem_pool_used_get(ldg_mem_pool_t *pool)
 
     if (LDG_UNLIKELY(ldg_mut_lock(&pool->mut) != LDG_ERR_AOK)) { return UINT64_MAX; }
 
-    if (LDG_UNLIKELY(pool->is_destroying || !pool->is_var)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
+    if (LDG_UNLIKELY(pool->is_destroying)) { ldg_mut_unlock(&pool->mut); return UINT64_MAX; }
 
-    used = pool->u.bump_offset;
+    if (pool->is_var) { used = pool->mode.bump_offset; }
+    else{ used = pool->alloc_cunt; }
 
     ldg_mut_unlock(&pool->mut);
 
@@ -873,6 +861,8 @@ uint32_t ldg_mem_stats_get(ldg_mem_stats_t *stats)
     ret = ldg_mut_lock(&g_mem_mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); ldg_mut_unlock(&g_mem_mut); exit(LDG_ERR_NOT_INIT); }
+
     *stats = g_mem.stats;
     ldg_mut_unlock(&g_mem_mut);
 
@@ -888,11 +878,12 @@ uint32_t ldg_mem_leaks_dump(void)
 
     if (LDG_UNLIKELY(!g_mem.is_init))
     {
+        LDG_ERRLOG_ERR("mem: subsystem not init");
         ldg_mut_unlock(&g_mem_mut);
-        return LDG_ERR_NOT_INIT;
+        exit(LDG_ERR_NOT_INIT);
     }
 
-    ret = ldg_mem_leaks_dump_unlocked();
+    ret = ldg_mem_unlocked_leaks_dump();
 
     ldg_mut_unlock(&g_mem_mut);
 
@@ -905,6 +896,8 @@ uint8_t ldg_mem_valid_is(const void *ptr)
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(ldg_mut_lock(&g_mem_mut) != LDG_ERR_AOK)) { return 0; }
+
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); ldg_mut_unlock(&g_mem_mut); exit(LDG_ERR_NOT_INIT); }
 
     ret = ldg_mem_hdr_find(ptr, &hdr);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
@@ -929,6 +922,8 @@ uint64_t ldg_mem_size_get(const void *ptr)
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(ldg_mut_lock(&g_mem_mut) != LDG_ERR_AOK)) { return UINT64_MAX; }
+
+    if (LDG_UNLIKELY(!g_mem.is_init)) { LDG_ERRLOG_ERR("mem: subsystem not init"); ldg_mut_unlock(&g_mem_mut); exit(LDG_ERR_NOT_INIT); }
 
     ret = ldg_mem_hdr_find(ptr, &hdr);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
