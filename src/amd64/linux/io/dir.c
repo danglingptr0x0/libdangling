@@ -10,23 +10,6 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
 
-#define LDG_IO_DIR_PATH_MAX 4096
-
-struct ldg_io_dir
-{
-    void *handle;
-    char path[LDG_IO_DIR_PATH_MAX];
-    uint64_t path_len;
-    uint8_t pudding[40];
-};
-
-struct ldg_io_dirent
-{
-    char name[256];
-    uint8_t is_dir;
-    uint8_t pudding[7];
-};
-
 static uint32_t ldg_io_dir_errno_translate(void)
 {
     switch (errno)

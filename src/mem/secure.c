@@ -5,12 +5,14 @@
 
 #define LDG_MEM_BARRIER __asm__ __volatile__ ("" ::: "memory")
 
-void ldg_mem_secure_zero(void *ptr, uint64_t len)
+uint32_t ldg_mem_secure_zero(void *ptr, uint64_t len)
 {
     volatile uint8_t *p = 0x0;
     uint64_t i = 0;
 
-    if (!ptr || len == 0) { return; }
+    if (LDG_UNLIKELY(!ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     p = (volatile uint8_t *)ptr;
 
@@ -28,15 +30,19 @@ void ldg_mem_secure_zero(void *ptr, uint64_t len)
 #endif
 
     LDG_MEM_BARRIER;
+
+    return LDG_ERR_AOK;
 }
 
-void ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
+uint32_t ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
 {
     volatile uint8_t *d = 0x0;
     volatile const uint8_t *s = 0x0;
     uint64_t i = 0;
 
-    if (!dst || !src || len == 0) { return; }
+    if (LDG_UNLIKELY(!dst || !src)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     d = (volatile uint8_t *)dst;
     s = (volatile const uint8_t *)src;
@@ -44,6 +50,8 @@ void ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
     for (i = 0; i < len; i++) { d[i] = s[i]; }
 
     LDG_MEM_BARRIER;
+
+    return LDG_ERR_AOK;
 }
 
 uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
@@ -77,14 +85,16 @@ uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t
     return LDG_ERR_AOK;
 }
 
-void ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
+uint32_t ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
 {
     volatile uint8_t *d = 0x0;
     volatile const uint8_t *s = 0x0;
     uint8_t mask = 0;
     uint64_t i = 0;
 
-    if (!dst || !src || len == 0) { return; }
+    if (LDG_UNLIKELY(!dst || !src)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     d = (volatile uint8_t *)dst;
     s = (volatile const uint8_t *)src;
@@ -96,6 +106,8 @@ void ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
     for (i = 0; i < len; i++) { d[i] ^= mask & (d[i] ^ s[i]); }
 
     LDG_MEM_BARRIER;
+
+    return LDG_ERR_AOK;
 }
 
 uint8_t ldg_mem_secure_neq_is(const void *a, const void *b, uint64_t len)

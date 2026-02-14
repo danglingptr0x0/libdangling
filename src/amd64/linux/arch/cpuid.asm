@@ -1,11 +1,15 @@
 ; cpuid.asm - CPUID utilities
 ; System V AMD64 ABI: args in rdi, rsi, rdx, rcx, r8, r9; return in rax
 
+%include "dangling/core/err.inc"
+
 section .text
 
-; void ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
+; uint32_t ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
 global ldg_cpuid
 ldg_cpuid:
+    test    rdx, rdx
+    jz      .cpuid_null_err
     push    rbx
     mov     eax, edi
     mov     ecx, esi
@@ -18,13 +22,20 @@ ldg_cpuid:
     mov     [r8 + 8], ecx
     mov     [r8 + 12], edx
 
+    xor     eax, eax
     pop     rbx
     ret
 
+.cpuid_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_vendor_get(char out[13])
+
+; uint32_t ldg_cpuid_vendor_get(char out[13])
 global ldg_cpuid_vendor_get
 ldg_cpuid_vendor_get:
+    test    rdi, rdi
+    jz      .vendor_null_err
     push    rbx
     mov     r8, rdi
 
@@ -36,13 +47,20 @@ ldg_cpuid_vendor_get:
     mov     [r8 + 8], ecx
     mov     byte [r8 + 12], 0
 
+    xor     eax, eax
     pop     rbx
     ret
 
+.vendor_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_brand_get(char out[49])
+
+; uint32_t ldg_cpuid_brand_get(char out[49])
 global ldg_cpuid_brand_get
 ldg_cpuid_brand_get:
+    test    rdi, rdi
+    jz      .brand_null_err
     push    rbx
     push    r12
     mov     r12, rdi
@@ -80,14 +98,21 @@ ldg_cpuid_brand_get:
     mov     byte [r12], 0
 
 .done:
+    xor     eax, eax
     pop     r12
     pop     rbx
     ret
 
+.brand_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
+    ret
 
-; void ldg_cpuid_features_get(ldg_cpuid_features_t *features)
-global ldg_cpuid_features_get
-ldg_cpuid_features_get:
+
+; uint32_t ldg_cpuid_feat_get(ldg_cpuid_feat_t *feat)
+global ldg_cpuid_feat_get
+ldg_cpuid_feat_get:
+    test    rdi, rdi
+    jz      .feat_null_err
     push    rbx
     push    r12
     mov     r12, rdi
@@ -159,8 +184,13 @@ ldg_cpuid_features_get:
 
     mov     [r12], r8d
 
+    xor     eax, eax
     pop     r12
     pop     rbx
+    ret
+
+.feat_null_err:
+    mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
 

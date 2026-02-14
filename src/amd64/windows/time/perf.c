@@ -10,11 +10,15 @@
 
 uint32_t ldg_time_init(ldg_time_ctx_t *ctx)
 {
+    uint32_t err = 0;
+
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_time_ctx_t)) != ctx)) { return LDG_ERR_MEM_BAD; }
 
-    ctx->time = ldg_time_monotonic_get();
+    err = ldg_time_monotonic_get(&ctx->time);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
     ctx->time_prev = ctx->time;
     ctx->frame_time = 0.0;
     ctx->frame_time_smoothed = 0.016;
@@ -29,7 +33,7 @@ void ldg_time_tick(ldg_time_ctx_t *ctx)
     if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return; }
 
     ctx->time_prev = ctx->time;
-    ctx->time = ldg_time_monotonic_get();
+    ldg_time_monotonic_get(&ctx->time);
     ctx->frame_time = ctx->time - ctx->time_prev;
 
     ctx->frame_time_smoothed = LDG_TIME_SMOOTH_ALPHA * ctx->frame_time + (1.0 - LDG_TIME_SMOOTH_ALPHA) * ctx->frame_time_smoothed;
@@ -37,34 +41,48 @@ void ldg_time_tick(ldg_time_ctx_t *ctx)
     ctx->frame_cunt++;
 }
 
-double ldg_time_get(ldg_time_ctx_t *ctx)
+uint32_t ldg_time_get(ldg_time_ctx_t *ctx, double *out)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return ctx->time;
+    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
+
+    *out = ctx->time;
+
+    return LDG_ERR_AOK;
 }
 
-double ldg_time_dt_get(ldg_time_ctx_t *ctx)
+uint32_t ldg_time_dt_get(ldg_time_ctx_t *ctx, double *out)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return ctx->frame_time;
+    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
+
+    *out = ctx->frame_time;
+
+    return LDG_ERR_AOK;
 }
 
-double ldg_time_dt_smoothed_get(ldg_time_ctx_t *ctx)
+uint32_t ldg_time_dt_smoothed_get(ldg_time_ctx_t *ctx, double *out)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return ctx->frame_time_smoothed;
+    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
+
+    *out = ctx->frame_time_smoothed;
+
+    return LDG_ERR_AOK;
 }
 
-double ldg_time_fps_get(ldg_time_ctx_t *ctx)
+uint32_t ldg_time_fps_get(ldg_time_ctx_t *ctx, double *out)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (ctx->frame_time_smoothed <= 0.0) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
 
-    return 1.0 / ctx->frame_time_smoothed;
+    *out = (ctx->frame_time_smoothed > 0.0) ? (1.0 / ctx->frame_time_smoothed) : 0.0;
+
+    return LDG_ERR_AOK;
 }
 
 uint64_t ldg_time_frame_cunt_get(ldg_time_ctx_t *ctx)
@@ -100,9 +118,13 @@ uint32_t ldg_tsc_calibrate(ldg_tsc_ctx_t *ctx)
     return LDG_ERR_AOK;
 }
 
-double ldg_tsc_to_sec(ldg_tsc_ctx_t *ctx, uint64_t cycles)
+uint32_t ldg_tsc_to_sec(ldg_tsc_ctx_t *ctx, uint64_t cycles, double *out)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_calibrated)) { return 0.0; }
+    if (LDG_UNLIKELY(!ctx || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return (double)cycles * ctx->freq_inv;
+    if (LDG_UNLIKELY(!ctx->is_calibrated)) { return LDG_ERR_TIME_NOT_CALIBRATED; }
+
+    *out = (double)cycles * ctx->freq_inv;
+
+    return LDG_ERR_AOK;
 }

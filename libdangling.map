@@ -1,0 +1,258 @@
+DANGLING_1.0 {
+    global:
+        /* mem/alloc */
+        ldg_mem_init;
+        ldg_mem_shutdown;
+        ldg_mem_lock;
+        ldg_mem_locked_is;
+        ldg_mem_alloc;
+        ldg_mem_realloc;
+        ldg_mem_dealloc;
+        ldg_mem_pool_create;
+        ldg_mem_pool_alloc;
+        ldg_mem_pool_dealloc;
+        ldg_mem_pool_destroy;
+        ldg_mem_pool_rst;
+        ldg_mem_pool_remaining_get;
+        ldg_mem_pool_used_get;
+        ldg_mem_pool_capacity_get;
+        ldg_mem_pool_var_is;
+        ldg_mem_stats_get;
+        ldg_mem_leaks_dump;
+        ldg_mem_valid_is;
+        ldg_mem_size_get;
+
+        /* mem/secure */
+        ldg_mem_secure_zero;
+        ldg_mem_secure_copy;
+        ldg_mem_secure_cmp;
+        ldg_mem_secure_cmov;
+        ldg_mem_secure_neq_is;
+
+        /* str */
+        ldg_strrbrcpy;
+        ldg_byte_to_hex;
+        ldg_dword_to_hex;
+        ldg_str_to_dec;
+        ldg_hex_to_nipple;
+        ldg_hex_to_dword;
+        ldg_hex_to_bytes;
+        ldg_hex_str_is;
+
+        /* fmt */
+        ldg_fmt_cfg_get;
+        ldg_fmt_cfg_path_get;
+
+        /* parse */
+        ldg_parse_tokenize;
+        ldg_parse_streq_is;
+
+        /* io/file */
+        ldg_io_file_open;
+        ldg_io_file_close;
+        ldg_io_file_rd;
+        ldg_io_file_wr;
+        ldg_io_file_seek;
+        ldg_io_file_pos_get;
+        ldg_io_file_stat;
+        ldg_io_file_fstat;
+        ldg_io_file_sync;
+        ldg_io_file_truncate;
+        ldg_io_file_lock;
+        ldg_io_file_unlock;
+        ldg_io_pipe_create;
+        ldg_io_file_dup;
+
+        /* io/dir */
+        ldg_io_dir_create;
+        ldg_io_dir_destroy;
+        ldg_io_dir_open;
+        ldg_io_dir_rd;
+        ldg_io_dir_close;
+        ldg_io_dirent_name_get;
+        ldg_io_dirent_dir_is;
+
+        /* io/path */
+        ldg_io_path_rename;
+        ldg_io_path_unlink;
+        ldg_io_path_mode_set;
+        ldg_io_path_exists_is;
+        ldg_io_symlink_create;
+        ldg_io_symlink_rd;
+        ldg_io_path_sep_get;
+        ldg_io_path_join;
+        ldg_io_path_basename_get;
+        ldg_io_path_dirname_get;
+        ldg_io_path_ext_get;
+        ldg_io_path_absolute_is;
+        ldg_io_path_normalize;
+        ldg_io_path_home_get;
+        ldg_io_path_tmp_get;
+        ldg_io_path_resolve;
+        ldg_io_path_expand;
+
+        /* sys */
+        ldg_sys_hostname_get;
+        ldg_sys_cpu_cunt_get;
+        ldg_sys_page_size_get;
+        ldg_sys_env_get;
+        ldg_sys_pid_get;
+        ldg_sys_tty_stdout_is;
+        ldg_sys_tty_width_get;
+        ldg_sys_uuid_gen;
+        ldg_sys_uuid_to_str;
+
+        /* time */
+        ldg_time_epoch_ms_get;
+        ldg_time_epoch_ns_get;
+        ldg_time_monotonic_get;
+        ldg_time_init;
+        ldg_time_tick;
+        ldg_time_get;
+        ldg_time_dt_get;
+        ldg_time_dt_smoothed_get;
+        ldg_time_fps_get;
+        ldg_time_frame_cunt_get;
+
+        /* thread/sync */
+        ldg_mut_init;
+        ldg_mut_destroy;
+        ldg_mut_lock;
+        ldg_mut_unlock;
+        ldg_mut_trylock;
+        ldg_cond_init;
+        ldg_cond_destroy;
+        ldg_cond_wait;
+        ldg_cond_timedwait;
+        ldg_cond_sig;
+        ldg_cond_bcast;
+        ldg_sem_init;
+        ldg_sem_open;
+        ldg_sem_destroy;
+        ldg_sem_wait;
+        ldg_sem_trywait;
+        ldg_sem_post;
+
+        /* thread/spsc */
+        ldg_spsc_init;
+        ldg_spsc_shutdown;
+        ldg_spsc_push;
+        ldg_spsc_pop;
+        ldg_spsc_peek;
+        ldg_spsc_cunt_get;
+        ldg_spsc_empty_is;
+        ldg_spsc_full_is;
+
+        /* thread/mpmc */
+        ldg_mpmc_init;
+        ldg_mpmc_shutdown;
+        ldg_mpmc_push;
+        ldg_mpmc_pop;
+        ldg_mpmc_wait;
+        ldg_mpmc_cunt_get;
+        ldg_mpmc_empty_is;
+        ldg_mpmc_full_is;
+
+        /* thread/pool */
+        ldg_thread_pool_init;
+        ldg_thread_pool_shutdown;
+        ldg_thread_pool_start;
+        ldg_thread_pool_stop;
+        ldg_thread_pool_worker_cunt_get;
+        ldg_thread_pool_submit;
+
+        /* net/curl */
+        ldg_curl_resp_init;
+        ldg_curl_resp_free;
+        ldg_curl_multi_ctx_create;
+        ldg_curl_multi_ctx_destroy;
+        ldg_curl_multi_req_add;
+        ldg_curl_multi_get;
+        ldg_curl_multi_post;
+        ldg_curl_multi_perform;
+        ldg_curl_multi_progress_get;
+        ldg_curl_headers_append;
+        ldg_curl_headers_copy;
+        ldg_curl_headers_destroy;
+        ldg_curl_easy_ctx_create;
+        ldg_curl_easy_ctx_destroy;
+        ldg_curl_easy_get;
+        ldg_curl_easy_post;
+        ldg_curl_easy_get_stream;
+        ldg_curl_easy_post_stream;
+
+        /* net/gql */
+        ldg_gql_ctx_create;
+        ldg_gql_ctx_destroy;
+        ldg_gql_exec;
+
+        /* audio */
+        ldg_audio_init;
+        ldg_audio_shutdown;
+        ldg_audio_sync;
+        ldg_audio_master_vol_get;
+        ldg_audio_master_vol_set;
+        ldg_audio_stream_vol_get;
+        ldg_audio_stream_vol_set;
+        ldg_audio_stream_mute_get;
+        ldg_audio_stream_mute_set;
+        ldg_audio_stream_list;
+        ldg_audio_stream_free;
+        ldg_audio_stream_name_get;
+        ldg_audio_self_register;
+        ldg_audio_self_id_get;
+        ldg_audio_stream_self_get;
+        ldg_audio_self_vol_get;
+        ldg_audio_self_vol_set;
+        ldg_audio_sink_list;
+        ldg_audio_sink_free;
+        ldg_audio_src_list;
+        ldg_audio_src_free;
+        ldg_audio_default_sink_get;
+        ldg_audio_default_src_get;
+        ldg_audio_duck;
+        ldg_audio_unduck;
+
+        /* proto/emiru */
+        ldg_emiru_hdr_validate;
+        ldg_emiru_decode;
+        ldg_emiru_encode;
+
+        /* proto/emiemi */
+        ldg_emiemi_hdr_recv;
+        ldg_emiemi_payload_recv;
+        ldg_emiemi_recv;
+        ldg_emiemi_send;
+        ldg_emiemi_encode;
+        ldg_emiemi_decode;
+        ldg_emiemi_fnv1a;
+
+        /* arch/amd64 */
+        ldg_cpuid;
+        ldg_cpuid_vendor_get;
+        ldg_cpuid_brand_get;
+        ldg_cpuid_feat_get;
+        ldg_cpuid_max_leaf_get;
+        ldg_cpuid_max_ext_leaf_get;
+        ldg_cpu_core_id_get;
+        ldg_cpu_relax;
+        ldg_tsc_calibrate;
+        ldg_tsc_to_sec;
+        ldg_tsc_sample;
+        ldg_tsc_serialize;
+        ldg_tsc_serialized_sample;
+        ldg_tsc_delta;
+        ldg_syscall0;
+        ldg_syscall1;
+        ldg_syscall2;
+        ldg_syscall3;
+        ldg_syscall4;
+        ldg_rdtsc;
+        ldg_rdtscp;
+
+        /* arch/misc (data) */
+        LDG_MISC_MNEMONICS;
+
+    local:
+        *;
+};
