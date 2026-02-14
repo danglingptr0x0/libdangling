@@ -168,10 +168,10 @@ if(LDG_ARCH STREQUAL "amd64")
     add_custom_command(
         OUTPUT ${LDG_ERR_INC}
         COMMAND ${CMAKE_COMMAND}
-            -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/include/none/none/dangling/core/err.h
+            -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/include/dangling/none/none/dangling/core/err.h
             -DOUTPUT=${LDG_ERR_INC}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/err_nasm_gen.cmake
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/none/none/dangling/core/err.h
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/dangling/none/none/dangling/core/err.h
         COMMENT "gen NASM err codes from err.h"
     )
     add_custom_target(err_nasm_gen DEPENDS ${LDG_ERR_INC})
@@ -202,10 +202,9 @@ foreach(LDG_TARGET dangling_shared dangling_static)
     endif()
 
     target_include_directories(${LDG_TARGET} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/none/none>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${LDG_ARCH}/none>
-        $<INSTALL_INTERFACE:include/none/none>
-        $<INSTALL_INTERFACE:include/${LDG_ARCH}/none>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dangling/none/none>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dangling/${LDG_ARCH}/none>
+        $<INSTALL_INTERFACE:include>
     )
     if(LDG_OPT_INCLUDE_DIRS)
         target_include_directories(${LDG_TARGET} SYSTEM PUBLIC ${LDG_OPT_INCLUDE_DIRS})
@@ -230,8 +229,8 @@ install(TARGETS dangling_shared dangling_static
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/none/none)
-install(DIRECTORY include/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${LDG_ARCH}/none)
+install(DIRECTORY include/dangling/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/dangling/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(EXISTS ${LDG_ERR_INC})
     install(FILES ${LDG_ERR_INC} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dangling/core)
