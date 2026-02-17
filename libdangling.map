@@ -253,6 +253,27 @@ DANGLING_1.0 {
         /* arch/misc (data) */
         LDG_MISC_MNEMONICS;
 
+        /* gpu */
+        ldg_gpu_dev_list;
+        ldg_gpu_dev_free;
+        ldg_gpu_init;
+        ldg_gpu_shutdown;
+        ldg_gpu_buff_create;
+        ldg_gpu_buff_destroy;
+        ldg_gpu_buff_wr;
+        ldg_gpu_buff_rd;
+        ldg_gpu_buff_fill;
+        ldg_gpu_pipeline_create;
+        ldg_gpu_pipeline_destroy;
+        ldg_gpu_dispatch;
+        ldg_gpu_dispatch_async;
+        ldg_gpu_fence_wait;
+        ldg_gpu_fence_poll;
+        ldg_gpu_fence_destroy;
+        ldg_gpu_mem_stats_get;
+        ldg_gpu_spirv_file_load;
+        ldg_gpu_spirv_file_free;
+
     local:
         *;
 };

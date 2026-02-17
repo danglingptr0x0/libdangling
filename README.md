@@ -1,6 +1,6 @@
 # libdangling
 
-my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, math, parsing, binary protocols, I/O, and system utilities for all my projects
+my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, gpu compute, math, parsing, binary protocols, I/O, and system utilities for all my projects
 
 conforms to [dangstd 2.5](https://github.com/danglingptr0x0/dangstd)
 
@@ -28,18 +28,19 @@ optional deps controlled via flags:
 | `LDG_WITH_AUDIO` | `ON` | pw/ALSA (Linux), WASAPI (Windows) |
 | `LDG_WITH_NET` | `ON` | `libcurl` |
 | `LDG_WITH_FMT` | `ON` | embedded uncrustify cfg |
+| `LDG_WITH_GPU` | `ON` | Vulkan compute |
 
 strip everything optional:
 
 ```sh
-cmake -B build -DLDG_WITH_AUDIO=OFF -DLDG_WITH_NET=OFF -DLDG_WITH_FMT=OFF
+cmake -B build -DLDG_WITH_AUDIO=OFF -DLDG_WITH_NET=OFF -DLDG_WITH_FMT=OFF -DLDG_WITH_GPU=OFF
 ```
 
 after install: `pkg-config --cflags --libs dangling`
 
 ## API
 
-API lvl `DANGLING_1.0`. `symbols.txt` is the authoritative surface: 210 exported subroutines, 1 data sym, 46 inline subroutines, 37 types, ~230 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
+API lvl `DANGLING_1.0`. `symbols.txt` is the authoritative surface: 229 exported subroutines, 1 data sym, 46 inline subroutines, 45 types, ~260 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
 
 ABI ck (requires `abi-dumper` and `abi-compliance-checker`):
 
@@ -149,6 +150,36 @@ ldg_mpmc_shutdown(&q);
 ### audio
 
 `audio/audio.h`: PipeWire preferred, ALSA fallback (Linux); WASAPI (Windows). master volume, per-stream volume/mute, sink/source enumeration, self-stream registration, stacked ducking
+
+### gpu
+
+`gpu/gpu.h`: Vulkan 1.2 compute-only; opaque API, no `vulkan.h` in public hdr. auto device selection (prefers discrete, falls back integrated; or explicit idx). slab-based GPU mem suballocator with VRAM-to-host spillover (`LDG_GPU_FLAG_SPILL_ENABLE`). staging transfers for device-local buffs, direct map for host-visible. GPU-side fill via `ldg_gpu_buff_fill` (wraps `vkCmdFillBuffer`; no staging, no CPU upload). generic 8-binding descriptor layout (partially bound, Vk 1.2 core). sync + async dispatch with fence lifecycle. validation layers in debug builds. SPIR-V from files or embedded
+
+```c
+ldg_gpu_init_desc_t desc = { .dev_idx = UINT32_MAX, .flags = LDG_GPU_FLAG_SPILL_ENABLE };
+ldg_gpu_init(&desc);
+
+ldg_gpu_buff_desc_t bd = { .size = 4096 };
+ldg_gpu_buff_t buff = { 0 };
+ldg_gpu_buff_create(&bd, &buff);
+ldg_gpu_buff_wr(buff.id, data, 4096, 0);
+
+uint32_t *spv = 0x0;
+uint64_t spv_size = 0;
+ldg_gpu_spirv_file_load("shader.spv", &spv, &spv_size);
+ldg_gpu_spirv_desc_t spirv = { .code = spv, .code_size = spv_size, .entry_name = "main" };
+uint32_t pipeline = 0;
+ldg_gpu_pipeline_create(&spirv, &pipeline);
+ldg_gpu_spirv_file_free(spv);
+
+ldg_gpu_dispatch_desc_t dd = { .pipeline_id = pipeline, .group_cunt_x = 1, .group_cunt_y = 1, .group_cunt_z = 1, .buff_ids = { buff.id }, .buff_cunt = 1 };
+ldg_gpu_dispatch(&dd);
+
+ldg_gpu_buff_rd(buff.id, out, 4096, 0);
+ldg_gpu_buff_destroy(buff.id);
+ldg_gpu_pipeline_destroy(pipeline);
+ldg_gpu_shutdown();
+```
 
 ### math
 
