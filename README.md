@@ -46,8 +46,8 @@ ABI ck (requires `abi-dumper` and `abi-compliance-checker`):
 
 ```sh
 cmake -B build -DSTD_DEBUG=ON && cmake --build build
-make -C build abi-dump       # -> build/abi/dangling-2.0.0.abi.tar.gz
-make -C build abi-check      # diffs against abi/dangling-baseline.abi.tar.gz
+make -C build abi-dump
+make -C build abi-check
 ```
 
 ## modules
