@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 1.1.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 2.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -140,7 +140,14 @@ if(LDG_WITH_GPU)
         endif()
     endif()
     if(VULKAN_FOUND OR VULKAN_LIBRARIES)
-        list(APPEND LDG_OPT_SOURCES src/none/none/gpu/gpu.c)
+        list(APPEND LDG_OPT_SOURCES
+            src/none/none/gpu/gpu.c
+            src/none/none/gpu/surface.c
+            src/none/none/gpu/swapchain.c
+            src/none/none/gpu/renderpass.c
+            src/none/none/gpu/pipeline.c
+            src/none/none/gpu/frame.c
+        )
         list(APPEND LDG_OPT_INCLUDE_DIRS ${VULKAN_INCLUDE_DIRS})
         list(APPEND LDG_OPT_LIBRARIES ${VULKAN_LIBRARIES})
         list(APPEND LDG_OPT_DEFINES LDG_GPU_VULKAN)
@@ -162,6 +169,7 @@ set(LDG_SOURCES
     ${LDG_PLATFORM_DIR}/thread/pool.c
     ${LDG_PLATFORM_DIR}/thread/spsc.c
     ${LDG_PLATFORM_DIR}/thread/mpmc.c
+    ${LDG_PLATFORM_DIR}/thread/yield.c
     ${LDG_PLATFORM_DIR}/mem/alloc.c
     ${LDG_PLATFORM_DIR}/time/time.c
     ${LDG_PLATFORM_DIR}/time/perf.c

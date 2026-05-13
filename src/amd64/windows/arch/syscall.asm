@@ -1,6 +1,3 @@
-; syscall.asm - TSC access (Windows; no kernel syscall wrappers)
-; Microsoft x64 ABI: args in rcx, rdx, r8, r9; return in rax
-
 section .data
     align 64
 
@@ -16,9 +13,6 @@ ldg_rdtsc:
     or      rax, rdx
     ret
 
-
-; uint64_t ldg_rdtscp(uint32_t *aux)
-; rcx=aux
 global ldg_rdtscp
 ldg_rdtscp:
     rdtscp

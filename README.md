@@ -1,6 +1,6 @@
 # libdangling
 
-my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, gpu compute, math, parsing, binary protocols, I/O, and system utilities for all my projects
+my personal util lib. I grew tired of constantly having to write things over and over or copy chunks of code, so I wrote this lib to solve that problem. C99, POSIX.1-2008, AMD64. dual-platform (Linux native, Windows cross-compile via mingw-w64). canonical source of types, err codes, mem, threading, strings, timing, net, audio, gpu compute + graphics, math, parsing, binary protocols, I/O, and system utilities for all my projects
 
 conforms to [dangstd 2.5](https://github.com/danglingptr0x0/dangstd)
 
@@ -28,7 +28,7 @@ optional deps controlled via flags:
 | `LDG_WITH_AUDIO` | `ON` | pw/ALSA (Linux), WASAPI (Windows) |
 | `LDG_WITH_NET` | `ON` | `libcurl` |
 | `LDG_WITH_FMT` | `ON` | embedded uncrustify cfg |
-| `LDG_WITH_GPU` | `ON` | Vulkan compute |
+| `LDG_WITH_GPU` | `ON` | Vulkan compute + graphics |
 
 strip everything optional:
 
@@ -40,13 +40,13 @@ after install: `pkg-config --cflags --libs dangling`
 
 ## API
 
-API lvl `DANGLING_1.0`. `symbols.txt` is the authoritative surface: 229 exported subroutines, 1 data sym, 46 inline subroutines, 45 types, ~260 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
+API lvl `DANGLING_2.0`. `symbols.txt` is the authoritative surface: 252 exported subroutines, 1 data sym, 46 inline subroutines, 53 types, ~290 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
 
 ABI ck (requires `abi-dumper` and `abi-compliance-checker`):
 
 ```sh
 cmake -B build -DSTD_DEBUG=ON && cmake --build build
-make -C build abi-dump       # -> build/abi/dangling-1.0.0.abi.tar.gz
+make -C build abi-dump       # -> build/abi/dangling-2.0.0.abi.tar.gz
 make -C build abi-check      # diffs against abi/dangling-baseline.abi.tar.gz
 ```
 
@@ -76,7 +76,6 @@ ldg_mem_dealloc(p);
 ldg_mem_leaks_dump();
 ldg_mem_shutdown();
 
-// fixed-size pool
 ldg_mem_pool_t *pool = 0x0;
 thing_t *t = 0x0;
 ldg_mem_pool_create(sizeof(thing_t), 256, &pool);
@@ -84,7 +83,6 @@ ldg_mem_pool_alloc(pool, sizeof(thing_t), (void **)&t);
 ldg_mem_pool_dealloc(pool, t);
 ldg_mem_pool_destroy(&pool);
 
-// variable-size pool (bulk reset only; no per-item free)
 ldg_mem_pool_t *vpool = 0x0;
 void *a = 0x0;
 void *b = 0x0;
@@ -125,6 +123,8 @@ ldg_mpmc_shutdown(&q);
 
 `thread/pool.h`: thread pool; two modes: long-running workers (`ldg_thread_pool_start`) or job submission (`ldg_thread_pool_submit`, backed by MPMC). `start()` and `submit()` are mutually exclusive
 
+`thread/yield.h`: `ldg_thread_yield(uint64_t ns)`; ns-granularity sleep. Linux: `nanosleep`, rets `LDG_ERR_INTERRUPTED` on signal. Windows: `Sleep`, ms granularity, sub-ms rounds up to 1ms. `ns == 0` is a no-op
+
 ### io
 
 `io/file.h`: `ldg_io_file_open/close/rd/wr/seek/sync/truncate/lock/unlock/dup()`; `ldg_io_pipe_create()`, `ldg_io_file_stat/fstat()`
@@ -153,32 +153,78 @@ ldg_mpmc_shutdown(&q);
 
 ### gpu
 
-`gpu/gpu.h`: Vulkan 1.2 compute-only; opaque API, no `vulkan.h` in public hdr. auto device selection (prefers discrete, falls back integrated; or explicit idx). slab-based GPU mem suballocator with VRAM-to-host spillover (`LDG_GPU_FLAG_SPILL_ENABLE`). staging transfers for device-local buffs, direct map for host-visible. GPU-side fill via `ldg_gpu_buff_fill` (wraps `vkCmdFillBuffer`; no staging, no CPU upload). generic 8-binding descriptor layout (partially bound, Vk 1.2 core). sync + async dispatch with fence lifecycle. validation layers in debug builds. SPIR-V from files or embedded
+`gpu/gpu.h`: Vulkan 1.2 compute + graphics; opaque API, no `vulkan.h` in public hdr. ctx is caller-owned (alloc'd by `ldg_gpu_init`, freed by `ldg_gpu_shutdown`); no globals. auto device selection (prefers discrete, falls back integrated; or explicit idx). slab-based GPU mem suballocator with VRAM-to-host spillover (`LDG_GPU_FLAG_SPILL_ENABLE`). staging transfers for device-local buffs, direct map for host-visible. GPU-side fill via `ldg_gpu_buff_fill` (wraps `vkCmdFillBuffer`; no staging, no CPU upload). generic 8-binding descriptor layout (partially bound, Vk 1.2 core, `VK_SHADER_STAGE_ALL`). sync + async dispatch with fence lifecycle. validation layers in debug builds. SPIR-V from files or embedded
+
+compute:
 
 ```c
 ldg_gpu_init_desc_t desc = { .dev_idx = UINT32_MAX, .flags = LDG_GPU_FLAG_SPILL_ENABLE };
-ldg_gpu_init(&desc);
+void *gpu = 0x0;
+ldg_gpu_init(&desc, &gpu);
 
 ldg_gpu_buff_desc_t bd = { .size = 4096 };
 ldg_gpu_buff_t buff = { 0 };
-ldg_gpu_buff_create(&bd, &buff);
-ldg_gpu_buff_wr(buff.id, data, 4096, 0);
+ldg_gpu_buff_create(gpu, &bd, &buff);
+ldg_gpu_buff_wr(gpu, buff.id, data, 4096, 0);
 
 uint32_t *spv = 0x0;
 uint64_t spv_size = 0;
 ldg_gpu_spirv_file_load("shader.spv", &spv, &spv_size);
 ldg_gpu_spirv_desc_t spirv = { .code = spv, .code_size = spv_size, .entry_name = "main" };
 uint32_t pipeline = 0;
-ldg_gpu_pipeline_create(&spirv, &pipeline);
+ldg_gpu_pipeline_create(gpu, &spirv, &pipeline);
 ldg_gpu_spirv_file_free(spv);
 
 ldg_gpu_dispatch_desc_t dd = { .pipeline_id = pipeline, .group_cunt_x = 1, .group_cunt_y = 1, .group_cunt_z = 1, .buff_ids = { buff.id }, .buff_cunt = 1 };
-ldg_gpu_dispatch(&dd);
+ldg_gpu_dispatch(gpu, &dd);
 
-ldg_gpu_buff_rd(buff.id, out, 4096, 0);
-ldg_gpu_buff_destroy(buff.id);
-ldg_gpu_pipeline_destroy(pipeline);
-ldg_gpu_shutdown();
+ldg_gpu_buff_rd(gpu, buff.id, out, 4096, 0);
+ldg_gpu_buff_destroy(gpu, buff.id);
+ldg_gpu_pipeline_destroy(gpu, pipeline);
+ldg_gpu_shutdown(gpu);
+```
+
+graphics (surface/swapchain/renderpass/pipeline/frame): caller creates `VkSurfaceKHR` via GLFW (or equivalent), hands it to `ldg_gpu_surface_create`. swapchain owns framebuffers + optional depth image. 3 frames-in-flight with per-frame fences + semaphores. push constants (128B, vert+frag). shared pipeline registry (compute + graphics, 64 slots, tagged by kind). `instance_extensions` in `ldg_gpu_init_desc_t` for WSI extensions
+
+```c
+uint32_t ext_cunt = 0;
+const char **exts = glfwGetRequiredInstanceExtensions(&ext_cunt);
+ldg_gpu_init_desc_t desc = { .dev_idx = UINT32_MAX, .instance_extensions = exts, .instance_extension_cunt = ext_cunt };
+void *gpu = 0x0;
+ldg_gpu_init(&desc, &gpu);
+
+void *instance = 0x0;
+ldg_gpu_instance_get(gpu, &instance);
+VkSurfaceKHR vk_surface = 0x0;
+glfwCreateWindowSurface(instance, window, 0x0, &vk_surface);
+ldg_gpu_surface_t surface = { 0 };
+ldg_gpu_surface_create(gpu, (void *)vk_surface, &surface);
+
+ldg_gpu_swapchain_desc_t sc_desc = { .surface_id = surface.id, .w = 1280, .h = 720, .preferred_image_cunt = 3, .present_mode = LDG_GPU_PRESENT_MAILBOX };
+ldg_gpu_swapchain_t swapchain = { 0 };
+ldg_gpu_swapchain_create(gpu, &sc_desc, &swapchain);
+
+ldg_gpu_renderpass_desc_t rp_desc = { .color_fmt = LDG_GPU_FMT_B8G8R8A8_SRGB, .load_clear = 1 };
+uint32_t renderpass = 0;
+ldg_gpu_renderpass_create(gpu, &rp_desc, &renderpass);
+
+ldg_gpu_gfx_pipeline_desc_t pipeline_desc = { .vert = vert_spirv, .frag = frag_spirv, .renderpass_id = renderpass, .vertex_stride = 20, .vertex_attr_cunt = 2, .vertex_attrs = { { 0, 0, LDG_GPU_FMT_R32G32_SFLOAT }, { 1, 8, LDG_GPU_FMT_R32G32B32_SFLOAT } }, .topology = LDG_GPU_TOPOLOGY_TRI_LIST };
+uint32_t gfx_pipeline = 0;
+ldg_gpu_gfx_pipeline_create(gpu, &pipeline_desc, &gfx_pipeline);
+
+uint32_t image_idx = 0;
+ldg_gpu_swapchain_image_acquire(gpu, swapchain.id, &image_idx);
+ldg_gpu_frame_t frame = { 0 };
+ldg_gpu_frame_begin(gpu, swapchain.id, &frame);
+double clear[4] = { 0.02, 0.02, 0.03, 1.0 };
+ldg_gpu_frame_renderpass_begin(gpu, &frame, renderpass, clear, 1.0);
+ldg_gpu_frame_pipeline_bind(gpu, &frame, gfx_pipeline);
+ldg_gpu_frame_vertex_buff_bind(gpu, &frame, vbo.id);
+ldg_gpu_frame_push_const(gpu, &frame, 0, 64, &mvp);
+ldg_gpu_frame_draw(gpu, &frame, 3, 1);
+ldg_gpu_frame_renderpass_end(gpu, &frame);
+ldg_gpu_frame_end(gpu, &frame);
+ldg_gpu_swapchain_present(gpu, swapchain.id, image_idx);
 ```
 
 ### math
