@@ -161,6 +161,9 @@ DANGLING_1.0 {
         ldg_thread_pool_worker_cunt_get;
         ldg_thread_pool_submit;
 
+        /* thread/yield */
+        ldg_thread_yield;
+
         /* net/curl */
         ldg_curl_resp_init;
         ldg_curl_resp_free;
@@ -277,3 +280,40 @@ DANGLING_1.0 {
     local:
         *;
 };
+
+DANGLING_2.0 {
+    global:
+        /* gpu/instance */
+        ldg_gpu_instance_get;
+
+        /* gpu/surface */
+        ldg_gpu_surface_create;
+        ldg_gpu_surface_destroy;
+
+        /* gpu/swapchain */
+        ldg_gpu_swapchain_create;
+        ldg_gpu_swapchain_destroy;
+        ldg_gpu_swapchain_recreate;
+        ldg_gpu_swapchain_image_acquire;
+        ldg_gpu_swapchain_present;
+
+        /* gpu/renderpass */
+        ldg_gpu_renderpass_create;
+        ldg_gpu_renderpass_destroy;
+
+        /* gpu/pipeline (gfx) */
+        ldg_gpu_gfx_pipeline_create;
+
+        /* gpu/frame */
+        ldg_gpu_frame_begin;
+        ldg_gpu_frame_renderpass_begin;
+        ldg_gpu_frame_pipeline_bind;
+        ldg_gpu_frame_vertex_buff_bind;
+        ldg_gpu_frame_idx_buff_bind;
+        ldg_gpu_frame_buff_bind;
+        ldg_gpu_frame_push_const;
+        ldg_gpu_frame_draw;
+        ldg_gpu_frame_draw_idxd;
+        ldg_gpu_frame_renderpass_end;
+        ldg_gpu_frame_end;
+} DANGLING_1.0;

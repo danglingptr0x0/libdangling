@@ -170,7 +170,7 @@ uint32_t ldg_audio_master_vol_set(double vol)
 
     val = g_audio_ctx.vol_min + (int64_t)(vol * (double)(g_audio_ctx.vol_max - g_audio_ctx.vol_min));
 
-    ret = (int32_t)snd_mixer_selem_set_playback_volume_all(g_audio_ctx.master_elem, (long)val);
+    ret = (int32_t)snd_mixer_selem_set_playback_volume_all(g_audio_ctx.master_elem, (int64_t)val);
     if (LDG_UNLIKELY(ret < 0)) { return LDG_ERR_AUDIO_INIT; }
 
     return LDG_ERR_AOK;

@@ -1,6 +1,3 @@
-; mem_secure.asm - secure memory operations
-; System V AMD64 ABI: args in rdi, rsi, rdx, rcx, r8, r9; return in rax
-
 %include "dangling/core/err.inc"
 
 section .data
@@ -77,7 +74,6 @@ ldg_mem_secure_zero:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
 global ldg_mem_secure_copy
 ldg_mem_secure_copy:
     test    rdi, rdi
@@ -149,9 +145,6 @@ ldg_mem_secure_copy:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
-; uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
-; rdi=a, rsi=b, rdx=len, rcx=result
 global ldg_mem_secure_cmp
 ldg_mem_secure_cmp:
     test    rdi, rdi
@@ -207,9 +200,6 @@ ldg_mem_secure_cmp:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
-; rdi=dst, rsi=src, rdx=len, rcx=cond (cl)
 global ldg_mem_secure_cmov
 ldg_mem_secure_cmov:
     test    rdi, rdi
@@ -253,9 +243,6 @@ ldg_mem_secure_cmov:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
-; uint8_t ldg_mem_secure_neq_is(const void *a, const void *b, uint64_t len)
-; rdi=a, rsi=b, rdx=len; returns 0 or 1
 global ldg_mem_secure_neq_is
 ldg_mem_secure_neq_is:
     test    rdi, rdi
