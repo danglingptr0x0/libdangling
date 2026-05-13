@@ -244,7 +244,7 @@ LDG_EXPORT uint32_t ldg_emiemi_decode(const ldg_byte_t *frame, ldg_dword_t frame
 
     if (LDG_UNLIKELY(!payload_len)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(frame_len < LDG_EMIEMI_OVERHEAD)) { return LDG_ERR_PROTO_EMIEMI_TRUNCATED; }
+    if (LDG_UNLIKELY(frame_len < LDG_EMIEMI_OVERHEAD)) { return LDG_ERR_PROTO_EMIEMI_TRUNC; }
 
     for (i = 0; i < LDG_EMIEMI_START_MARKER_LEN; i++) { if (LDG_UNLIKELY(frame[i] != start[i])) { return LDG_ERR_PROTO_EMIEMI_BAD_MARKER; } }
 
@@ -258,7 +258,7 @@ LDG_EXPORT uint32_t ldg_emiemi_decode(const ldg_byte_t *frame, ldg_dword_t frame
     expected_len = LDG_EMIEMI_OVERHEAD + len;
     if (LDG_UNLIKELY(expected_len < len)) { return LDG_ERR_OVERFLOW; }
 
-    if (LDG_UNLIKELY(frame_len < expected_len)) { return LDG_ERR_PROTO_EMIEMI_TRUNCATED; }
+    if (LDG_UNLIKELY(frame_len < expected_len)) { return LDG_ERR_PROTO_EMIEMI_TRUNC; }
 
     end_offset = LDG_EMIEMI_HDR_LEN + len;
     for (i = 0; i < LDG_EMIEMI_END_MARKER_LEN; i++) { if (LDG_UNLIKELY(frame[end_offset + i] != end[i])) { return LDG_ERR_PROTO_EMIEMI_BAD_MARKER; } }

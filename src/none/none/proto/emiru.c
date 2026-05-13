@@ -12,7 +12,7 @@ LDG_EXPORT uint32_t ldg_emiru_hdr_validate(const ldg_byte_t *buff, ldg_dword_t b
 
     if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(buff_len < LDG_EMIRU_HDR_SIZE)) { return LDG_ERR_PROTO_EMIRU_TRUNCATED; }
+    if (LDG_UNLIKELY(buff_len < LDG_EMIRU_HDR_SIZE)) { return LDG_ERR_PROTO_EMIRU_TRUNC; }
 
     hdr = (const ldg_emiru_hdr_t *)buff;
 
@@ -32,7 +32,7 @@ LDG_EXPORT uint32_t ldg_emiru_hdr_validate(const ldg_byte_t *buff, ldg_dword_t b
     required = LDG_EMIRU_HDR_SIZE + payload;
     if (LDG_UNLIKELY(required < payload)) { return LDG_ERR_OVERFLOW; }
 
-    if (LDG_UNLIKELY(buff_len < required)) { return LDG_ERR_PROTO_EMIRU_TRUNCATED; }
+    if (LDG_UNLIKELY(buff_len < required)) { return LDG_ERR_PROTO_EMIRU_TRUNC; }
 
     return LDG_ERR_AOK;
 }
