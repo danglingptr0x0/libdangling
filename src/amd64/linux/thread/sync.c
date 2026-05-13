@@ -182,11 +182,11 @@ uint32_t ldg_cond_timedwait(ldg_cond_t *c, ldg_mut_t *m, uint64_t timeout_ms)
     if (LDG_UNLIKELY(timeout_ms > max_add_ms)) { timeout_ms = max_add_ms; }
 
     ts.tv_sec += (time_t)(timeout_ms / LDG_MS_PER_SEC);
-    ts.tv_nsec += (long)((timeout_ms % LDG_MS_PER_SEC) * LDG_NS_PER_MS);
-    if (ts.tv_nsec >= (long)(LDG_NS_PER_SEC))
+    ts.tv_nsec += (int64_t)((timeout_ms % LDG_MS_PER_SEC) * LDG_NS_PER_MS);
+    if (ts.tv_nsec >= (int64_t)(LDG_NS_PER_SEC))
     {
         ts.tv_sec += 1;
-        ts.tv_nsec -= (long)(LDG_NS_PER_SEC);
+        ts.tv_nsec -= (int64_t)(LDG_NS_PER_SEC);
     }
 
     ret = (int32_t)pthread_cond_timedwait(cond_cv(c), mut_mtx(m), &ts);

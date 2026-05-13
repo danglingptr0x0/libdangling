@@ -1,6 +1,3 @@
-; time_tsc.asm - RDTSCP-based high-resolution timing
-; System V AMD64 ABI: args in rdi, rsi, rdx, rcx, r8, r9; return in rax
-
 section .data
     align 64
 
@@ -22,13 +19,11 @@ ldg_tsc_sample:
 .done:
     ret
 
-
 global ldg_tsc_serialize
 ldg_tsc_serialize:
     xor     eax, eax
     cpuid
     ret
-
 
 global ldg_tsc_serialized_sample
 ldg_tsc_serialized_sample:
@@ -55,7 +50,6 @@ ldg_tsc_serialized_sample:
     mov     rax, r8
     pop     rbx
     ret
-
 
 global ldg_tsc_delta
 ldg_tsc_delta:

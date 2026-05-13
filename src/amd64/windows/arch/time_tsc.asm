@@ -1,7 +1,3 @@
-; time_tsc.asm - RDTSCP-based high-resolution timing
-; Microsoft x64 ABI: args in rcx, rdx, r8, r9; return in rax
-; Callee-saved: rbx, rbp, rdi, rsi, r12-r15
-
 section .data
     align 64
 
@@ -10,8 +6,6 @@ section .bss
 
 section .text
 
-; uint64_t ldg_tsc_sample(uint32_t *core_id)
-; rcx=core_id
 global ldg_tsc_sample
 ldg_tsc_sample:
     rdtscp
@@ -25,8 +19,6 @@ ldg_tsc_sample:
 .done:
     ret
 
-
-; void ldg_tsc_serialize(void)
 global ldg_tsc_serialize
 ldg_tsc_serialize:
     push    rbx
@@ -35,9 +27,6 @@ ldg_tsc_serialize:
     pop     rbx
     ret
 
-
-; uint64_t ldg_tsc_serialized_sample(uint32_t *core_id)
-; rcx=core_id
 global ldg_tsc_serialized_sample
 ldg_tsc_serialized_sample:
     push    rbx
@@ -64,9 +53,6 @@ ldg_tsc_serialized_sample:
     pop     rbx
     ret
 
-
-; uint64_t ldg_tsc_delta(uint64_t start, uint64_t end)
-; rcx=start, rdx=end
 global ldg_tsc_delta
 ldg_tsc_delta:
     mov     rax, rdx

@@ -1,7 +1,3 @@
-; mem_secure.asm - secure memory operations
-; Microsoft x64 ABI: args in rcx, rdx, r8, r9; return in rax
-; Callee-saved: rbx, rbp, rdi, rsi, r12-r15
-
 %include "dangling/core/err.inc"
 
 section .data
@@ -12,8 +8,6 @@ section .bss
 
 section .text
 
-; void ldg_mem_secure_zero(void *ptr, uint64_t len)
-; rcx=ptr, rdx=len
 global ldg_mem_secure_zero
 ldg_mem_secure_zero:
     test    rcx, rcx
@@ -82,9 +76,6 @@ ldg_mem_secure_zero:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
-; uint32_t ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
-; rcx=dst, rdx=src, r8=len
 global ldg_mem_secure_copy
 ldg_mem_secure_copy:
     test    rcx, rcx
@@ -161,9 +152,6 @@ ldg_mem_secure_copy:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
-; uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
-; rcx=a, rdx=b, r8=len, r9=result
 global ldg_mem_secure_cmp
 ldg_mem_secure_cmp:
     test    rcx, rcx
@@ -223,9 +211,6 @@ ldg_mem_secure_cmp:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_mem_secure_cmov(void *dst, const void *src, uint64_t len, uint8_t cond)
-; rcx=dst, rdx=src, r8=len, r9=cond (r9b)
 global ldg_mem_secure_cmov
 ldg_mem_secure_cmov:
     test    rcx, rcx
@@ -276,9 +261,6 @@ ldg_mem_secure_cmov:
     mov     eax, LDG_ERR_FUNC_ARG_INVALID
     ret
 
-
-; uint8_t ldg_mem_secure_neq_is(const void *a, const void *b, uint64_t len)
-; rcx=a, rdx=b, r8=len; returns 0 or 1
 global ldg_mem_secure_neq_is
 ldg_mem_secure_neq_is:
     test    rcx, rcx
