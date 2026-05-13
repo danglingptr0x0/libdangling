@@ -1,13 +1,7 @@
-; cpuid.asm - CPUID utilities
-; Microsoft x64 ABI: args in rcx, rdx, r8, r9; return in rax
-; Callee-saved: rbx, rbp, rdi, rsi, r12-r15
-
 %include "dangling/core/err.inc"
 
 section .text
 
-; uint32_t ldg_cpuid(uint32_t leaf, uint32_t subleaf, ldg_cpuid_regs_t *regs)
-; rcx=leaf, edx=subleaf, r8=regs
 global ldg_cpuid
 ldg_cpuid:
     test    r8, r8
@@ -32,9 +26,6 @@ ldg_cpuid:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_cpuid_vendor_get(char out[13])
-; rcx=out
 global ldg_cpuid_vendor_get
 ldg_cpuid_vendor_get:
     test    rcx, rcx
@@ -58,9 +49,6 @@ ldg_cpuid_vendor_get:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_cpuid_brand_get(char out[49])
-; rcx=out
 global ldg_cpuid_brand_get
 ldg_cpuid_brand_get:
     test    rcx, rcx
@@ -111,9 +99,6 @@ ldg_cpuid_brand_get:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_cpuid_feat_get(ldg_cpuid_feat_t *feat)
-; rcx=feat
 global ldg_cpuid_feat_get
 ldg_cpuid_feat_get:
     test    rcx, rcx
@@ -198,8 +183,6 @@ ldg_cpuid_feat_get:
     mov     eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-
-; uint32_t ldg_cpuid_max_leaf_get(void)
 global ldg_cpuid_max_leaf_get
 ldg_cpuid_max_leaf_get:
     push    rbx
@@ -208,8 +191,6 @@ ldg_cpuid_max_leaf_get:
     pop     rbx
     ret
 
-
-; uint32_t ldg_cpuid_max_ext_leaf_get(void)
 global ldg_cpuid_max_ext_leaf_get
 ldg_cpuid_max_ext_leaf_get:
     push    rbx
@@ -218,16 +199,12 @@ ldg_cpuid_max_ext_leaf_get:
     pop     rbx
     ret
 
-
-; uint32_t ldg_cpu_core_id_get(void)
 global ldg_cpu_core_id_get
 ldg_cpu_core_id_get:
     rdtscp
     mov     eax, ecx
     ret
 
-
-; void ldg_cpu_relax(void)
 global ldg_cpu_relax
 ldg_cpu_relax:
     pause
