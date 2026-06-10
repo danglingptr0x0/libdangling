@@ -9,14 +9,14 @@ typedef struct ldg_spsc_queue
     uint8_t *buff;
     uint64_t buff_size;
     uint64_t item_size;
-    uint64_t capacity;
-    uint64_t head;
+    uint64_t cap;
+    uint64_t hd;
     uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(uint64_t)];
     uint64_t tail;
     uint8_t pudding1[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(uint64_t)];
 } LDG_ALIGNED ldg_spsc_queue_t;
 
-LDG_EXPORT uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, uint64_t item_size, uint64_t capacity);
+LDG_EXPORT uint32_t ldg_spsc_init(ldg_spsc_queue_t *q, uint64_t item_size, uint64_t cap);
 LDG_EXPORT uint32_t ldg_spsc_shutdown(ldg_spsc_queue_t *q);
 LDG_EXPORT uint32_t ldg_spsc_push(ldg_spsc_queue_t *q, const void *item);
 LDG_EXPORT uint32_t ldg_spsc_pop(ldg_spsc_queue_t *q, void *item_out);

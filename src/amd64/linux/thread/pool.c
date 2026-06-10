@@ -20,11 +20,11 @@ static void* ldg_thread_pool_worker_enter(void *arg)
 
     pool = (ldg_thread_pool_t *)worker->pool;
 
-    LDG_WRITE_ONCE(worker->state, LDG_THREAD_POOL_WORKER_RUNNING);
+    LDG_WR_ONCE(worker->state, LDG_THREAD_POOL_WORKER_RUNNING);
 
-    while (!LDG_READ_ONCE(worker->should_stop))
+    while (!LDG_RD_ONCE(worker->should_stop))
     {
-        if (LDG_READ_ONCE(pool->task_queue))
+        if (LDG_RD_ONCE(pool->task_queue))
         {
             ret = ldg_mpmc_wait(pool->task_queue, &task, LDG_THREAD_POOL_WAIT_TIMEOUT_MS);
             if (ret == LDG_ERR_AOK && task.func) { task.func(task.arg); }
@@ -35,7 +35,7 @@ static void* ldg_thread_pool_worker_enter(void *arg)
         LDG_PAUSE;
     }
 
-    LDG_WRITE_ONCE(worker->state, LDG_THREAD_POOL_WORKER_STOPPED);
+    LDG_WR_ONCE(worker->state, LDG_THREAD_POOL_WORKER_STOPPED);
 
     return 0x0;
 }
@@ -75,8 +75,8 @@ uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
         pool->workers[i].id = i;
         pool->workers[i].core_id = i;
         pool->workers[i].pool = pool;
-        LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_IDLE);
-        LDG_WRITE_ONCE(pool->workers[i].should_stop, 0);
+        LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_IDLE);
+        LDG_WR_ONCE(pool->workers[i].should_stop, 0);
     }
 
     pool->is_init = 1;
@@ -130,10 +130,10 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
         pool->workers[i].func = func;
         pool->workers[i].func_arg = arg;
 
-        LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
-        LDG_WRITE_ONCE(pool->workers[i].should_stop, 0);
+        LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
+        LDG_WR_ONCE(pool->workers[i].should_stop, 0);
 
-        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED); continue; }
+        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED); continue; }
 
         // amd64: pthread_t fits in uint64_t; validated by BOOL_ASSERT in init
         ret = (int32_t)pthread_create(&tid, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
@@ -142,14 +142,14 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
 
         if (LDG_UNLIKELY(ret != 0))
         {
-            LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED);
+            LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED);
             continue;
         }
 
         started++;
     }
 
-    if (LDG_UNLIKELY(started == 0)) { LDG_WRITE_ONCE(pool->is_running, 0); return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(started == 0)) { LDG_WR_ONCE(pool->is_running, 0); return LDG_ERR_FUNC_ARG_INVALID; }
 
     return LDG_ERR_AOK;
 }
@@ -162,9 +162,9 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 
     if (LDG_UNLIKELY(!pool || !pool->is_init)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!LDG_READ_ONCE(pool->is_running))) { return LDG_ERR_AOK; }
+    if (LDG_UNLIKELY(!LDG_RD_ONCE(pool->is_running))) { return LDG_ERR_AOK; }
 
-    for (i = 0; i < pool->worker_cunt; i++) { LDG_WRITE_ONCE(pool->workers[i].should_stop, 1); }
+    for (i = 0; i < pool->worker_cunt; i++) { LDG_WR_ONCE(pool->workers[i].should_stop, 1); }
 
     LDG_SMP_MB();
 
@@ -183,7 +183,7 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
         }
     }
 
-    LDG_WRITE_ONCE(pool->is_running, 0);
+    LDG_WR_ONCE(pool->is_running, 0);
 
     return first_err;
 }
@@ -208,10 +208,10 @@ static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
         pool->workers[i].func = 0x0;
         pool->workers[i].func_arg = 0x0;
 
-        LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
-        LDG_WRITE_ONCE(pool->workers[i].should_stop, 0);
+        LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STARTING);
+        LDG_WR_ONCE(pool->workers[i].should_stop, 0);
 
-        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED); continue; }
+        if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED); continue; }
 
         ret = (int32_t)pthread_create(&tid, &attr, ldg_thread_pool_worker_enter, &pool->workers[i]);
         pool->workers[i].handle = (ret == 0) ? (uint64_t)tid : 0;
@@ -219,7 +219,7 @@ static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
 
         if (LDG_UNLIKELY(ret != 0))
         {
-            LDG_WRITE_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED);
+            LDG_WR_ONCE(pool->workers[i].state, LDG_THREAD_POOL_WORKER_STOPPED);
             continue;
         }
 
@@ -245,7 +245,7 @@ uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_
 
     {
         uint8_t expected = 0;
-        if (LDG_CAS(&pool->is_running, &expected, 1)) { if (LDG_UNLIKELY(thread_pool_submit_workers_start(pool) != LDG_ERR_AOK)) { LDG_WRITE_ONCE(pool->is_running, 0); return LDG_ERR_FUNC_ARG_INVALID; } }
+        if (LDG_CAS(&pool->is_running, &expected, 1)) { if (LDG_UNLIKELY(thread_pool_submit_workers_start(pool) != LDG_ERR_AOK)) { LDG_WR_ONCE(pool->is_running, 0); return LDG_ERR_FUNC_ARG_INVALID; } }
     }
 
     task.func = func;

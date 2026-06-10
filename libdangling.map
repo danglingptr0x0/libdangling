@@ -15,7 +15,7 @@ DANGLING_1.0 {
         ldg_mem_pool_rst;
         ldg_mem_pool_remaining_get;
         ldg_mem_pool_used_get;
-        ldg_mem_pool_capacity_get;
+        ldg_mem_pool_cap_get;
         ldg_mem_pool_var_is;
         ldg_mem_stats_get;
         ldg_mem_leaks_dump;
@@ -174,9 +174,6 @@ DANGLING_1.0 {
         ldg_curl_multi_post;
         ldg_curl_multi_perform;
         ldg_curl_multi_progress_get;
-        ldg_curl_headers_append;
-        ldg_curl_headers_copy;
-        ldg_curl_headers_destroy;
         ldg_curl_easy_ctx_create;
         ldg_curl_easy_ctx_destroy;
         ldg_curl_easy_get;
@@ -294,7 +291,6 @@ DANGLING_2.0 {
         ldg_gpu_swapchain_create;
         ldg_gpu_swapchain_destroy;
         ldg_gpu_swapchain_recreate;
-        ldg_gpu_swapchain_image_acquire;
         ldg_gpu_swapchain_present;
 
         /* gpu/renderpass */
@@ -308,7 +304,6 @@ DANGLING_2.0 {
         ldg_gpu_frame_begin;
         ldg_gpu_frame_renderpass_begin;
         ldg_gpu_frame_pipeline_bind;
-        ldg_gpu_frame_vertex_buff_bind;
         ldg_gpu_frame_idx_buff_bind;
         ldg_gpu_frame_buff_bind;
         ldg_gpu_frame_push_const;
@@ -317,3 +312,12 @@ DANGLING_2.0 {
         ldg_gpu_frame_renderpass_end;
         ldg_gpu_frame_end;
 } DANGLING_1.0;
+
+DANGLING_3.0 {
+    global:
+        ldg_curl_hdrs_append;
+        ldg_curl_hdrs_copy;
+        ldg_curl_hdrs_destroy;
+        ldg_gpu_swapchain_img_acquire;
+        ldg_gpu_frame_vert_buff_bind;
+} DANGLING_2.0;

@@ -1,11 +1,11 @@
 #ifndef LDG_ARCH_AMD64_ATOMIC_H
 #define LDG_ARCH_AMD64_ATOMIC_H
 
-#define LDG_READ_ONCE(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
-#define LDG_WRITE_ONCE(x, val) __atomic_store_n(&(x), (val), __ATOMIC_RELAXED)
+#define LDG_RD_ONCE(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
+#define LDG_WR_ONCE(x, val) __atomic_store_n(&(x), (val), __ATOMIC_RELAXED)
 
-#define LDG_READ_ONCE_AGGREGATE(x) ({ typeof(x) __v; __atomic_load(&(x), &__v, __ATOMIC_RELAXED); __v; })
-#define LDG_WRITE_ONCE_AGGREGATE(x, val) do { typeof(x) __w = (val); __atomic_store(&(x), &__w, __ATOMIC_RELAXED); } while (0)
+#define LDG_RD_ONCE_AGGREGATE(x) ({ typeof(x) __v; __atomic_load(&(x), &__v, __ATOMIC_RELAXED); __v; })
+#define LDG_WR_ONCE_AGGREGATE(x, val) do { typeof(x) __w = (val); __atomic_store(&(x), &__w, __ATOMIC_RELAXED); } while (0)
 
 #define LDG_LOAD_ACQUIRE(x) __atomic_load_n(&(x), __ATOMIC_ACQUIRE)
 #define LDG_STORE_RELEASE(x, val) __atomic_store_n(&(x), (val), __ATOMIC_RELEASE)
