@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 2.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 3.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(STD_NO_INSTR ON CACHE BOOL "" FORCE)
 endif()
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
+    set(STD_NO_INSTR ON CACHE BOOL "" FORCE)
+    set(STD_DEBUG ON CACHE BOOL "" FORCE)
+endif()
 include(std)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -29,11 +35,44 @@ endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     set(LDG_ARCH "amd64")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
+    set(LDG_ARCH "i386")
 else()
     message(FATAL_ERROR "unsupported arch: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(LDG_ARCH STREQUAL "i386")
+    set(LDG_PLATFORM "DANGLING")
+    set(LDG_WITH_AUDIO OFF)
+    set(LDG_WITH_NET OFF)
+    set(LDG_WITH_FMT OFF)
+    set(LDG_WITH_GPU OFF)
+    set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
+    add_compile_options(
+        -m32
+        -masm=intel
+        -march=i386
+        -mno-mmx
+        -mno-sse
+        -mno-sse2
+        -ffreestanding
+        -fno-pie
+        -fno-pic
+        -fno-stack-protector
+        -fno-stack-clash-protection
+        -fcf-protection=none
+        -fno-analyzer
+        -fno-builtin
+        -fshort-enums
+        -fpack-struct=1
+        -fno-omit-frame-pointer
+        -fno-strict-aliasing
+        -fno-delete-null-pointer-checks
+        -fno-common
+        -U_POSIX_C_SOURCE
+        -U_FORTIFY_SOURCE
+    )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(LDG_PLATFORM "linux")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(LDG_PLATFORM "windows")
@@ -43,7 +82,9 @@ endif()
 
 set(LDG_PLATFORM_DIR "src/${LDG_ARCH}/${LDG_PLATFORM}")
 
-find_package(Threads REQUIRED)
+if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
+    find_package(Threads REQUIRED)
+endif()
 
 if(LDG_PLATFORM STREQUAL "linux")
     find_package(PkgConfig REQUIRED)
@@ -165,22 +206,31 @@ set(LDG_SOURCES
     src/none/none/proto/emiru.c
     src/none/none/proto/emiemi.c
     src/none/none/misc/misc.c
-    ${LDG_PLATFORM_DIR}/thread/sync.c
-    ${LDG_PLATFORM_DIR}/thread/pool.c
-    ${LDG_PLATFORM_DIR}/thread/spsc.c
-    ${LDG_PLATFORM_DIR}/thread/mpmc.c
-    ${LDG_PLATFORM_DIR}/thread/yield.c
-    ${LDG_PLATFORM_DIR}/mem/alloc.c
-    ${LDG_PLATFORM_DIR}/time/time.c
-    ${LDG_PLATFORM_DIR}/time/perf.c
-    ${LDG_PLATFORM_DIR}/io/file.c
-    ${LDG_PLATFORM_DIR}/io/dir.c
-    ${LDG_PLATFORM_DIR}/io/path.c
-    ${LDG_PLATFORM_DIR}/sys/uuid.c
-    ${LDG_PLATFORM_DIR}/sys/tty.c
-    ${LDG_PLATFORM_DIR}/sys/info.c
     ${LDG_OPT_SOURCES}
 )
+if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
+    list(APPEND LDG_SOURCES
+        ${LDG_PLATFORM_DIR}/thread/sync.c
+        ${LDG_PLATFORM_DIR}/thread/pool.c
+        ${LDG_PLATFORM_DIR}/thread/spsc.c
+        ${LDG_PLATFORM_DIR}/thread/mpmc.c
+        ${LDG_PLATFORM_DIR}/thread/yield.c
+        ${LDG_PLATFORM_DIR}/mem/alloc.c
+        ${LDG_PLATFORM_DIR}/time/time.c
+        ${LDG_PLATFORM_DIR}/time/perf.c
+        ${LDG_PLATFORM_DIR}/io/file.c
+        ${LDG_PLATFORM_DIR}/io/dir.c
+        ${LDG_PLATFORM_DIR}/io/path.c
+        ${LDG_PLATFORM_DIR}/sys/uuid.c
+        ${LDG_PLATFORM_DIR}/sys/tty.c
+        ${LDG_PLATFORM_DIR}/sys/info.c
+    )
+elseif(LDG_PLATFORM STREQUAL "DANGLING")
+    list(APPEND LDG_SOURCES
+        ${LDG_PLATFORM_DIR}/mem/alloc.c
+        ${LDG_PLATFORM_DIR}/thread/sync.c
+    )
+endif()
 
 if(LDG_ARCH STREQUAL "amd64")
     set(LDG_ARCH_SOURCES
@@ -214,7 +264,13 @@ endif()
 
 set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")
 
-foreach(LDG_TARGET dangling_shared dangling_static)
+if(LDG_ARCH STREQUAL "i386")
+    set(LDG_TARGETS dangling_static)
+else()
+    set(LDG_TARGETS dangling_shared dangling_static)
+endif()
+
+foreach(LDG_TARGET ${LDG_TARGETS})
     if(LDG_TARGET STREQUAL "dangling_shared")
         add_library(${LDG_TARGET} SHARED ${LDG_SOURCES} ${LDG_ARCH_SOURCES})
     else()
@@ -241,7 +297,10 @@ foreach(LDG_TARGET dangling_shared dangling_static)
     if(LDG_OPT_INCLUDE_DIRS)
         target_include_directories(${LDG_TARGET} SYSTEM PUBLIC ${LDG_OPT_INCLUDE_DIRS})
     endif()
-    target_link_libraries(${LDG_TARGET} PUBLIC ${LDG_OPT_LIBRARIES} Threads::Threads)
+    target_link_libraries(${LDG_TARGET} PUBLIC ${LDG_OPT_LIBRARIES})
+    if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
+        target_link_libraries(${LDG_TARGET} PUBLIC Threads::Threads)
+    endif()
     if(LDG_PLATFORM STREQUAL "windows")
         target_link_libraries(${LDG_TARGET} PUBLIC kernel32 bcrypt ws2_32)
     endif()
@@ -256,13 +315,15 @@ foreach(LDG_TARGET dangling_shared dangling_static)
     endif()
 endforeach()
 
-install(TARGETS dangling_shared dangling_static
+install(TARGETS ${LDG_TARGETS}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 install(DIRECTORY include/dangling/none/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(DIRECTORY include/dangling/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/dangling/${LDG_ARCH}/none/dangling)
+    install(DIRECTORY include/dangling/${LDG_ARCH}/none/dangling DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
 
 if(EXISTS ${LDG_ERR_INC})
     install(FILES ${LDG_ERR_INC} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dangling/core)
@@ -296,7 +357,7 @@ set(LDG_ABI_DUMP "${LDG_ABI_DIR}/dangling-${PROJECT_VERSION}.abi.tar.gz")
 find_program(ABI_DUMPER abi-dumper)
 find_program(ABI_CHECKER abi-compliance-checker)
 
-if(ABI_DUMPER)
+if(ABI_DUMPER AND TARGET dangling_shared)
     add_custom_target(abi-dump
         COMMAND ${CMAKE_COMMAND} -E make_directory ${LDG_ABI_DIR}
         COMMAND ${ABI_DUMPER} $<TARGET_FILE:dangling_shared>
@@ -308,7 +369,7 @@ if(ABI_DUMPER)
     )
 endif()
 
-if(ABI_DUMPER AND ABI_CHECKER)
+if(ABI_DUMPER AND ABI_CHECKER AND TARGET dangling_shared)
     add_custom_target(abi-check
         COMMAND ${ABI_CHECKER}
             -l dangling
@@ -319,5 +380,9 @@ if(ABI_DUMPER AND ABI_CHECKER)
     )
 endif()
 
-std_invalidate_test_state(dangling_shared)
+if(TARGET dangling_shared)
+    std_invalidate_test_state(dangling_shared)
+else()
+    std_invalidate_test_state(dangling_static)
+endif()
 qemu_add_run_target()

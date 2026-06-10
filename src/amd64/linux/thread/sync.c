@@ -8,6 +8,7 @@
 
 #include <dangling/thread/sync.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 
 
@@ -229,7 +230,7 @@ uint32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
     s->handle = sem_open(name, O_CREAT | O_EXCL, 0600, init_val);
     if (LDG_UNLIKELY(s->handle == SEM_FAILED)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(memcpy(s->name, name, name_len) != s->name)) { sem_close(s->handle); sem_unlink(name); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(s->name, name, name_len) != LDG_ERR_AOK)) { sem_close(s->handle); sem_unlink(name); return LDG_ERR_MEM_BAD; }
 
     s->name[name_len] = LDG_STR_TERM;
     s->is_owner = 1;
@@ -252,7 +253,7 @@ uint32_t ldg_sem_open(ldg_sem_t *s, const char *name)
     s->handle = sem_open(name, 0);
     if (LDG_UNLIKELY(s->handle == SEM_FAILED)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(memcpy(s->name, name, name_len) != s->name)) { sem_close(s->handle); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(s->name, name, name_len) != LDG_ERR_AOK)) { sem_close(s->handle); return LDG_ERR_MEM_BAD; }
 
     s->name[name_len] = LDG_STR_TERM;
     s->is_owner = 0;

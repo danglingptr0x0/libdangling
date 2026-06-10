@@ -13,6 +13,6 @@ typedef struct ldg_gql_ctx
 
 LDG_EXPORT uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url);
 LDG_EXPORT void ldg_gql_ctx_destroy(ldg_gql_ctx_t *ctx);
-LDG_EXPORT uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *headers, ldg_curl_resp_t *resp);
+LDG_EXPORT uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *hdrs, ldg_curl_resp_t *resp);
 
 #endif

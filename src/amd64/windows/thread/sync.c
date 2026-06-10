@@ -4,6 +4,7 @@
 
 #include <dangling/thread/sync.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 
 #define LDG_SEM_MAX_CUNT 0x7FFFFFFF
@@ -172,7 +173,7 @@ uint32_t ldg_sem_init(ldg_sem_t *s, const char *name, uint32_t init_val)
 
     s->handle = (void *)h;
 
-    if (LDG_UNLIKELY(memcpy(s->name, name, name_len) != s->name)) { CloseHandle(h); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(s->name, name, name_len) != LDG_ERR_AOK)) { CloseHandle(h); return LDG_ERR_MEM_BAD; }
 
     s->name[name_len] = LDG_STR_TERM;
     s->is_owner = 1;
@@ -198,7 +199,7 @@ uint32_t ldg_sem_open(ldg_sem_t *s, const char *name)
 
     s->handle = (void *)h;
 
-    if (LDG_UNLIKELY(memcpy(s->name, name, name_len) != s->name)) { CloseHandle(h); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(s->name, name, name_len) != LDG_ERR_AOK)) { CloseHandle(h); return LDG_ERR_MEM_BAD; }
 
     s->name[name_len] = LDG_STR_TERM;
     s->is_owner = 0;

@@ -5,7 +5,7 @@
 
 #include "state.h"
 
-static uint32_t frame_framebuffers_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, uint32_t renderpass_id, VkDevice device)
+static uint32_t frame_fbos_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, uint32_t renderpass_id, VkDevice dev)
 {
     VkFramebufferCreateInfo fb_info = { 0 };
     VkImageView attachments[2] = { 0 };
@@ -14,21 +14,21 @@ static uint32_t frame_framebuffers_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_
 
     if (sc->cached_renderpass_id == renderpass_id) { return LDG_ERR_AOK; }
 
-    for (i = 0; i < sc->image_cunt && i < LDG_GPU_SWAPCHAIN_IMAGE_MAX; i++) { if (sc->images[i].framebuffer)
+    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++) { if (sc->imgs[i].fbo)
         {
-            vkDestroyFramebuffer(device, (VkFramebuffer)sc->images[i].framebuffer, 0x0);
-            sc->images[i].framebuffer = 0x0;
+            vkDestroyFramebuffer(dev, (VkFramebuffer)sc->imgs[i].fbo, 0x0);
+            sc->imgs[i].fbo = 0x0;
         }
     }
 
-    for (i = 0; i < sc->image_cunt && i < LDG_GPU_SWAPCHAIN_IMAGE_MAX; i++)
+    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++)
     {
-        attachments[0] = (VkImageView)sc->images[i].image_view;
+        attachments[0] = (VkImageView)sc->imgs[i].img_view;
         attach_cunt = 1;
 
-        if (sc->depth_image_view)
+        if (sc->depth_img_view)
         {
-            attachments[1] = (VkImageView)sc->depth_image_view;
+            attachments[1] = (VkImageView)sc->depth_img_view;
             attach_cunt = 2;
         }
 
@@ -40,7 +40,7 @@ static uint32_t frame_framebuffers_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_
         fb_info.height = sc->h;
         fb_info.layers = 1;
 
-        if (LDG_UNLIKELY(vkCreateFramebuffer(device, &fb_info, 0x0, (VkFramebuffer *)&sc->images[i].framebuffer) != VK_SUCCESS)) { return LDG_ERR_GPU_FRAME_BEGIN; }
+        if (LDG_UNLIKELY(vkCreateFramebuffer(dev, &fb_info, 0x0, (VkFramebuffer *)&sc->imgs[i].fbo) != VK_SUCCESS)) { return LDG_ERR_GPU_FRAME_BEGIN; }
     }
 
     sc->cached_renderpass_id = renderpass_id;
@@ -109,7 +109,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_begin(void *vk, uint32_t swapchain_id, ldg_gpu
 
     ctx->frames[slot].cmd_buff = (void *)cmd;
     ctx->frames[slot].swapchain_id = swapchain_id;
-    ctx->frames[slot].image_idx = sc->acquired_image_idx;
+    ctx->frames[slot].img_idx = sc->acquired_img_idx;
     ctx->frames[slot].frame_sync_idx = fidx;
     ctx->frames[slot].recording = 1;
     ctx->frames[slot].in_renderpass = 0;
@@ -128,7 +128,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *fr
     VkViewport viewport = { 0 };
     VkRect2D scissor = { { 0 }, { 0 } };
     VkCommandBuffer cmd = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
     ldg_gpu_frame_entry_t *frame_entry = 0x0;
     uint32_t clear_cunt = 0;
@@ -142,7 +142,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *fr
 
     if (LDG_UNLIKELY(renderpass_id >= LDG_GPU_RENDERPASS_MAX || !ctx->renderpasses[renderpass_id].in_use)) { return LDG_ERR_GPU_RENDERPASS_NOT_FOUND; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -155,7 +155,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *fr
 
     sc = &ctx->swapchains[frame_entry->swapchain_id];
 
-    ret = frame_framebuffers_ensure(ctx, sc, renderpass_id, device);
+    ret = frame_fbos_ensure(ctx, sc, renderpass_id, dev);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -183,7 +183,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *fr
 
     rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp_begin.renderPass = (VkRenderPass)ctx->renderpasses[renderpass_id].renderpass;
-    rp_begin.framebuffer = (VkFramebuffer)sc->images[frame_entry->image_idx].framebuffer;
+    rp_begin.framebuffer = (VkFramebuffer)sc->imgs[frame_entry->img_idx].fbo;
     rp_begin.renderArea.offset.x = 0;
     rp_begin.renderArea.offset.y = 0;
     rp_begin.renderArea.extent.width = sc->w;
@@ -238,7 +238,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_pipeline_bind(void *vk, ldg_gpu_frame_t *frame
     cmd = (VkCommandBuffer)frame_entry->cmd_buff;
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)ctx->pipelines[pipeline_id].pipeline);
 
-    if (ctx->pipelines[pipeline_id].kind == LDG_GPU_PIPELINE_GRAPHICS)
+    if (ctx->pipelines[pipeline_id].kind == LDG_GPU_PIPELINE_GFX)
     {
         VkDescriptorSetLayout dsl = (VkDescriptorSetLayout)ctx->desc_set_layout;
         VkDescriptorSetAllocateInfo ds_alloc = { 0 };
@@ -249,7 +249,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_pipeline_bind(void *vk, ldg_gpu_frame_t *frame
         ds_alloc.descriptorSetCount = 1;
         ds_alloc.pSetLayouts = &dsl;
 
-        if (LDG_UNLIKELY(vkAllocateDescriptorSets((VkDevice)ctx->device, &ds_alloc, &ds) != VK_SUCCESS))
+        if (LDG_UNLIKELY(vkAllocateDescriptorSets((VkDevice)ctx->dev, &ds_alloc, &ds) != VK_SUCCESS))
         {
             LDG_GPU_UNLOCK_OR_WARN(ctx);
             return LDG_ERR_GPU_DESC_ALLOC;
@@ -262,7 +262,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_pipeline_bind(void *vk, ldg_gpu_frame_t *frame
     return ldg_mut_unlock(&ctx->mut);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_frame_vertex_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id)
+LDG_EXPORT uint32_t ldg_gpu_frame_vert_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id)
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -333,7 +333,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_buff_bind(void *vk, ldg_gpu_frame_t *frame, ui
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkDescriptorBufferInfo buff_info = { 0 };
-    VkWriteDescriptorSet write = { 0 };
+    VkWriteDescriptorSet wr = { 0 };
     VkDescriptorSet ds = VK_NULL_HANDLE;
     ldg_gpu_frame_entry_t *frame_entry = 0x0;
     uint32_t ret = 0;
@@ -370,14 +370,14 @@ LDG_EXPORT uint32_t ldg_gpu_frame_buff_bind(void *vk, ldg_gpu_frame_t *frame, ui
     buff_info.offset = 0;
     buff_info.range = VK_WHOLE_SIZE;
 
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = ds;
-    write.dstBinding = slot;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    write.pBufferInfo = &buff_info;
+    wr.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    wr.dstSet = ds;
+    wr.dstBinding = slot;
+    wr.descriptorCount = 1;
+    wr.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    wr.pBufferInfo = &buff_info;
 
-    vkUpdateDescriptorSets((VkDevice)ctx->device, 1, &write, 0, 0x0);
+    vkUpdateDescriptorSets((VkDevice)ctx->dev, 1, &wr, 0, 0x0);
 
     return ldg_mut_unlock(&ctx->mut);
 }
@@ -417,7 +417,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_push_const(void *vk, ldg_gpu_frame_t *frame, u
     return ldg_mut_unlock(&ctx->mut);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vertex_cunt, uint32_t instance_cunt)
+LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t instance_cunt)
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -443,7 +443,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_
     }
 
     cmd = (VkCommandBuffer)frame_entry->cmd_buff;
-    vkCmdDraw(cmd, vertex_cunt, instance_cunt, 0, 0);
+    vkCmdDraw(cmd, vert_cunt, instance_cunt, 0, 0);
 
     return ldg_mut_unlock(&ctx->mut);
 }
@@ -549,7 +549,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_end(void *vk, ldg_gpu_frame_t *frame)
     }
 
     sc = &ctx->swapchains[frame_entry->swapchain_id];
-    wait_sem = (VkSemaphore)sc->frame_sync[frame_entry->frame_sync_idx].image_available_sem;
+    wait_sem = (VkSemaphore)sc->frame_sync[frame_entry->frame_sync_idx].img_available_sem;
     sig_sem = (VkSemaphore)sc->frame_sync[frame_entry->frame_sync_idx].render_finished_sem;
     in_flight = (VkFence)sc->frame_sync[frame_entry->frame_sync_idx].in_flight_fence;
 

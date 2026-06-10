@@ -40,7 +40,7 @@ after install: `pkg-config --cflags --libs dangling`
 
 ## API
 
-API lvl `DANGLING_2.0`. `symbols.txt` is the authoritative surface: 252 exported subroutines, 1 data sym, 46 inline subroutines, 53 types, ~290 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
+API lvl `DANGLING_3.0`. `symbols.txt` is the authoritative surface: 252 exported subroutines, 1 data sym, 46 inline subroutines, 52 types, ~265 macros. `libdangling.map` enforces sym vis at lnk time (`-fvisibility=hidden` + GNU ld version script). only `LDG_EXPORT`-marked syms are exported from the `.so`
 
 ABI ck (requires `abi-dumper` and `abi-compliance-checker`):
 
@@ -70,25 +70,25 @@ make -C build abi-check
 
 ```c
 ldg_mem_init();
-void *p = 0x0;
-ldg_mem_alloc(1024, &p);
-ldg_mem_dealloc(p);
+void *buff = 0x0;
+ldg_mem_alloc(1024, &buff);
+ldg_mem_dealloc(buff);
 ldg_mem_leaks_dump();
 ldg_mem_shutdown();
 
 ldg_mem_pool_t *pool = 0x0;
-thing_t *t = 0x0;
-ldg_mem_pool_create(sizeof(thing_t), 256, &pool);
-ldg_mem_pool_alloc(pool, sizeof(thing_t), (void **)&t);
-ldg_mem_pool_dealloc(pool, t);
+job_t *job = 0x0;
+ldg_mem_pool_create(sizeof(job_t), 256, &pool);
+ldg_mem_pool_alloc(pool, sizeof(job_t), (void **)&job);
+ldg_mem_pool_dealloc(pool, job);
 ldg_mem_pool_destroy(&pool);
 
 ldg_mem_pool_t *vpool = 0x0;
-void *a = 0x0;
-void *b = 0x0;
+void *hdr = 0x0;
+void *payload = 0x0;
 ldg_mem_pool_create(0, 4096, &vpool);
-ldg_mem_pool_alloc(vpool, 128, &a);
-ldg_mem_pool_alloc(vpool, 64, &b);
+ldg_mem_pool_alloc(vpool, 128, &hdr);
+ldg_mem_pool_alloc(vpool, 64, &payload);
 ldg_mem_pool_rst(vpool);
 ldg_mem_pool_destroy(&vpool);
 ```
@@ -114,11 +114,11 @@ ldg_mem_pool_destroy(&vpool);
 `thread/mpmc.h`: lock-free MPMC queue; sequence-based coordination, blocking wait with timeout, bounded CAS spin (1024 iters), bounded wait loop (4096 iters)
 
 ```c
-ldg_mpmc_queue_t q;
-ldg_mpmc_init(&q, sizeof(job_t), 256);
-ldg_mpmc_push(&q, &job);
-ldg_mpmc_wait(&q, &out, 5000);
-ldg_mpmc_shutdown(&q);
+ldg_mpmc_queue_t queue;
+ldg_mpmc_init(&queue, sizeof(job_t), 256);
+ldg_mpmc_push(&queue, &job);
+ldg_mpmc_wait(&queue, &out, 5000);
+ldg_mpmc_shutdown(&queue);
 ```
 
 `thread/pool.h`: thread pool; two modes: long-running workers (`ldg_thread_pool_start`) or job submission (`ldg_thread_pool_submit`, backed by MPMC). `start()` and `submit()` are mutually exclusive
@@ -200,7 +200,7 @@ glfwCreateWindowSurface(instance, window, 0x0, &vk_surface);
 ldg_gpu_surface_t surface = { 0 };
 ldg_gpu_surface_create(gpu, (void *)vk_surface, &surface);
 
-ldg_gpu_swapchain_desc_t sc_desc = { .surface_id = surface.id, .w = 1280, .h = 720, .preferred_image_cunt = 3, .present_mode = LDG_GPU_PRESENT_MAILBOX };
+ldg_gpu_swapchain_desc_t sc_desc = { .surface_id = surface.id, .w = 1280, .h = 720, .preferred_img_cunt = 3, .present_mode = LDG_GPU_PRESENT_MAILBOX };
 ldg_gpu_swapchain_t swapchain = { 0 };
 ldg_gpu_swapchain_create(gpu, &sc_desc, &swapchain);
 
@@ -208,28 +208,28 @@ ldg_gpu_renderpass_desc_t rp_desc = { .color_fmt = LDG_GPU_FMT_B8G8R8A8_SRGB, .l
 uint32_t renderpass = 0;
 ldg_gpu_renderpass_create(gpu, &rp_desc, &renderpass);
 
-ldg_gpu_gfx_pipeline_desc_t pipeline_desc = { .vert = vert_spirv, .frag = frag_spirv, .renderpass_id = renderpass, .vertex_stride = 20, .vertex_attr_cunt = 2, .vertex_attrs = { { 0, 0, LDG_GPU_FMT_R32G32_SFLOAT }, { 1, 8, LDG_GPU_FMT_R32G32B32_SFLOAT } }, .topology = LDG_GPU_TOPOLOGY_TRI_LIST };
+ldg_gpu_gfx_pipeline_desc_t pipeline_desc = { .vert = vert_spirv, .frag = frag_spirv, .renderpass_id = renderpass, .vert_stride = 20, .vert_attr_cunt = 2, .vert_attrs = { { 0, 0, LDG_GPU_FMT_R32G32_SFLOAT }, { 1, 8, LDG_GPU_FMT_R32G32B32_SFLOAT } }, .topology = LDG_GPU_TOPOLOGY_TRI_LIST };
 uint32_t gfx_pipeline = 0;
 ldg_gpu_gfx_pipeline_create(gpu, &pipeline_desc, &gfx_pipeline);
 
-uint32_t image_idx = 0;
-ldg_gpu_swapchain_image_acquire(gpu, swapchain.id, &image_idx);
+uint32_t img_idx = 0;
+ldg_gpu_swapchain_img_acquire(gpu, swapchain.id, &img_idx);
 ldg_gpu_frame_t frame = { 0 };
 ldg_gpu_frame_begin(gpu, swapchain.id, &frame);
 double clear[4] = { 0.02, 0.02, 0.03, 1.0 };
 ldg_gpu_frame_renderpass_begin(gpu, &frame, renderpass, clear, 1.0);
 ldg_gpu_frame_pipeline_bind(gpu, &frame, gfx_pipeline);
-ldg_gpu_frame_vertex_buff_bind(gpu, &frame, vbo.id);
+ldg_gpu_frame_vert_buff_bind(gpu, &frame, vbo.id);
 ldg_gpu_frame_push_const(gpu, &frame, 0, 64, &mvp);
 ldg_gpu_frame_draw(gpu, &frame, 3, 1);
 ldg_gpu_frame_renderpass_end(gpu, &frame);
 ldg_gpu_frame_end(gpu, &frame);
-ldg_gpu_swapchain_present(gpu, swapchain.id, image_idx);
+ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 ```
 
 ### math
 
-`math/linalg.h`: header-only; `ldg_vec3_*` (add, sub, scale, dot, cross, length, `scaled_add`); `ldg_mat3_*` (add, sub, mul, `vec_mul`, inv, det, trace, transpose, polar decomposition). `static inline`, depends only on `<math.h>` and `<stdint.h>`
+`math/linalg.h`: header-only; `ldg_vec3_*` (add, sub, scale, dot, cross, len, `scaled_add`); `ldg_mat3_*` (add, sub, mul, `vec_mul`, inv, det, trace, transpose, polar decomposition). `static inline`, depends only on `<math.h>` and `<stdint.h>`
 
 ### parse
 
@@ -243,7 +243,7 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, image_idx);
 
 ### arch/amd64
 
-`atomic.h`: `LDG_READ/WRITE_ONCE`, `LDG_LOAD_ACQUIRE/STORE_RELEASE`, `LDG_CAS`, `LDG_FETCH_ADD/SUB`
+`atomic.h`: `LDG_RD/WR_ONCE`, `LDG_LOAD_ACQUIRE/STORE_RELEASE`, `LDG_CAS`, `LDG_FETCH_ADD/SUB`
 
 `fence.h`: `LDG_MFENCE/SFENCE/LFENCE`, `LDG_SMP_MB/WMB/RMB`
 

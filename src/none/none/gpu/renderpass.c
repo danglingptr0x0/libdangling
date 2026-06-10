@@ -15,7 +15,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     VkSubpassDependency dep = { 0 };
     VkRenderPassCreateInfo rp_info = { 0 };
     VkRenderPass renderpass = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     VkFormat color_vk = VK_FORMAT_UNDEFINED;
     VkFormat depth_vk = VK_FORMAT_UNDEFINED;
     uint32_t attach_cunt = 0;
@@ -38,7 +38,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     color_vk = (VkFormat)gpu_fmt_to_vk(desc->color_fmt);
     if (LDG_UNLIKELY(color_vk == VK_FORMAT_UNDEFINED)) { return LDG_ERR_GPU_FMT_UNSUPPORTED; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -111,7 +111,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     rp_info.dependencyCount = 1;
     rp_info.pDependencies = &dep;
 
-    if (LDG_UNLIKELY(vkCreateRenderPass(device, &rp_info, 0x0, &renderpass) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkCreateRenderPass(dev, &rp_info, 0x0, &renderpass) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_RENDERPASS_CREATE;
@@ -148,7 +148,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_destroy(void *vk, uint32_t id)
         return LDG_ERR_GPU_RENDERPASS_NOT_FOUND;
     }
 
-    if (ctx->renderpasses[id].renderpass) { vkDestroyRenderPass((VkDevice)ctx->device, (VkRenderPass)ctx->renderpasses[id].renderpass, 0x0); }
+    if (ctx->renderpasses[id].renderpass) { vkDestroyRenderPass((VkDevice)ctx->dev, (VkRenderPass)ctx->renderpasses[id].renderpass, 0x0); }
 
     ctx->renderpasses[id] = (ldg_gpu_renderpass_entry_t)LDG_STRUCT_ZERO_INIT;
 

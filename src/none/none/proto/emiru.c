@@ -1,6 +1,6 @@
-#include <string.h>
 #include <dangling/proto/emiru.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 
 LDG_EXPORT uint32_t ldg_emiru_hdr_validate(const ldg_byte_t *buff, ldg_dword_t buff_len)
 {
@@ -77,15 +77,15 @@ LDG_EXPORT uint32_t ldg_emiru_encode(const ldg_emiru_hdr_t *hdr, const ldg_byte_
 
     if (LDG_UNLIKELY(out_len < required)) { return LDG_ERR_PROTO_EMIRU_BUFF_TOO_SMALL; }
 
-    if (LDG_UNLIKELY(memcpy(out, hdr, LDG_EMIRU_HDR_SIZE) != out)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(out, hdr, LDG_EMIRU_HDR_SIZE) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     offset = LDG_EMIRU_HDR_SIZE;
 
-    if (LDG_UNLIKELY(memcpy(out + offset, text, text_len) != out + offset)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(out + offset, text, text_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     offset += text_len;
 
-    if (data_len > 0) { if (LDG_UNLIKELY(memcpy(out + offset, data, data_len) != out + offset)) { return LDG_ERR_MEM_BAD; } }
+    if (data_len > 0) { if (LDG_UNLIKELY(ldg_mem_secure_copy(out + offset, data, data_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; } }
 
     return LDG_ERR_AOK;
 }
