@@ -6,6 +6,7 @@
 
 #include <dangling/io/dir.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
@@ -157,14 +158,14 @@ uint32_t ldg_io_dir_rd(ldg_io_dir_t *d, ldg_io_dirent_t **out)
     name_len = (uint64_t)strnlen(entry->d_name, 256);
     if (d->path_len + name_len < full_path_size)
     {
-        if (LDG_UNLIKELY(memcpy(full_path, d->path, (uint64_t)d->path_len) != full_path))
+        if (LDG_UNLIKELY(ldg_mem_secure_copy(full_path, d->path, (uint64_t)d->path_len) != LDG_ERR_AOK))
         {
             ldg_mem_dealloc(e);
             ldg_mem_pool_destroy(&scratch);
             return LDG_ERR_MEM_BAD;
         }
 
-        if (LDG_UNLIKELY(memcpy(full_path + d->path_len, entry->d_name, (uint64_t)name_len) != full_path + d->path_len))
+        if (LDG_UNLIKELY(ldg_mem_secure_copy(full_path + d->path_len, entry->d_name, (uint64_t)name_len) != LDG_ERR_AOK))
         {
             ldg_mem_dealloc(e);
             ldg_mem_pool_destroy(&scratch);

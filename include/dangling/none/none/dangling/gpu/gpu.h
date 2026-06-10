@@ -12,15 +12,15 @@
 #define LDG_GPU_FLAG_SPILL_ENABLE 0x01
 #define LDG_GPU_FLAG_VALIDATION 0x02
 
-#define LDG_GPU_MEM_DEVICE_LOCAL 0x01
+#define LDG_GPU_MEM_DEV_LOCAL 0x01
 #define LDG_GPU_MEM_HOST_VISIBLE 0x02
 
 #define LDG_GPU_SURFACE_MAX 4
 #define LDG_GPU_SWAPCHAIN_MAX 4
 #define LDG_GPU_RENDERPASS_MAX 16
-#define LDG_GPU_VERTEX_ATTR_MAX 8
+#define LDG_GPU_VERT_ATTR_MAX 8
 #define LDG_GPU_FRAME_IN_FLIGHT 3
-#define LDG_GPU_SWAPCHAIN_IMAGE_MAX 4
+#define LDG_GPU_SWAPCHAIN_IMG_MAX 4
 
 #define LDG_GPU_PRESENT_FIFO 0
 #define LDG_GPU_PRESENT_MAILBOX 1
@@ -46,7 +46,7 @@
 #define LDG_GPU_FMT_D32_SFLOAT_S8_UINT 9
 
 #define LDG_GPU_PIPELINE_COMPUTE 0
-#define LDG_GPU_PIPELINE_GRAPHICS 1
+#define LDG_GPU_PIPELINE_GFX 1
 
 typedef struct ldg_gpu_dev_info
 {
@@ -159,7 +159,7 @@ typedef struct ldg_gpu_swapchain_desc
     uint32_t surface_id;
     uint32_t w;
     uint32_t h;
-    uint32_t preferred_image_cunt;
+    uint32_t preferred_img_cunt;
     uint32_t present_mode;
     uint32_t depth_fmt;
     uint8_t pudding[8];
@@ -168,7 +168,7 @@ typedef struct ldg_gpu_swapchain_desc
 typedef struct ldg_gpu_swapchain
 {
     uint32_t id;
-    uint32_t image_cunt;
+    uint32_t img_cunt;
     uint32_t w;
     uint32_t h;
 } ldg_gpu_swapchain_t;
@@ -181,25 +181,25 @@ typedef struct ldg_gpu_renderpass_desc
     uint8_t pudding[3];
 } ldg_gpu_renderpass_desc_t;
 
-typedef struct ldg_gpu_vertex_attr
+typedef struct ldg_gpu_vert_attr
 {
     uint32_t location;
     uint32_t offset;
-    uint32_t format;
-} ldg_gpu_vertex_attr_t;
+    uint32_t fmt;
+} ldg_gpu_vert_attr_t;
 
 typedef struct ldg_gpu_gfx_pipeline_desc
 {
     ldg_gpu_spirv_desc_t vert;
     ldg_gpu_spirv_desc_t frag;
     uint32_t renderpass_id;
-    uint32_t vertex_stride;
-    ldg_gpu_vertex_attr_t vertex_attrs[LDG_GPU_VERTEX_ATTR_MAX];
-    uint32_t vertex_attr_cunt;
+    uint32_t vert_stride;
+    ldg_gpu_vert_attr_t vert_attrs[LDG_GPU_VERT_ATTR_MAX];
+    uint32_t vert_attr_cunt;
     uint8_t topology;
     uint8_t cull_mode;
     uint8_t depth_test;
-    uint8_t depth_write;
+    uint8_t depth_wr;
     uint8_t blend_enable;
     uint8_t pudding[3];
 } ldg_gpu_gfx_pipeline_desc_t;
@@ -218,8 +218,8 @@ LDG_EXPORT uint32_t ldg_gpu_surface_destroy(void *vk, uint32_t surface_id);
 LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_desc_t *desc, ldg_gpu_swapchain_t *out);
 LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id);
 LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, uint32_t new_w, uint32_t new_h);
-LDG_EXPORT uint32_t ldg_gpu_swapchain_image_acquire(void *vk, uint32_t swapchain_id, uint32_t *image_idx);
-LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, uint32_t image_idx);
+LDG_EXPORT uint32_t ldg_gpu_swapchain_img_acquire(void *vk, uint32_t swapchain_id, uint32_t *img_idx);
+LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, uint32_t img_idx);
 
 LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass_desc_t *desc, uint32_t *id);
 LDG_EXPORT uint32_t ldg_gpu_renderpass_destroy(void *vk, uint32_t id);
@@ -229,11 +229,11 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
 LDG_EXPORT uint32_t ldg_gpu_frame_begin(void *vk, uint32_t swapchain_id, ldg_gpu_frame_t *frame);
 LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *frame, uint32_t renderpass_id, double clear_color[4], double clear_depth);
 LDG_EXPORT uint32_t ldg_gpu_frame_pipeline_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t pipeline_id);
-LDG_EXPORT uint32_t ldg_gpu_frame_vertex_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id);
+LDG_EXPORT uint32_t ldg_gpu_frame_vert_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id);
 LDG_EXPORT uint32_t ldg_gpu_frame_idx_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id);
 LDG_EXPORT uint32_t ldg_gpu_frame_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t slot, uint32_t buff_id);
 LDG_EXPORT uint32_t ldg_gpu_frame_push_const(void *vk, ldg_gpu_frame_t *frame, uint32_t offset, uint32_t size, const void *data);
-LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vertex_cunt, uint32_t instance_cunt);
+LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t instance_cunt);
 LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, uint32_t idx_cunt, uint32_t instance_cunt);
 LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_end(void *vk, ldg_gpu_frame_t *frame);
 LDG_EXPORT uint32_t ldg_gpu_frame_end(void *vk, ldg_gpu_frame_t *frame);

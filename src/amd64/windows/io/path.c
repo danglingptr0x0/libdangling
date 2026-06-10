@@ -7,6 +7,7 @@
 
 #include <dangling/io/path.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
@@ -158,7 +159,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
 
     if (LDG_UNLIKELY(base_len + 1 + name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, base, (size_t)base_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, base, (size_t)base_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     pos = base_len;
 
@@ -167,7 +168,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
         buff[pos] = '\\';
         pos++;
 
-        if (LDG_UNLIKELY(memcpy(buff + pos, name, (size_t)name_len) != buff + pos)) { return LDG_ERR_MEM_BAD; }
+        if (LDG_UNLIKELY(ldg_mem_secure_copy(buff + pos, name, (size_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
         pos += name_len;
     }
@@ -208,7 +209,7 @@ uint32_t ldg_io_path_basename_get(const char *path, char *buff, uint64_t buff_si
 
     if (LDG_UNLIKELY(name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, start, (size_t)name_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, start, (size_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[name_len] = LDG_STR_TERM;
 
@@ -253,7 +254,7 @@ uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_siz
 
     if (LDG_UNLIKELY(dir_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, path, (size_t)dir_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path, (size_t)dir_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[dir_len] = LDG_STR_TERM;
 
@@ -289,7 +290,7 @@ uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
     ext_len = len - dot_pos;
     if (LDG_UNLIKELY(ext_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, path + dot_pos, (size_t)ext_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path + dot_pos, (size_t)ext_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[ext_len] = LDG_STR_TERM;
 

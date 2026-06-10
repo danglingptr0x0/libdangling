@@ -3,6 +3,7 @@
 
 #include <dangling/thread/mpmc.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/core/macros.h>
 #include <dangling/arch/amd64/atomic.h>
@@ -26,19 +27,19 @@ static uint32_t mpmc_slot_get(ldg_mpmc_queue_t *q, uint64_t idx, ldg_mpmc_slot_t
 {
     if (LDG_UNLIKELY(!q || !q->buff || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(idx >= q->capacity)) { return LDG_ERR_BOUNDS; }
+    if (LDG_UNLIKELY(idx >= q->cap)) { return LDG_ERR_BOUNDS; }
 
     *out = (ldg_mpmc_slot_t *)(q->buff + (idx * q->slot_size));
 
     return LDG_ERR_AOK;
 }
 
-static uint8_t mpmc_capacity_pow2_is(uint64_t capacity)
+static uint8_t mpmc_cap_pow2_is(uint64_t cap)
 {
-    return (capacity > 0) && ((capacity & (capacity - 1)) == 0);
+    return (cap > 0) && ((cap & (cap - 1)) == 0);
 }
 
-uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t capacity)
+uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t cap)
 {
     uint64_t i = 0;
     uint64_t slot_data_offset = 0;
@@ -48,9 +49,9 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t capacit
 
     if (LDG_UNLIKELY(!q)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(item_size == 0 || capacity == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(item_size == 0 || cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(!mpmc_capacity_pow2_is(capacity))) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(!mpmc_cap_pow2_is(cap))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     if (LDG_UNLIKELY(memset(q, 0, sizeof(ldg_mpmc_queue_t)) != q)) { return LDG_ERR_MEM_BAD; }
 
@@ -59,26 +60,26 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t capacit
 
     q->slot_size = LDG_ALIGNED_UP(slot_data_offset + item_size);
     q->item_size = item_size;
-    q->capacity = capacity;
-    q->mask = capacity - 1;
+    q->cap = cap;
+    q->mask = cap - 1;
 
-    if (LDG_UNLIKELY(capacity != 0 && q->slot_size > UINT64_MAX / capacity)) { return LDG_ERR_OVERFLOW; }
+    if (LDG_UNLIKELY(cap != 0 && q->slot_size > UINT64_MAX / cap)) { return LDG_ERR_OVERFLOW; }
 
-    ret = ldg_mem_alloc(q->slot_size * capacity, &buff_tmp);
+    ret = ldg_mem_alloc(q->slot_size * cap, &buff_tmp);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     q->buff = (uint8_t *)buff_tmp;
 
-    if (LDG_UNLIKELY(memset(q->buff, 0, q->slot_size * capacity) != q->buff)) { ldg_mem_dealloc(q->buff); q->buff = 0x0; return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(memset(q->buff, 0, q->slot_size * cap) != q->buff)) { ldg_mem_dealloc(q->buff); q->buff = 0x0; return LDG_ERR_MEM_BAD; }
 
-    for (i = 0; i < capacity; i++)
+    for (i = 0; i < cap; i++)
     {
         if (LDG_UNLIKELY(mpmc_slot_get(q, i, &slot) != LDG_ERR_AOK)) { ldg_mem_dealloc(q->buff); q->buff = 0x0; return LDG_ERR_MEM_BAD; }
 
         LDG_STORE_RELEASE(slot->seq, i);
     }
 
-    q->head = 0;
+    q->hd = 0;
     q->tail = 0;
 
     if (LDG_UNLIKELY(ldg_mut_init(&q->wait_mut, 0) != LDG_ERR_AOK))
@@ -123,9 +124,9 @@ uint32_t ldg_mpmc_shutdown(ldg_mpmc_queue_t *q)
 
     q->slot_size = 0;
     q->item_size = 0;
-    q->capacity = 0;
+    q->cap = 0;
     q->mask = 0;
-    q->head = 0;
+    q->hd = 0;
     q->tail = 0;
 
     return first_err;
@@ -142,21 +143,21 @@ uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *q, const void *item)
 
     for (spin = 0; spin < MPMC_MAX_SPIN; spin++)
     {
-        pos = LDG_LOAD_ACQUIRE(q->head);
-        if (LDG_UNLIKELY(pos > UINT64_MAX - q->capacity)) { return LDG_ERR_OVERFLOW; }
+        pos = LDG_LOAD_ACQUIRE(q->hd);
+        if (LDG_UNLIKELY(pos > UINT64_MAX - q->cap)) { return LDG_ERR_OVERFLOW; }
 
         if (LDG_UNLIKELY(mpmc_slot_get(q, pos & q->mask, &slot) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
         seq = LDG_LOAD_ACQUIRE(slot->seq);
 
-        if (seq == pos) { if (LDG_CAS(&q->head, &pos, pos + 1)) { break; } }
+        if (seq == pos) { if (LDG_CAS(&q->hd, &pos, pos + 1)) { break; } }
         else if (seq < pos) { return LDG_ERR_FULL; }
         else { LDG_PAUSE; }
     }
 
     if (LDG_UNLIKELY(spin >= MPMC_MAX_SPIN)) { return LDG_ERR_AGAIN; }
 
-    memcpy(slot->data, item, q->item_size);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(slot->data, item, q->item_size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     LDG_STORE_RELEASE(slot->seq, pos + 1);
 
@@ -178,7 +179,7 @@ uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
     for (spin = 0; spin < MPMC_MAX_SPIN; spin++)
     {
         pos = LDG_LOAD_ACQUIRE(q->tail);
-        if (LDG_UNLIKELY(pos > UINT64_MAX - q->capacity)) { return LDG_ERR_OVERFLOW; }
+        if (LDG_UNLIKELY(pos > UINT64_MAX - q->cap)) { return LDG_ERR_OVERFLOW; }
 
         if (LDG_UNLIKELY(mpmc_slot_get(q, pos & q->mask, &slot) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
@@ -191,9 +192,9 @@ uint32_t ldg_mpmc_pop(ldg_mpmc_queue_t *q, void *item_out)
 
     if (LDG_UNLIKELY(spin >= MPMC_MAX_SPIN)) { return LDG_ERR_AGAIN; }
 
-    memcpy(item_out, slot->data, q->item_size);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(item_out, slot->data, q->item_size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
-    LDG_STORE_RELEASE(slot->seq, pos + q->capacity);
+    LDG_STORE_RELEASE(slot->seq, pos + q->cap);
 
     return LDG_ERR_AOK;
 }
@@ -251,15 +252,15 @@ uint32_t ldg_mpmc_wait(ldg_mpmc_queue_t *q, void *item_out, uint64_t timeout_ms)
 
 uint64_t ldg_mpmc_cunt_get(const ldg_mpmc_queue_t *q)
 {
-    uint64_t head = 0;
+    uint64_t hd = 0;
     uint64_t tail = 0;
 
     if (LDG_UNLIKELY(!q)) { return UINT64_MAX; }
 
-    head = LDG_LOAD_ACQUIRE(q->head);
+    hd = LDG_LOAD_ACQUIRE(q->hd);
     tail = LDG_LOAD_ACQUIRE(q->tail);
 
-    if (head >= tail) { return head - tail; }
+    if (hd >= tail) { return hd - tail; }
 
     return 0;
 }
@@ -268,20 +269,20 @@ uint8_t ldg_mpmc_empty_is(const ldg_mpmc_queue_t *q)
 {
     if (LDG_UNLIKELY(!q)) { return LDG_TRUTH_TRUE; }
 
-    return LDG_LOAD_ACQUIRE(q->head) == LDG_LOAD_ACQUIRE(q->tail);
+    return LDG_LOAD_ACQUIRE(q->hd) == LDG_LOAD_ACQUIRE(q->tail);
 }
 
 uint8_t ldg_mpmc_full_is(const ldg_mpmc_queue_t *q)
 {
-    uint64_t head = 0;
+    uint64_t hd = 0;
     uint64_t tail = 0;
 
     if (LDG_UNLIKELY(!q)) { return LDG_TRUTH_TRUE; }
 
-    head = LDG_LOAD_ACQUIRE(q->head);
+    hd = LDG_LOAD_ACQUIRE(q->hd);
     tail = LDG_LOAD_ACQUIRE(q->tail);
 
-    if (head < tail) { return LDG_TRUTH_FALSE; }
+    if (hd < tail) { return LDG_TRUTH_FALSE; }
 
-    return (head - tail) >= q->capacity;
+    return (hd - tail) >= q->cap;
 }

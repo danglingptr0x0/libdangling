@@ -21,7 +21,7 @@ typedef struct ldg_mem_pool
     uint8_t *buff;
     uint8_t *free_list;
     uint64_t item_size;
-    uint64_t capacity;
+    uint64_t cap;
     uint64_t alloc_cunt;
     uint64_t buff_size;
     struct
@@ -45,14 +45,14 @@ LDG_EXPORT uint32_t ldg_mem_alloc(uint64_t size, void **out);
 LDG_EXPORT uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out);
 LDG_EXPORT uint32_t ldg_mem_dealloc(void *ptr);
 
-LDG_EXPORT uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t capacity, ldg_mem_pool_t **out);
+LDG_EXPORT uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t cap, ldg_mem_pool_t **out);
 LDG_EXPORT uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out);
 LDG_EXPORT uint32_t ldg_mem_pool_dealloc(ldg_mem_pool_t *pool, void *ptr);
 LDG_EXPORT uint32_t ldg_mem_pool_destroy(ldg_mem_pool_t **pool);
 LDG_EXPORT uint32_t ldg_mem_pool_rst(ldg_mem_pool_t *pool);
 LDG_EXPORT uint64_t ldg_mem_pool_remaining_get(ldg_mem_pool_t *pool);
 LDG_EXPORT uint64_t ldg_mem_pool_used_get(ldg_mem_pool_t *pool);
-LDG_EXPORT uint64_t ldg_mem_pool_capacity_get(ldg_mem_pool_t *pool);
+LDG_EXPORT uint64_t ldg_mem_pool_cap_get(ldg_mem_pool_t *pool);
 LDG_EXPORT uint8_t ldg_mem_pool_var_is(ldg_mem_pool_t *pool);
 
 LDG_EXPORT uint32_t ldg_mem_stats_get(ldg_mem_stats_t *stats);

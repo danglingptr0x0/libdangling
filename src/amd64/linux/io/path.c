@@ -8,6 +8,7 @@
 
 #include <dangling/io/path.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
@@ -132,7 +133,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
 
     if (LDG_UNLIKELY(base_len + 1 + name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, base, (uint64_t)base_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, base, (uint64_t)base_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     pos = base_len;
 
@@ -141,7 +142,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
         buff[pos] = '/';
         pos++;
 
-        if (LDG_UNLIKELY(memcpy(buff + pos, name, (uint64_t)name_len) != buff + pos)) { return LDG_ERR_MEM_BAD; }
+        if (LDG_UNLIKELY(ldg_mem_secure_copy(buff + pos, name, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
         pos += name_len;
     }
@@ -177,7 +178,7 @@ uint32_t ldg_io_path_basename_get(const char *path, char *buff, uint64_t buff_si
 
     if (LDG_UNLIKELY(name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, start, (uint64_t)name_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, start, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[name_len] = LDG_STR_TERM;
 
@@ -216,7 +217,7 @@ uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_siz
 
     if (LDG_UNLIKELY(dir_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, path, (uint64_t)dir_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path, (uint64_t)dir_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[dir_len] = LDG_STR_TERM;
 
@@ -252,7 +253,7 @@ uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
     ext_len = len - dot_pos;
     if (LDG_UNLIKELY(ext_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(memcpy(buff, path + dot_pos, (uint64_t)ext_len) != buff)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path + dot_pos, (uint64_t)ext_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[ext_len] = LDG_STR_TERM;
 
@@ -422,7 +423,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
         if (LDG_UNLIKELY(rpos + clen >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
 
-        if (LDG_UNLIKELY(memcpy(resolved + rpos, component, (uint64_t)clen) != resolved + rpos)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+        if (LDG_UNLIKELY(ldg_mem_secure_copy(resolved + rpos, component, (uint64_t)clen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
         rpos += clen;
         resolved[rpos] = LDG_STR_TERM;
@@ -444,14 +445,14 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
             if (LDG_UNLIKELY(memset(tmp, 0, PATH_MAX) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
-            if (LDG_UNLIKELY(memcpy(tmp, link_target, llen) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+            if (LDG_UNLIKELY(ldg_mem_secure_copy(tmp, link_target, llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
             if (ppos < plen)
             {
                 if (LDG_UNLIKELY(llen + 1 + (plen - ppos) >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
 
                 tmp[llen] = '/';
-                if (LDG_UNLIKELY(memcpy(tmp + llen + 1, path + ppos, plen - ppos) != tmp + llen + 1)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+                if (LDG_UNLIKELY(ldg_mem_secure_copy(tmp + llen + 1, path + ppos, plen - ppos) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
                 tmp[llen + 1 + (plen - ppos)] = LDG_STR_TERM;
             }

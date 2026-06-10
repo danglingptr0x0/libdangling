@@ -51,7 +51,7 @@ static inline double ldg_vec3_dot(const double a[3], const double b[3])
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-static inline double ldg_vec3_length(const double v[3])
+static inline double ldg_vec3_len(const double v[3])
 {
     return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }

@@ -3,6 +3,7 @@
 #include <dangling/str/str.h>
 #include <dangling/core/err.h>
 #include <dangling/core/arith.h>
+#include <dangling/mem/secure.h>
 
 uint32_t ldg_strrbrcpy(char *dst, const char *src, uint64_t abssize)
 {
@@ -11,15 +12,15 @@ uint32_t ldg_strrbrcpy(char *dst, const char *src, uint64_t abssize)
 
     if (LDG_UNLIKELY(!dst || !src || abssize == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    src_len = (uint64_t)strnlen(src, abssize);
+    while (src_len < abssize && src[src_len] != LDG_STR_TERM && (uint8_t)src[src_len] <= LDG_ASCII_MAX) { src_len++; }
     if (LDG_UNLIKELY(src_len >= abssize)) { return LDG_ERR_STR_TRUNC; }
 
     overlap = (dst < src + src_len) && (src < dst + abssize);
 
-    if (overlap) { if (memmove(dst, src, src_len) != dst) { return LDG_ERR_MEM_BAD; } }
-    else { if (memcpy(dst, src, src_len) != dst) { return LDG_ERR_MEM_BAD; } }
+    if (overlap) { if (memmove(dst, src, (size_t)src_len) != dst) { return LDG_ERR_MEM_BAD; } }
+    else { if (ldg_mem_secure_copy(dst, src, (size_t)src_len) != LDG_ERR_AOK) { return LDG_ERR_MEM_BAD; } }
 
-    if (memset(dst + src_len, 0, abssize - src_len) != dst + src_len) { return LDG_ERR_MEM_BAD; }
+    if (memset(dst + src_len, 0, (size_t)(abssize - src_len)) != dst + src_len) { return LDG_ERR_MEM_BAD; }
 
     return overlap ? LDG_ERR_STR_OVERLAP : LDG_ERR_AOK;
 }
