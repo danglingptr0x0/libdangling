@@ -5,13 +5,13 @@
 
 #include "state.h"
 
-static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice device)
+static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
     VkImageCreateInfo img_info = { 0 };
     VkMemoryRequirements mem_reqs = { 0 };
     VkMemoryAllocateInfo mem_alloc = { 0 };
     VkImageViewCreateInfo view_info = { 0 };
-    VkImage depth_image = VK_NULL_HANDLE;
+    VkImage depth_img = VK_NULL_HANDLE;
     VkDeviceMemory depth_mem = VK_NULL_HANDLE;
     VkImageView depth_view = VK_NULL_HANDLE;
     VkFormat depth_vk = VK_FORMAT_UNDEFINED;
@@ -33,29 +33,29 @@ static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_ent
     img_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     img_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    if (LDG_UNLIKELY(vkCreateImage(device, &img_info, 0x0, &depth_image) != VK_SUCCESS)) { return LDG_ERR_GPU_DEPTH_CREATE; }
+    if (LDG_UNLIKELY(vkCreateImage(dev, &img_info, 0x0, &depth_img) != VK_SUCCESS)) { return LDG_ERR_GPU_DEPTH_CREATE; }
 
-    vkGetImageMemoryRequirements(device, depth_image, &mem_reqs);
+    vkGetImageMemoryRequirements(dev, depth_img, &mem_reqs);
 
     mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.allocationSize = mem_reqs.size;
-    mem_alloc.memoryTypeIndex = ctx->device_local_type_idx;
+    mem_alloc.memoryTypeIndex = ctx->dev_local_type_idx;
 
-    if (LDG_UNLIKELY(vkAllocateMemory(device, &mem_alloc, 0x0, &depth_mem) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkAllocateMemory(dev, &mem_alloc, 0x0, &depth_mem) != VK_SUCCESS))
     {
-        vkDestroyImage(device, depth_image, 0x0);
+        vkDestroyImage(dev, depth_img, 0x0);
         return LDG_ERR_GPU_DEPTH_CREATE;
     }
 
-    if (LDG_UNLIKELY(vkBindImageMemory(device, depth_image, depth_mem, 0) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkBindImageMemory(dev, depth_img, depth_mem, 0) != VK_SUCCESS))
     {
-        vkFreeMemory(device, depth_mem, 0x0);
-        vkDestroyImage(device, depth_image, 0x0);
+        vkFreeMemory(dev, depth_mem, 0x0);
+        vkDestroyImage(dev, depth_img, 0x0);
         return LDG_ERR_GPU_DEPTH_CREATE;
     }
 
     view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image = depth_image;
+    view_info.image = depth_img;
     view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view_info.format = depth_vk;
     view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -64,97 +64,97 @@ static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_ent
     view_info.subresourceRange.baseArrayLayer = 0;
     view_info.subresourceRange.layerCount = 1;
 
-    if (LDG_UNLIKELY(vkCreateImageView(device, &view_info, 0x0, &depth_view) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkCreateImageView(dev, &view_info, 0x0, &depth_view) != VK_SUCCESS))
     {
-        vkFreeMemory(device, depth_mem, 0x0);
-        vkDestroyImage(device, depth_image, 0x0);
+        vkFreeMemory(dev, depth_mem, 0x0);
+        vkDestroyImage(dev, depth_img, 0x0);
         return LDG_ERR_GPU_DEPTH_CREATE;
     }
 
-    sc->depth_image = (void *)depth_image;
+    sc->depth_img = (void *)depth_img;
     sc->depth_mem = (void *)depth_mem;
-    sc->depth_image_view = (void *)depth_view;
+    sc->depth_img_view = (void *)depth_view;
     return LDG_ERR_AOK;
 }
 
-static uint32_t swapchain_depth_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice device)
+static uint32_t swapchain_depth_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
     if (LDG_UNLIKELY(!sc)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (sc->depth_image_view)
+    if (sc->depth_img_view)
     {
-        vkDestroyImageView(device, (VkImageView)sc->depth_image_view, 0x0);
-        sc->depth_image_view = 0x0;
+        vkDestroyImageView(dev, (VkImageView)sc->depth_img_view, 0x0);
+        sc->depth_img_view = 0x0;
     }
 
-    if (sc->depth_image)
+    if (sc->depth_img)
     {
-        vkDestroyImage(device, (VkImage)sc->depth_image, 0x0);
-        sc->depth_image = 0x0;
+        vkDestroyImage(dev, (VkImage)sc->depth_img, 0x0);
+        sc->depth_img = 0x0;
     }
 
     if (sc->depth_mem)
     {
-        vkFreeMemory(device, (VkDeviceMemory)sc->depth_mem, 0x0);
+        vkFreeMemory(dev, (VkDeviceMemory)sc->depth_mem, 0x0);
         sc->depth_mem = 0x0;
     }
 
     return LDG_ERR_AOK;
 }
 
-static uint32_t swapchain_framebuffers_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice device)
+static uint32_t swapchain_fbos_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
     uint32_t i = 0;
 
     if (LDG_UNLIKELY(!sc)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    for (i = 0; i < sc->image_cunt && i < LDG_GPU_SWAPCHAIN_IMAGE_MAX; i++) { if (sc->images[i].framebuffer)
+    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++) { if (sc->imgs[i].fbo)
         {
-            vkDestroyFramebuffer(device, (VkFramebuffer)sc->images[i].framebuffer, 0x0);
-            sc->images[i].framebuffer = 0x0;
+            vkDestroyFramebuffer(dev, (VkFramebuffer)sc->imgs[i].fbo, 0x0);
+            sc->imgs[i].fbo = 0x0;
         }
     }
     sc->cached_renderpass_id = UINT32_MAX;
     return LDG_ERR_AOK;
 }
 
-static uint32_t swapchain_image_views_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice device)
+static uint32_t swapchain_img_views_destroy(ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
     uint32_t i = 0;
 
     if (LDG_UNLIKELY(!sc)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    for (i = 0; i < sc->image_cunt && i < LDG_GPU_SWAPCHAIN_IMAGE_MAX; i++) { if (sc->images[i].image_view)
+    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++) { if (sc->imgs[i].img_view)
         {
-            vkDestroyImageView(device, (VkImageView)sc->images[i].image_view, 0x0);
-            sc->images[i].image_view = 0x0;
+            vkDestroyImageView(dev, (VkImageView)sc->imgs[i].img_view, 0x0);
+            sc->imgs[i].img_view = 0x0;
         }
     }
 
     return LDG_ERR_AOK;
 }
 
-static uint32_t swapchain_image_views_create(ldg_gpu_swapchain_entry_t *sc, VkDevice device, VkSwapchainKHR vk_sc)
+static uint32_t swapchain_img_views_create(ldg_gpu_swapchain_entry_t *sc, VkDevice dev, VkSwapchainKHR vk_sc)
 {
-    VkImage images[LDG_GPU_SWAPCHAIN_IMAGE_MAX] = { 0 };
+    VkImage imgs[LDG_GPU_SWAPCHAIN_IMG_MAX] = { 0 };
     VkImageViewCreateInfo view_info = { 0 };
-    uint32_t image_cunt = LDG_GPU_SWAPCHAIN_IMAGE_MAX;
+    uint32_t img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX;
     VkFormat color_vk = VK_FORMAT_UNDEFINED;
     uint32_t i = 0;
 
-    if (LDG_UNLIKELY(vkGetSwapchainImagesKHR(device, vk_sc, &image_cunt, images) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+    if (LDG_UNLIKELY(vkGetSwapchainImagesKHR(dev, vk_sc, &img_cunt, imgs) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
 
-    if (image_cunt > LDG_GPU_SWAPCHAIN_IMAGE_MAX) { image_cunt = LDG_GPU_SWAPCHAIN_IMAGE_MAX; }
+    if (img_cunt > LDG_GPU_SWAPCHAIN_IMG_MAX) { img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX; }
 
-    sc->image_cunt = image_cunt;
+    sc->img_cunt = img_cunt;
     color_vk = (VkFormat)gpu_fmt_to_vk(sc->color_fmt);
 
-    for (i = 0; i < image_cunt; i++)
+    for (i = 0; i < img_cunt; i++)
     {
         view_info = (VkImageViewCreateInfo)LDG_STRUCT_ZERO_INIT;
 
         view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view_info.image = images[i];
+        view_info.image = imgs[i];
         view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         view_info.format = color_vk;
         view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -163,13 +163,13 @@ static uint32_t swapchain_image_views_create(ldg_gpu_swapchain_entry_t *sc, VkDe
         view_info.subresourceRange.baseArrayLayer = 0;
         view_info.subresourceRange.layerCount = 1;
 
-        if (LDG_UNLIKELY(vkCreateImageView(device, &view_info, 0x0, (VkImageView *)&sc->images[i].image_view) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+        if (LDG_UNLIKELY(vkCreateImageView(dev, &view_info, 0x0, (VkImageView *)&sc->imgs[i].img_view) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
     }
 
     return LDG_ERR_AOK;
 }
 
-static uint32_t swapchain_sync_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice device)
+static uint32_t swapchain_sync_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
     VkSemaphoreCreateInfo sem_info = { 0 };
     VkFenceCreateInfo fence_info = { 0 };
@@ -187,13 +187,13 @@ static uint32_t swapchain_sync_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entr
 
     for (i = 0; i < LDG_GPU_FRAME_IN_FLIGHT; i++)
     {
-        if (LDG_UNLIKELY(vkCreateSemaphore(device, &sem_info, 0x0, (VkSemaphore *)&sc->frame_sync[i].image_available_sem) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+        if (LDG_UNLIKELY(vkCreateSemaphore(dev, &sem_info, 0x0, (VkSemaphore *)&sc->frame_sync[i].img_available_sem) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
 
-        if (LDG_UNLIKELY(vkCreateSemaphore(device, &sem_info, 0x0, (VkSemaphore *)&sc->frame_sync[i].render_finished_sem) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+        if (LDG_UNLIKELY(vkCreateSemaphore(dev, &sem_info, 0x0, (VkSemaphore *)&sc->frame_sync[i].render_finished_sem) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
 
-        if (LDG_UNLIKELY(vkCreateFence(device, &fence_info, 0x0, (VkFence *)&sc->frame_sync[i].in_flight_fence) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+        if (LDG_UNLIKELY(vkCreateFence(dev, &fence_info, 0x0, (VkFence *)&sc->frame_sync[i].in_flight_fence) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
 
-        if (LDG_UNLIKELY(vkAllocateCommandBuffers(device, &cmd_alloc, (VkCommandBuffer *)&sc->frame_sync[i].cmd_buff) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
+        if (LDG_UNLIKELY(vkAllocateCommandBuffers(dev, &cmd_alloc, (VkCommandBuffer *)&sc->frame_sync[i].cmd_buff) != VK_SUCCESS)) { return LDG_ERR_GPU_SWAPCHAIN_CREATE; }
     }
 
     return LDG_ERR_AOK;
@@ -207,7 +207,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     VkSwapchainKHR vk_sc = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkSurfaceFormatKHR surf_fmts[16] = { { 0 } };
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     VkPhysicalDevice phys = VK_NULL_HANDLE;
     VkBool32 present_supported = VK_FALSE;
     uint32_t fmt_cunt = 16;
@@ -215,7 +215,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     uint32_t chosen_fmt = LDG_GPU_FMT_UNDEFINED;
     VkFormat chosen_vk_fmt = VK_FORMAT_UNDEFINED;
     VkColorSpaceKHR chosen_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    uint32_t image_cunt = 0;
+    uint32_t img_cunt = 0;
     uint32_t ret = 0;
     uint32_t i = 0;
 
@@ -233,7 +233,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 
     if (LDG_UNLIKELY(desc->surface_id >= LDG_GPU_SURFACE_MAX || !ctx->surfaces[desc->surface_id].in_use)) { return LDG_ERR_GPU_SURFACE_NOT_FOUND; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     phys = (VkPhysicalDevice)ctx->phys_dev;
     surface = (VkSurfaceKHR)ctx->surfaces[desc->surface_id].vk_surface;
 
@@ -288,16 +288,16 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     }
     chosen_fmt = gpu_vk_to_fmt((uint32_t)chosen_vk_fmt);
 
-    image_cunt = desc->preferred_image_cunt;
-    if (image_cunt < caps.minImageCount) { image_cunt = caps.minImageCount; }
+    img_cunt = desc->preferred_img_cunt;
+    if (img_cunt < caps.minImageCount) { img_cunt = caps.minImageCount; }
 
-    if (caps.maxImageCount > 0 && image_cunt > caps.maxImageCount) { image_cunt = caps.maxImageCount; }
+    if (caps.maxImageCount > 0 && img_cunt > caps.maxImageCount) { img_cunt = caps.maxImageCount; }
 
-    if (image_cunt > LDG_GPU_SWAPCHAIN_IMAGE_MAX) { image_cunt = LDG_GPU_SWAPCHAIN_IMAGE_MAX; }
+    if (img_cunt > LDG_GPU_SWAPCHAIN_IMG_MAX) { img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX; }
 
     sc_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sc_info.surface = surface;
-    sc_info.minImageCount = image_cunt;
+    sc_info.minImageCount = img_cunt;
     sc_info.imageFormat = chosen_vk_fmt;
     sc_info.imageColorSpace = chosen_color_space;
     sc_info.imageExtent.width = desc->w;
@@ -310,7 +310,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     sc_info.presentMode = (desc->present_mode == LDG_GPU_PRESENT_MAILBOX) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
     sc_info.clipped = VK_TRUE;
 
-    if (LDG_UNLIKELY(vkCreateSwapchainKHR(device, &sc_info, 0x0, &vk_sc) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkCreateSwapchainKHR(dev, &sc_info, 0x0, &vk_sc) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_SWAPCHAIN_CREATE;
@@ -328,10 +328,10 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     ctx->swapchains[slot].current_frame_idx = 0;
     ctx->swapchains[slot].in_use = 1;
 
-    ret = swapchain_image_views_create(&ctx->swapchains[slot], device, vk_sc);
+    ret = swapchain_img_views_create(&ctx->swapchains[slot], dev, vk_sc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        vkDestroySwapchainKHR(device, vk_sc, 0x0);
+        vkDestroySwapchainKHR(dev, vk_sc, 0x0);
         ctx->swapchains[slot] = (ldg_gpu_swapchain_entry_t)LDG_STRUCT_ZERO_INIT;
 
         LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -340,12 +340,12 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 
     if (desc->depth_fmt != LDG_GPU_FMT_UNDEFINED)
     {
-        ret = swapchain_depth_create(ctx, &ctx->swapchains[slot], device);
+        ret = swapchain_depth_create(ctx, &ctx->swapchains[slot], dev);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
-            if (LDG_UNLIKELY(swapchain_image_views_destroy(&ctx->swapchains[slot], device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
+            if (LDG_UNLIKELY(swapchain_img_views_destroy(&ctx->swapchains[slot], dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
 
-            vkDestroySwapchainKHR(device, vk_sc, 0x0);
+            vkDestroySwapchainKHR(dev, vk_sc, 0x0);
             ctx->swapchains[slot] = (ldg_gpu_swapchain_entry_t)LDG_STRUCT_ZERO_INIT;
 
             LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -353,14 +353,14 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
         }
     }
 
-    ret = swapchain_sync_create(ctx, &ctx->swapchains[slot], device);
+    ret = swapchain_sync_create(ctx, &ctx->swapchains[slot], dev);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        if (LDG_UNLIKELY(swapchain_depth_destroy(&ctx->swapchains[slot], device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
+        if (LDG_UNLIKELY(swapchain_depth_destroy(&ctx->swapchains[slot], dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
 
-        if (LDG_UNLIKELY(swapchain_image_views_destroy(&ctx->swapchains[slot], device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
+        if (LDG_UNLIKELY(swapchain_img_views_destroy(&ctx->swapchains[slot], dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
 
-        vkDestroySwapchainKHR(device, vk_sc, 0x0);
+        vkDestroySwapchainKHR(dev, vk_sc, 0x0);
         ctx->swapchains[slot] = (ldg_gpu_swapchain_entry_t)LDG_STRUCT_ZERO_INIT;
 
         LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -368,7 +368,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
     }
 
     out->id = slot;
-    out->image_cunt = ctx->swapchains[slot].image_cunt;
+    out->img_cunt = ctx->swapchains[slot].img_cunt;
     out->w = desc->w;
     out->h = desc->h;
 
@@ -378,7 +378,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 {
     ldg_gpu_ctx_t *ctx = vk;
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
     uint32_t ret = 0;
     uint32_t i = 0;
@@ -389,7 +389,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -400,7 +400,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
         return LDG_ERR_GPU_SWAPCHAIN_NOT_FOUND;
     }
 
-    if (LDG_UNLIKELY(vkDeviceWaitIdle(device) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkDeviceWaitIdle(dev) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_SWAPCHAIN_NOT_FOUND;
@@ -408,22 +408,22 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 
     for (i = 0; i < LDG_GPU_FRAME_IN_FLIGHT; i++)
     {
-        if (sc->frame_sync[i].in_flight_fence) { vkDestroyFence(device, (VkFence)sc->frame_sync[i].in_flight_fence, 0x0); }
+        if (sc->frame_sync[i].in_flight_fence) { vkDestroyFence(dev, (VkFence)sc->frame_sync[i].in_flight_fence, 0x0); }
 
-        if (sc->frame_sync[i].image_available_sem) { vkDestroySemaphore(device, (VkSemaphore)sc->frame_sync[i].image_available_sem, 0x0); }
+        if (sc->frame_sync[i].img_available_sem) { vkDestroySemaphore(dev, (VkSemaphore)sc->frame_sync[i].img_available_sem, 0x0); }
 
-        if (sc->frame_sync[i].render_finished_sem) { vkDestroySemaphore(device, (VkSemaphore)sc->frame_sync[i].render_finished_sem, 0x0); }
+        if (sc->frame_sync[i].render_finished_sem) { vkDestroySemaphore(dev, (VkSemaphore)sc->frame_sync[i].render_finished_sem, 0x0); }
 
-        if (sc->frame_sync[i].cmd_buff) { vkFreeCommandBuffers(device, (VkCommandPool)ctx->cmd_pool, 1, (VkCommandBuffer *)&sc->frame_sync[i].cmd_buff); }
+        if (sc->frame_sync[i].cmd_buff) { vkFreeCommandBuffers(dev, (VkCommandPool)ctx->cmd_pool, 1, (VkCommandBuffer *)&sc->frame_sync[i].cmd_buff); }
     }
 
-    if (LDG_UNLIKELY(swapchain_framebuffers_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("framebuffers destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_fbos_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("framebuffers destroy failed"); }
 
-    if (LDG_UNLIKELY(swapchain_depth_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_depth_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
 
-    if (LDG_UNLIKELY(swapchain_image_views_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_img_views_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
 
-    if (sc->vk_swapchain) { vkDestroySwapchainKHR(device, (VkSwapchainKHR)sc->vk_swapchain, 0x0); }
+    if (sc->vk_swapchain) { vkDestroySwapchainKHR(dev, (VkSwapchainKHR)sc->vk_swapchain, 0x0); }
 
     *sc = (ldg_gpu_swapchain_entry_t)LDG_STRUCT_ZERO_INIT;
 
@@ -438,7 +438,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
     VkSwapchainKHR old_sc = VK_NULL_HANDLE;
     VkSwapchainKHR new_sc = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     VkPhysicalDevice phys = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
     uint32_t ret = 0;
@@ -451,7 +451,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
 
     if (LDG_UNLIKELY(new_w == 0 || new_h == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     phys = (VkPhysicalDevice)ctx->phys_dev;
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -463,17 +463,17 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
         return LDG_ERR_GPU_SWAPCHAIN_NOT_FOUND;
     }
 
-    if (LDG_UNLIKELY(vkDeviceWaitIdle(device) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkDeviceWaitIdle(dev) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_SWAPCHAIN_NOT_FOUND;
     }
 
-    if (LDG_UNLIKELY(swapchain_framebuffers_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("framebuffers destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_fbos_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("framebuffers destroy failed"); }
 
-    if (LDG_UNLIKELY(swapchain_depth_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_depth_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("depth destroy failed"); }
 
-    if (LDG_UNLIKELY(swapchain_image_views_destroy(sc, device) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
+    if (LDG_UNLIKELY(swapchain_img_views_destroy(sc, dev) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("image views destroy failed"); }
 
     surface = (VkSurfaceKHR)ctx->surfaces[sc->surface_id].vk_surface;
     old_sc = (VkSwapchainKHR)sc->vk_swapchain;
@@ -486,7 +486,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
 
     sc_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sc_info.surface = surface;
-    sc_info.minImageCount = sc->image_cunt;
+    sc_info.minImageCount = sc->img_cunt;
     sc_info.imageFormat = (VkFormat)gpu_fmt_to_vk(sc->color_fmt);
     sc_info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     sc_info.imageExtent.width = new_w;
@@ -500,19 +500,19 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
     sc_info.clipped = VK_TRUE;
     sc_info.oldSwapchain = old_sc;
 
-    if (LDG_UNLIKELY(vkCreateSwapchainKHR(device, &sc_info, 0x0, &new_sc) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkCreateSwapchainKHR(dev, &sc_info, 0x0, &new_sc) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_SWAPCHAIN_CREATE;
     }
 
-    vkDestroySwapchainKHR(device, old_sc, 0x0);
+    vkDestroySwapchainKHR(dev, old_sc, 0x0);
 
     sc->vk_swapchain = (void *)new_sc;
     sc->w = new_w;
     sc->h = new_h;
 
-    ret = swapchain_image_views_create(sc, device, new_sc);
+    ret = swapchain_img_views_create(sc, dev, new_sc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -521,7 +521,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
 
     if (sc->depth_fmt != LDG_GPU_FMT_UNDEFINED)
     {
-        ret = swapchain_depth_create(ctx, sc, device);
+        ret = swapchain_depth_create(ctx, sc, dev);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -532,10 +532,10 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
     return ldg_mut_unlock(&ctx->mut);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_swapchain_image_acquire(void *vk, uint32_t swapchain_id, uint32_t *image_idx)
+LDG_EXPORT uint32_t ldg_gpu_swapchain_img_acquire(void *vk, uint32_t swapchain_id, uint32_t *img_idx)
 {
     ldg_gpu_ctx_t *ctx = vk;
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice dev = VK_NULL_HANDLE;
     VkFence in_flight = VK_NULL_HANDLE;
     VkSemaphore img_avail = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
@@ -546,15 +546,15 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_image_acquire(void *vk, uint32_t swapchain
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!image_idx)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!img_idx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *image_idx = UINT32_MAX;
+    *img_idx = UINT32_MAX;
 
     if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    device = (VkDevice)ctx->device;
+    dev = (VkDevice)ctx->dev;
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -567,29 +567,29 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_image_acquire(void *vk, uint32_t swapchain
 
     fidx = sc->current_frame_idx;
     in_flight = (VkFence)sc->frame_sync[fidx].in_flight_fence;
-    img_avail = (VkSemaphore)sc->frame_sync[fidx].image_available_sem;
+    img_avail = (VkSemaphore)sc->frame_sync[fidx].img_available_sem;
 
-    if (LDG_UNLIKELY(vkWaitForFences(device, 1, &in_flight, VK_TRUE, UINT64_MAX) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkWaitForFences(dev, 1, &in_flight, VK_TRUE, UINT64_MAX) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_FENCE_TIMEOUT;
     }
 
-    res = vkAcquireNextImageKHR(device, (VkSwapchainKHR)sc->vk_swapchain, UINT64_MAX, img_avail, VK_NULL_HANDLE, &idx);
+    res = vkAcquireNextImageKHR(dev, (VkSwapchainKHR)sc->vk_swapchain, UINT64_MAX, img_avail, VK_NULL_HANDLE, &idx);
     if (LDG_UNLIKELY(res == VK_ERROR_OUT_OF_DATE_KHR))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_SWAPCHAIN_OUT_OF_DATE;
     }
 
-    if (LDG_UNLIKELY(vkResetFences(device, 1, &in_flight) != VK_SUCCESS))
+    if (LDG_UNLIKELY(vkResetFences(dev, 1, &in_flight) != VK_SUCCESS))
     {
         LDG_GPU_UNLOCK_OR_WARN(ctx);
         return LDG_ERR_GPU_FRAME_ACQUIRE;
     }
 
-    sc->acquired_image_idx = idx;
-    *image_idx = idx;
+    sc->acquired_img_idx = idx;
+    *img_idx = idx;
 
     LDG_GPU_UNLOCK_OR_WARN(ctx);
 
@@ -598,7 +598,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_image_acquire(void *vk, uint32_t swapchain
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, uint32_t image_idx)
+LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, uint32_t img_idx)
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkPresentInfoKHR present_info = { 0 };
@@ -634,7 +634,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, u
     present_info.pWaitSemaphores = &render_finished;
     present_info.swapchainCount = 1;
     present_info.pSwapchains = &vk_sc;
-    present_info.pImageIndices = &image_idx;
+    present_info.pImageIndices = &img_idx;
 
     res = vkQueuePresentKHR((VkQueue)ctx->queue, &present_info);
 

@@ -11,7 +11,7 @@ typedef enum ldg_tok_type
 {
     LDG_TOK_WORD,
     LDG_TOK_NUM,
-    LDG_TOK_SYMBOL,
+    LDG_TOK_SYM,
     LDG_TOK_END
 } ldg_tok_type_t;
 

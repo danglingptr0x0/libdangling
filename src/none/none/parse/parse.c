@@ -61,7 +61,7 @@ uint32_t ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
         }
         else
         {
-            tok->type = LDG_TOK_SYMBOL;
+            tok->type = LDG_TOK_SYM;
             tok->val[val_idx++] = *input++;
             pos++;
         }

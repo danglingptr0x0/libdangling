@@ -5,6 +5,7 @@
 #include <dangling/core/macros.h>
 #include <dangling/core/types.h>
 
+#define LDG_ASCII_MAX 0x7F
 #define LDG_ASCII_PRINTABLE_MIN 32
 #define LDG_ASCII_PRINTABLE_MAX 126
 #define LDG_ASCII_NONPRINT_CHAR '.'

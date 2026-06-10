@@ -1,6 +1,6 @@
-#include <string.h>
 #include <dangling/proto/emiemi.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/secure.h>
 
 // hex
 
@@ -173,7 +173,8 @@ LDG_EXPORT uint32_t ldg_emiemi_send(ldg_emiemi_io_ctx_t *io, const ldg_byte_t *p
 
     if (LDG_UNLIKELY(payload_len > LDG_EMIEMI_MAX_PAYLOAD)) { return LDG_ERR_PROTO_EMIEMI_BAD_SIZE; }
 
-    memcpy(hdr, LDG_EMIEMI_START_MARKER, LDG_EMIEMI_START_MARKER_LEN);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(hdr, LDG_EMIEMI_START_MARKER, LDG_EMIEMI_START_MARKER_LEN) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
     emiemi_size_to_hex(payload_len, hdr + LDG_EMIEMI_START_MARKER_LEN);
     hdr[LDG_EMIEMI_HDR_LEN - 1] = LDG_EMIEMI_DELIM;
 
@@ -209,7 +210,8 @@ LDG_EXPORT uint32_t ldg_emiemi_encode(const ldg_byte_t *payload, ldg_dword_t pay
 
     if (LDG_UNLIKELY(out_len < required)) { return LDG_ERR_PROTO_EMIEMI_BUFF_TOO_SMALL; }
 
-    memcpy(out, LDG_EMIEMI_START_MARKER, LDG_EMIEMI_START_MARKER_LEN);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(out, LDG_EMIEMI_START_MARKER, LDG_EMIEMI_START_MARKER_LEN) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
     offset = LDG_EMIEMI_START_MARKER_LEN;
 
     emiemi_size_to_hex(payload_len, out + offset);
@@ -218,10 +220,11 @@ LDG_EXPORT uint32_t ldg_emiemi_encode(const ldg_byte_t *payload, ldg_dword_t pay
     out[offset] = LDG_EMIEMI_DELIM;
     offset++;
 
-    memcpy(out + offset, payload, payload_len);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(out + offset, payload, payload_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
     offset += payload_len;
 
-    memcpy(out + offset, LDG_EMIEMI_END_MARKER, LDG_EMIEMI_END_MARKER_LEN);
+    if (LDG_UNLIKELY(ldg_mem_secure_copy(out + offset, LDG_EMIEMI_END_MARKER, LDG_EMIEMI_END_MARKER_LEN) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     if (checksum) { *checksum = ldg_emiemi_fnv1a(payload, payload_len); }
 

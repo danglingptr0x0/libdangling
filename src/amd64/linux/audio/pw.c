@@ -17,7 +17,7 @@
 
 #define LDG_AUDIO_NODE_STREAM 1
 #define LDG_AUDIO_NODE_SINK 2
-#define LDG_AUDIO_NODE_SOURCE 3
+#define LDG_AUDIO_NODE_SRC 3
 
 #define LDG_AUDIO_DUCK_STACK_MAX 16
 
@@ -48,7 +48,7 @@ typedef struct ldg_audio_duck_entry
 typedef struct ldg_audio_ctx
 {
     struct pw_thread_loop *loop;
-    struct pw_context *context;
+    struct pw_context *ctx;
     struct pw_core *core;
     struct pw_registry *registry;
     struct spa_hook registry_listener;
@@ -82,14 +82,14 @@ static void audio_node_free(ldg_audio_node_t *node, uint8_t destroy_proxy)
     ldg_mem_dealloc(node);
 }
 
-static void audio_node_list_free(ldg_audio_node_t **head, uint8_t destroy_proxy)
+static void audio_node_list_free(ldg_audio_node_t **hd, uint8_t destroy_proxy)
 {
     ldg_audio_node_t *curr = 0x0;
     ldg_audio_node_t *next = 0x0;
 
-    if (!head || !*head) { return; }
+    if (!hd || !*hd) { return; }
 
-    curr = *head;
+    curr = *hd;
     while (curr)
     {
         next = curr->next;
@@ -97,12 +97,12 @@ static void audio_node_list_free(ldg_audio_node_t **head, uint8_t destroy_proxy)
         curr = next;
     }
 
-    *head = 0x0;
+    *hd = 0x0;
 }
 
-static ldg_audio_node_t* audio_node_find(ldg_audio_node_t *head, uint32_t id)
+static ldg_audio_node_t* audio_node_find(ldg_audio_node_t *hd, uint32_t id)
 {
-    ldg_audio_node_t *curr = head;
+    ldg_audio_node_t *curr = hd;
 
     while (curr)
     {
@@ -114,20 +114,20 @@ static ldg_audio_node_t* audio_node_find(ldg_audio_node_t *head, uint32_t id)
     return 0x0;
 }
 
-static void audio_node_remove(ldg_audio_node_t **head, uint32_t id)
+static void audio_node_remove(ldg_audio_node_t **hd, uint32_t id)
 {
     ldg_audio_node_t *curr = 0x0;
     ldg_audio_node_t *prev = 0x0;
 
-    if (!head || !*head) { return; }
+    if (!hd || !*hd) { return; }
 
-    curr = *head;
+    curr = *hd;
     while (curr)
     {
         if (curr->id == id)
         {
             if (prev) { prev->next = curr->next; }
-            else { *head = curr->next; }
+            else { *hd = curr->next; }
 
             audio_node_free(curr, 1);
             return;
@@ -138,7 +138,7 @@ static void audio_node_remove(ldg_audio_node_t **head, uint32_t id)
     }
 }
 
-static void node_event_param(void *data, __attribute__((unused)) int seq, uint32_t id, __attribute__((unused)) uint32_t index, __attribute__((unused)) uint32_t next, const struct spa_pod *param)
+static void node_event_param(void *data, __attribute__((unused)) int seq, uint32_t id, __attribute__((unused)) uint32_t idx, __attribute__((unused)) uint32_t next, const struct spa_pod *param)
 {
     ldg_audio_node_t *node = (ldg_audio_node_t *)data;
     const struct spa_pod_prop *prop = 0x0;
@@ -210,7 +210,7 @@ static void registry_event_global(__attribute__((unused)) void *data, uint32_t i
     }
     else if (strcmp(media_class, "Audio/Source") == 0)
     {
-        node_type = LDG_AUDIO_NODE_SOURCE;
+        node_type = LDG_AUDIO_NODE_SRC;
         list = &g_audio_ctx.srcs;
     }
     else { return; }
@@ -261,12 +261,12 @@ static void core_event_done(__attribute__((unused)) void *data, __attribute__((u
     if (g_audio_ctx.sync_seq == seq) { pw_thread_loop_signal(g_audio_ctx.loop, 0); }
 }
 
-static void core_event_error(__attribute__((unused)) void *data, __attribute__((unused)) uint32_t id, __attribute__((unused)) int seq, __attribute__((unused)) int res, __attribute__((unused)) const char *message)
+static void core_event_err(__attribute__((unused)) void *data, __attribute__((unused)) uint32_t id, __attribute__((unused)) int seq, __attribute__((unused)) int res, __attribute__((unused)) const char *msg)
 {
 }
 
 static const struct pw_core_events core_events = {
-    PW_VERSION_CORE_EVENTS, .done = core_event_done, .error = core_event_error, };
+    PW_VERSION_CORE_EVENTS, .done = core_event_done, .error = core_event_err, };
 
 uint32_t ldg_audio_init(void)
 {
@@ -281,18 +281,18 @@ uint32_t ldg_audio_init(void)
 
     pw_thread_loop_lock(g_audio_ctx.loop);
 
-    g_audio_ctx.context = pw_context_new(pw_thread_loop_get_loop(g_audio_ctx.loop), 0x0, 0);
-    if (LDG_UNLIKELY(!g_audio_ctx.context))
+    g_audio_ctx.ctx = pw_context_new(pw_thread_loop_get_loop(g_audio_ctx.loop), 0x0, 0);
+    if (LDG_UNLIKELY(!g_audio_ctx.ctx))
     {
         pw_thread_loop_unlock(g_audio_ctx.loop);
         pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
     }
 
-    g_audio_ctx.core = pw_context_connect(g_audio_ctx.context, 0x0, 0);
+    g_audio_ctx.core = pw_context_connect(g_audio_ctx.ctx, 0x0, 0);
     if (LDG_UNLIKELY(!g_audio_ctx.core))
     {
-        pw_context_destroy(g_audio_ctx.context);
+        pw_context_destroy(g_audio_ctx.ctx);
         pw_thread_loop_unlock(g_audio_ctx.loop);
         pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
@@ -304,7 +304,7 @@ uint32_t ldg_audio_init(void)
     if (LDG_UNLIKELY(!g_audio_ctx.registry))
     {
         pw_core_disconnect(g_audio_ctx.core);
-        pw_context_destroy(g_audio_ctx.context);
+        pw_context_destroy(g_audio_ctx.ctx);
         pw_thread_loop_unlock(g_audio_ctx.loop);
         pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
@@ -322,7 +322,7 @@ uint32_t ldg_audio_init(void)
         pw_thread_loop_lock(g_audio_ctx.loop);
         pw_proxy_destroy((struct pw_proxy *)g_audio_ctx.registry);
         pw_core_disconnect(g_audio_ctx.core);
-        pw_context_destroy(g_audio_ctx.context);
+        pw_context_destroy(g_audio_ctx.ctx);
         pw_thread_loop_unlock(g_audio_ctx.loop);
         pw_thread_loop_destroy(g_audio_ctx.loop);
         return LDG_ERR_AUDIO_INIT;
@@ -356,7 +356,7 @@ void ldg_audio_shutdown(void)
     spa_hook_remove(&g_audio_ctx.core_listener);
 
     pw_core_disconnect(g_audio_ctx.core);
-    pw_context_destroy(g_audio_ctx.context);
+    pw_context_destroy(g_audio_ctx.ctx);
     pw_thread_loop_destroy(g_audio_ctx.loop);
 
     pw_deinit();
@@ -380,34 +380,36 @@ static uint32_t audio_node_vol_set(ldg_audio_node_t *node, double vol)
 {
     ldg_mem_pool_t *scratch = 0x0;
     uint8_t *buff = 0x0;
-    float *vols = 0x0;
-    struct spa_pod_builder b = { 0 };
-    struct spa_pod_frame f = { 0 };
-    uint32_t i = 0;
+    struct spa_pod_builder pod_wr = { 0 };
+    struct spa_pod_frame props = { 0 };
+    struct spa_pod_frame vols = { 0 };
+    uint32_t idx = 0;
     uint32_t cunt = 0;
     uint32_t ret = 0;
 
     if (!node || !node->proxy) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = ldg_mem_pool_create(0, 1024 + SPA_AUDIO_MAX_CHANNELS * sizeof(float), &scratch);
+    ret = ldg_mem_pool_create(0, 1024, &scratch);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ret = ldg_mem_pool_alloc(scratch, 1024, (void **)&buff);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        ldg_mem_pool_destroy(&scratch);
+        return ret;
+    }
 
-    ret = ldg_mem_pool_alloc(scratch, SPA_AUDIO_MAX_CHANNELS * sizeof(float), (void **)&vols);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
-
-    b = SPA_POD_BUILDER_INIT(buff, 1024);
+    pod_wr = SPA_POD_BUILDER_INIT(buff, 1024);
 
     cunt = (node->channel_cunt > 0) ? node->channel_cunt : 2;
-    for (i = 0; i < cunt; i++) { vols[i] = (float)vol; }
 
-    spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-    spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
-    spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float, cunt, vols);
+    spa_pod_builder_push_object(&pod_wr, &props, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+    spa_pod_builder_prop(&pod_wr, SPA_PROP_channelVolumes, 0);
+    spa_pod_builder_push_array(&pod_wr, &vols);
+    for (idx = 0; idx < cunt; idx++) { spa_pod_builder_float(&pod_wr, (float)vol); }
+    spa_pod_builder_pop(&pod_wr, &vols);
 
-    pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, 0, (struct spa_pod *)spa_pod_builder_pop(&b, &f));
+    pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, 0, (struct spa_pod *)spa_pod_builder_pop(&pod_wr, &props));
 
     ldg_mem_pool_destroy(&scratch);
 
