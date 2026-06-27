@@ -251,7 +251,7 @@ uint32_t ldg_audio_stream_name_get(__attribute__((unused)) const char *name, __a
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
 }
 
-void ldg_audio_self_register(__attribute__((unused)) uint32_t stream_id)
+void ldg_audio_self_reg(__attribute__((unused)) uint32_t stream_id)
 {
 }
 

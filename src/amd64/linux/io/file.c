@@ -124,32 +124,32 @@ uint32_t ldg_io_file_close(ldg_io_file_t *f)
 
 uint32_t ldg_io_file_rd(ldg_io_file_t *f, void *buff, uint64_t size, uint64_t *bytes_rd)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!f || !buff || !bytes_rd)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *bytes_rd = 0;
 
-    result = (int64_t)read((int)f->fd, buff, (uint64_t)size);
-    if (LDG_UNLIKELY(result < 0)) { return ldg_io_errno_translate(); }
+    res = (int64_t)read((int)f->fd, buff, (uint64_t)size);
+    if (LDG_UNLIKELY(res < 0)) { return ldg_io_errno_translate(); }
 
-    *bytes_rd = (uint64_t)result;
+    *bytes_rd = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }
 
 uint32_t ldg_io_file_wr(ldg_io_file_t *f, const void *buff, uint64_t size, uint64_t *bytes_wr)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!f || !buff || !bytes_wr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *bytes_wr = 0;
 
-    result = (int64_t)write((int)f->fd, buff, (uint64_t)size);
-    if (LDG_UNLIKELY(result < 0)) { return ldg_io_errno_translate(); }
+    res = (int64_t)write((int)f->fd, buff, (uint64_t)size);
+    if (LDG_UNLIKELY(res < 0)) { return ldg_io_errno_translate(); }
 
-    *bytes_wr = (uint64_t)result;
+    *bytes_wr = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }
@@ -157,7 +157,7 @@ uint32_t ldg_io_file_wr(ldg_io_file_t *f, const void *buff, uint64_t size, uint6
 uint32_t ldg_io_file_seek(ldg_io_file_t *f, uint64_t offset, uint32_t whence)
 {
     int32_t posix_whence = 0;
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -167,24 +167,24 @@ uint32_t ldg_io_file_seek(ldg_io_file_t *f, uint64_t offset, uint32_t whence)
     else if (whence == LDG_IO_SEEK_CUR) { posix_whence = SEEK_CUR; }
     else { posix_whence = SEEK_END; }
 
-    result = (int64_t)lseek((int)f->fd, (off_t)offset, (int)posix_whence);
-    if (LDG_UNLIKELY(result < 0)) { return LDG_ERR_IO_SEEK; }
+    res = (int64_t)lseek((int)f->fd, (off_t)offset, (int)posix_whence);
+    if (LDG_UNLIKELY(res < 0)) { return LDG_ERR_IO_SEEK; }
 
     return LDG_ERR_AOK;
 }
 
 uint32_t ldg_io_file_pos_get(ldg_io_file_t *f, uint64_t *pos)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!f || !pos)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *pos = 0;
 
-    result = (int64_t)lseek((int)f->fd, 0, SEEK_CUR);
-    if (LDG_UNLIKELY(result < 0)) { return LDG_ERR_IO_SEEK; }
+    res = (int64_t)lseek((int)f->fd, 0, SEEK_CUR);
+    if (LDG_UNLIKELY(res < 0)) { return LDG_ERR_IO_SEEK; }
 
-    *pos = (uint64_t)result;
+    *pos = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }

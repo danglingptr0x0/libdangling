@@ -24,32 +24,32 @@ uint32_t ldg_sys_hostname_get(char *buff, uint64_t buff_size)
 
 uint32_t ldg_sys_cpu_cunt_get(uint32_t *cunt)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *cunt = 0;
 
-    result = (int64_t)sysconf(_SC_NPROCESSORS_ONLN);
-    if (LDG_UNLIKELY(result <= 0)) { return LDG_ERR_UNSUPPORTED; }
+    res = (int64_t)sysconf(_SC_NPROCESSORS_ONLN);
+    if (LDG_UNLIKELY(res <= 0)) { return LDG_ERR_UNSUPPORTED; }
 
-    *cunt = (uint32_t)result;
+    *cunt = (uint32_t)res;
 
     return LDG_ERR_AOK;
 }
 
 uint32_t ldg_sys_page_size_get(uint64_t *size)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!size)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *size = 0;
 
-    result = (int64_t)sysconf(_SC_PAGESIZE);
-    if (LDG_UNLIKELY(result <= 0)) { return LDG_ERR_UNSUPPORTED; }
+    res = (int64_t)sysconf(_SC_PAGESIZE);
+    if (LDG_UNLIKELY(res <= 0)) { return LDG_ERR_UNSUPPORTED; }
 
-    *size = (uint64_t)result;
+    *size = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }

@@ -6,7 +6,7 @@
 #include <dangling/thread/mpmc.h>
 
 #define LDG_THREAD_POOL_MAX_WORKERS 64
-#define LDG_THREAD_POOL_TASK_QUEUE_CAPACITY 1024
+#define LDG_THREAD_POOL_TASK_QUEUE_CAP 1024
 #define LDG_THREAD_POOL_WAIT_TIMEOUT_MS 10
 
 typedef uint32_t (*ldg_thread_pool_worker_func_t)(void *arg);

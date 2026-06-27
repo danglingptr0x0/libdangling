@@ -57,7 +57,7 @@ LDG_EXPORT void ldg_audio_stream_free(ldg_audio_stream_t *streams);
 LDG_EXPORT uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream);
 
 // self stream
-LDG_EXPORT void ldg_audio_self_register(uint32_t stream_id);
+LDG_EXPORT void ldg_audio_self_reg(uint32_t stream_id);
 LDG_EXPORT uint64_t ldg_audio_self_id_get(void);
 LDG_EXPORT uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream);
 LDG_EXPORT uint32_t ldg_audio_self_vol_get(double *vol);

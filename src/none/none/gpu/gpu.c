@@ -72,7 +72,7 @@ uint32_t gpu_vk_to_fmt(uint32_t vk_fmt)
 static uint32_t gpu_shutdown_internal(ldg_gpu_ctx_t *ctx)
 {
     VkDevice dev = (VkDevice)ctx->dev;
-    VkInstance instance = (VkInstance)ctx->instance;
+    VkInstance inst = (VkInstance)ctx->inst;
     uint32_t i = 0;
     uint32_t j = 0;
 
@@ -127,7 +127,7 @@ static uint32_t gpu_shutdown_internal(ldg_gpu_ctx_t *ctx)
     {
         if (!ctx->surfaces[i].in_use) { continue; }
 
-        if (ctx->surfaces[i].vk_surface && instance) { vkDestroySurfaceKHR(instance, (VkSurfaceKHR)ctx->surfaces[i].vk_surface, 0x0); }
+        if (ctx->surfaces[i].vk_surface && inst) { vkDestroySurfaceKHR(inst, (VkSurfaceKHR)ctx->surfaces[i].vk_surface, 0x0); }
     }
 
     for (i = 0; i < LDG_GPU_FENCE_MAX; i++)
@@ -182,15 +182,15 @@ static uint32_t gpu_shutdown_internal(ldg_gpu_ctx_t *ctx)
 
     if (ctx->cmd_pool) { vkDestroyCommandPool(dev, (VkCommandPool)ctx->cmd_pool, 0x0); }
 
-    if (ctx->debug_messenger && instance)
+    if (ctx->debug_messenger && inst)
     {
-        PFN_vkDestroyDebugUtilsMessengerEXT destroy_fn = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (destroy_fn) { destroy_fn(instance, (VkDebugUtilsMessengerEXT)ctx->debug_messenger, 0x0); }
+        PFN_vkDestroyDebugUtilsMessengerEXT destroy_fn = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(inst, "vkDestroyDebugUtilsMessengerEXT");
+        if (destroy_fn) { destroy_fn(inst, (VkDebugUtilsMessengerEXT)ctx->debug_messenger, 0x0); }
     }
 
     if (dev) { vkDestroyDevice(dev, 0x0); }
 
-    if (instance) { vkDestroyInstance(instance, 0x0); }
+    if (inst) { vkDestroyInstance(inst, 0x0); }
 
     if (ctx->mut_init) { ldg_mut_destroy(&ctx->mut); }
 
@@ -603,7 +603,7 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
     VkPhysicalDeviceVulkan12Features *vk12_feat = 0x0;
     VkDescriptorSetLayoutBinding *bindings = 0x0;
     ldg_mem_pool_t *scratch = 0x0;
-    VkInstance instance = VK_NULL_HANDLE;
+    VkInstance inst = VK_NULL_HANDLE;
     VkDevice dev = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
     VkCommandPool cmd_pool = VK_NULL_HANDLE;
@@ -716,7 +716,7 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
     inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_info.pApplicationInfo = &app_info;
 
-    all_inst_ext_cunt = desc->instance_extension_cunt + (enable_validation ? 1 : 0);
+    all_inst_ext_cunt = desc->inst_extension_cunt + (enable_validation ? 1 : 0);
     if (all_inst_ext_cunt > 0)
     {
         err = ldg_mem_pool_alloc(scratch, sizeof(const char *) * (all_inst_ext_cunt + 1), (void **)&all_inst_exts);
@@ -726,9 +726,9 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
             return err;
         }
 
-        for (i = 0; i < desc->instance_extension_cunt; i++) { all_inst_exts[i] = desc->instance_extensions[i]; }
+        for (i = 0; i < desc->inst_extension_cunt; i++) { all_inst_exts[i] = desc->inst_extensions[i]; }
 
-        if (enable_validation) { all_inst_exts[desc->instance_extension_cunt] = debug_ext; }
+        if (enable_validation) { all_inst_exts[desc->inst_extension_cunt] = debug_ext; }
 
         inst_info.enabledExtensionCount = all_inst_ext_cunt;
         inst_info.ppEnabledExtensionNames = all_inst_exts;
@@ -740,7 +740,7 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
         inst_info.ppEnabledLayerNames = &validation_layer;
     }
 
-    if (vkCreateInstance(&inst_info, 0x0, &instance) != VK_SUCCESS)
+    if (vkCreateInstance(&inst_info, 0x0, &inst) != VK_SUCCESS)
     {
         if (enable_validation)
         {
@@ -753,14 +753,14 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
                 all_inst_ext_cunt--;
                 inst_info.enabledExtensionCount = all_inst_ext_cunt;
             }
-            else if (all_inst_ext_cunt == 1 && desc->instance_extension_cunt == 0)
+            else if (all_inst_ext_cunt == 1 && desc->inst_extension_cunt == 0)
             {
                 all_inst_ext_cunt = 0;
                 inst_info.enabledExtensionCount = 0;
                 inst_info.ppEnabledExtensionNames = 0x0;
             }
 
-            if (LDG_UNLIKELY(vkCreateInstance(&inst_info, 0x0, &instance) != VK_SUCCESS))
+            if (LDG_UNLIKELY(vkCreateInstance(&inst_info, 0x0, &inst) != VK_SUCCESS))
             {
                 ldg_mem_pool_destroy(&scratch);
                 return LDG_ERR_GPU_INIT;
@@ -775,23 +775,23 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
         }
     }
 
-    ctx->instance = (void *)instance;
+    ctx->inst = (void *)inst;
 
     if (enable_validation)
     {
-        PFN_vkCreateDebugUtilsMessengerEXT create_dbg_fn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+        PFN_vkCreateDebugUtilsMessengerEXT create_dbg_fn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(inst, "vkCreateDebugUtilsMessengerEXT");
         if (create_dbg_fn)
         {
             dbg_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             dbg_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
             dbg_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             dbg_info.pfnUserCallback = gpu_debug_msg_cb;
-            if (create_dbg_fn(instance, &dbg_info, 0x0, &dbg_messenger) == VK_SUCCESS) { ctx->debug_messenger = (void *)dbg_messenger; }
+            if (create_dbg_fn(inst, &dbg_info, 0x0, &dbg_messenger) == VK_SUCCESS) { ctx->debug_messenger = (void *)dbg_messenger; }
         }
     }
 
     dev_cunt = LDG_GPU_DEV_ENUM_MAX;
-    if (LDG_UNLIKELY(vkEnumeratePhysicalDevices(instance, &dev_cunt, phys_devs) < 0 || dev_cunt == 0))
+    if (LDG_UNLIKELY(vkEnumeratePhysicalDevices(inst, &dev_cunt, phys_devs) < 0 || dev_cunt == 0))
     {
         ldg_mem_pool_destroy(&scratch);
         gpu_shutdown_internal(ctx);
@@ -1123,7 +1123,7 @@ LDG_EXPORT void ldg_gpu_shutdown(void *vk)
     ldg_mem_dealloc(ctx);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_instance_get(void *vk, void **out)
+LDG_EXPORT uint32_t ldg_gpu_inst_get(void *vk, void **out)
 {
     ldg_gpu_ctx_t *ctx = vk;
 
@@ -1135,7 +1135,7 @@ LDG_EXPORT uint32_t ldg_gpu_instance_get(void *vk, void **out)
 
     if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
 
-    *out = ctx->instance;
+    *out = ctx->inst;
     return LDG_ERR_AOK;
 }
 

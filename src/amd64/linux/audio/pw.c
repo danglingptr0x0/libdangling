@@ -182,7 +182,7 @@ static void node_event_param(void *data, __attribute__((unused)) int seq, uint32
 static const struct pw_node_events node_events = {
     PW_VERSION_NODE_EVENTS, .param = node_event_param, };
 
-static void registry_event_global(__attribute__((unused)) void *data, uint32_t id, __attribute__((unused)) uint32_t permissions, const char *type, __attribute__((unused)) uint32_t version, const struct spa_dict *props)
+static void registry_event_glob(__attribute__((unused)) void *data, uint32_t id, __attribute__((unused)) uint32_t permissions, const char *type, __attribute__((unused)) uint32_t version, const struct spa_dict *props)
 {
     const char *media_class = 0x0;
     const char *name = 0x0;
@@ -246,7 +246,7 @@ static void registry_event_global(__attribute__((unused)) void *data, uint32_t i
     *list = node;
 }
 
-static void registry_event_global_remove(__attribute__((unused)) void *data, uint32_t id)
+static void registry_event_glob_remove(__attribute__((unused)) void *data, uint32_t id)
 {
     audio_node_remove(&g_audio_ctx.streams, id);
     audio_node_remove(&g_audio_ctx.sinks, id);
@@ -254,7 +254,7 @@ static void registry_event_global_remove(__attribute__((unused)) void *data, uin
 }
 
 static const struct pw_registry_events registry_events = {
-    PW_VERSION_REGISTRY_EVENTS, .global = registry_event_global, .global_remove = registry_event_global_remove, };
+    PW_VERSION_REGISTRY_EVENTS, .global = registry_event_glob, .global_remove = registry_event_glob_remove, };
 
 static void core_event_done(__attribute__((unused)) void *data, __attribute__((unused)) uint32_t id, int seq)
 {
@@ -666,7 +666,7 @@ uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
     return ret;
 }
 
-void ldg_audio_self_register(uint32_t stream_id)
+void ldg_audio_self_reg(uint32_t stream_id)
 {
     g_audio_ctx.self_stream_id = stream_id;
 }
