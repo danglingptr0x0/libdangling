@@ -4,86 +4,86 @@
 #include <stdint.h>
 #include <math.h>
 
-static inline void ldg_vec3_zero(double v[3])
+static inline void ldg_math_vec3_zero(double vec[3])
 {
-    v[0] = 0.0;
-    v[1] = 0.0;
-    v[2] = 0.0;
+    vec[0] = 0.0;
+    vec[1] = 0.0;
+    vec[2] = 0.0;
 }
 
-static inline void ldg_vec3_copy(double dst[3], const double src[3])
+static inline void ldg_math_vec3_copy(double dst[3], const double src[3])
 {
     dst[0] = src[0];
     dst[1] = src[1];
     dst[2] = src[2];
 }
 
-static inline void ldg_vec3_add(double dst[3], const double a[3], const double b[3])
+static inline void ldg_math_vec3_add(double dst[3], const double lhs[3], const double rhs[3])
 {
-    dst[0] = a[0] + b[0];
-    dst[1] = a[1] + b[1];
-    dst[2] = a[2] + b[2];
+    dst[0] = lhs[0] + rhs[0];
+    dst[1] = lhs[1] + rhs[1];
+    dst[2] = lhs[2] + rhs[2];
 }
 
-static inline void ldg_vec3_sub(double dst[3], const double a[3], const double b[3])
+static inline void ldg_math_vec3_sub(double dst[3], const double lhs[3], const double rhs[3])
 {
-    dst[0] = a[0] - b[0];
-    dst[1] = a[1] - b[1];
-    dst[2] = a[2] - b[2];
+    dst[0] = lhs[0] - rhs[0];
+    dst[1] = lhs[1] - rhs[1];
+    dst[2] = lhs[2] - rhs[2];
 }
 
-static inline void ldg_vec3_scale(double v[3], double s)
+static inline void ldg_math_vec3_scale(double vec[3], double scalar)
 {
-    v[0] *= s;
-    v[1] *= s;
-    v[2] *= s;
+    vec[0] *= scalar;
+    vec[1] *= scalar;
+    vec[2] *= scalar;
 }
 
-static inline void ldg_vec3_scaled_add(double dst[3], const double v[3], double s)
+static inline void ldg_math_vec3_scaled_add(double dst[3], const double vec[3], double scalar)
 {
-    dst[0] += v[0] * s;
-    dst[1] += v[1] * s;
-    dst[2] += v[2] * s;
+    dst[0] += vec[0] * scalar;
+    dst[1] += vec[1] * scalar;
+    dst[2] += vec[2] * scalar;
 }
 
-static inline double ldg_vec3_dot(const double a[3], const double b[3])
+static inline double ldg_math_vec3_dot(const double lhs[3], const double rhs[3])
 {
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    return lhs[0] * rhs[0] + lhs[1] * rhs[1] + lhs[2] * rhs[2];
 }
 
-static inline double ldg_vec3_len(const double v[3])
+static inline double ldg_math_vec3_len(const double vec[3])
 {
-    return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    return sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
 }
 
-static inline void ldg_vec3_cross(double dst[3], const double a[3], const double b[3])
+static inline void ldg_math_vec3_cross(double dst[3], const double lhs[3], const double rhs[3])
 {
-    dst[0] = a[1] * b[2] - a[2] * b[1];
-    dst[1] = a[2] * b[0] - a[0] * b[2];
-    dst[2] = a[0] * b[1] - a[1] * b[0];
+    dst[0] = lhs[1] * rhs[2] - lhs[2] * rhs[1];
+    dst[1] = lhs[2] * rhs[0] - lhs[0] * rhs[2];
+    dst[2] = lhs[0] * rhs[1] - lhs[1] * rhs[0];
 }
 
-static inline void ldg_mat3_zero(double M[9])
+static inline void ldg_math_mat3_zero(double mat[9])
 {
-    uint32_t i = 0;
-    for (i = 0; i < 9; i++) { M[i] = 0.0; }
+    uint32_t idx = 0;
+    for (idx = 0; idx < 9; idx++) { mat[idx] = 0.0; }
 }
 
-static inline void ldg_mat3_identity(double M[9])
+static inline void ldg_math_mat3_identity(double mat[9])
 {
-    ldg_mat3_zero(M);
-    M[0] = 1.0;
-    M[4] = 1.0;
-    M[8] = 1.0;
+    ldg_math_mat3_zero(mat);
+    mat[0] = 1.0;
+    mat[4] = 1.0;
+    mat[8] = 1.0;
 }
 
-static inline void ldg_mat3_copy(double dst[9], const double src[9])
+static inline void ldg_math_mat3_copy(double dst[9], const double src[9])
 {
-    uint32_t i = 0;
-    for (i = 0; i < 9; i++) { dst[i] = src[i]; }
+    uint32_t idx = 0;
+    for (idx = 0; idx < 9; idx++) { dst[idx] = src[idx]; }
 }
 
-static inline void ldg_mat3_transpose(double dst[9], const double src[9])
+static inline void ldg_math_mat3_transpose(double dst[9], const double src[9])
 {
     dst[0] = src[0];
     dst[1] = src[3];
@@ -96,142 +96,142 @@ static inline void ldg_mat3_transpose(double dst[9], const double src[9])
     dst[8] = src[8];
 }
 
-static inline void ldg_mat3_add(double dst[9], const double A[9], const double B[9])
+static inline void ldg_math_mat3_add(double dst[9], const double lhs[9], const double rhs[9])
 {
-    uint32_t i = 0;
-    for (i = 0; i < 9; i++) { dst[i] = A[i] + B[i]; }
+    uint32_t idx = 0;
+    for (idx = 0; idx < 9; idx++) { dst[idx] = lhs[idx] + rhs[idx]; }
 }
 
-static inline void ldg_mat3_sub(double dst[9], const double A[9], const double B[9])
+static inline void ldg_math_mat3_sub(double dst[9], const double lhs[9], const double rhs[9])
 {
-    uint32_t i = 0;
-    for (i = 0; i < 9; i++) { dst[i] = A[i] - B[i]; }
+    uint32_t idx = 0;
+    for (idx = 0; idx < 9; idx++) { dst[idx] = lhs[idx] - rhs[idx]; }
 }
 
-static inline void ldg_mat3_scale(double M[9], double s)
+static inline void ldg_math_mat3_scale(double mat[9], double scalar)
 {
-    uint32_t i = 0;
-    for (i = 0; i < 9; i++) { M[i] *= s; }
+    uint32_t idx = 0;
+    for (idx = 0; idx < 9; idx++) { mat[idx] *= scalar; }
 }
 
-static inline void ldg_mat3_mul(double dst[9], const double A[9], const double B[9])
+static inline void ldg_math_mat3_mul(double dst[9], const double lhs[9], const double rhs[9])
 {
     double tmp[9];
-    tmp[0] = A[0] * B[0] + A[1] * B[3] + A[2] * B[6];
-    tmp[1] = A[0] * B[1] + A[1] * B[4] + A[2] * B[7];
-    tmp[2] = A[0] * B[2] + A[1] * B[5] + A[2] * B[8];
-    tmp[3] = A[3] * B[0] + A[4] * B[3] + A[5] * B[6];
-    tmp[4] = A[3] * B[1] + A[4] * B[4] + A[5] * B[7];
-    tmp[5] = A[3] * B[2] + A[4] * B[5] + A[5] * B[8];
-    tmp[6] = A[6] * B[0] + A[7] * B[3] + A[8] * B[6];
-    tmp[7] = A[6] * B[1] + A[7] * B[4] + A[8] * B[7];
-    tmp[8] = A[6] * B[2] + A[7] * B[5] + A[8] * B[8];
-    ldg_mat3_copy(dst, tmp);
+    tmp[0] = lhs[0] * rhs[0] + lhs[1] * rhs[3] + lhs[2] * rhs[6];
+    tmp[1] = lhs[0] * rhs[1] + lhs[1] * rhs[4] + lhs[2] * rhs[7];
+    tmp[2] = lhs[0] * rhs[2] + lhs[1] * rhs[5] + lhs[2] * rhs[8];
+    tmp[3] = lhs[3] * rhs[0] + lhs[4] * rhs[3] + lhs[5] * rhs[6];
+    tmp[4] = lhs[3] * rhs[1] + lhs[4] * rhs[4] + lhs[5] * rhs[7];
+    tmp[5] = lhs[3] * rhs[2] + lhs[4] * rhs[5] + lhs[5] * rhs[8];
+    tmp[6] = lhs[6] * rhs[0] + lhs[7] * rhs[3] + lhs[8] * rhs[6];
+    tmp[7] = lhs[6] * rhs[1] + lhs[7] * rhs[4] + lhs[8] * rhs[7];
+    tmp[8] = lhs[6] * rhs[2] + lhs[7] * rhs[5] + lhs[8] * rhs[8];
+    ldg_math_mat3_copy(dst, tmp);
 }
 
-static inline void ldg_mat3_vec_mul(double dst[3], const double M[9], const double v[3])
+static inline void ldg_math_mat3_vec_mul(double dst[3], const double mat[9], const double vec[3])
 {
-    dst[0] = M[0] * v[0] + M[1] * v[1] + M[2] * v[2];
-    dst[1] = M[3] * v[0] + M[4] * v[1] + M[5] * v[2];
-    dst[2] = M[6] * v[0] + M[7] * v[1] + M[8] * v[2];
+    dst[0] = mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2];
+    dst[1] = mat[3] * vec[0] + mat[4] * vec[1] + mat[5] * vec[2];
+    dst[2] = mat[6] * vec[0] + mat[7] * vec[1] + mat[8] * vec[2];
 }
 
-static inline double ldg_mat3_det(const double M[9])
+static inline double ldg_math_mat3_det(const double mat[9])
 {
-    return M[0] * (M[4] * M[8] - M[5] * M[7]) - M[1] * (M[3] * M[8] - M[5] * M[6]) + M[2] * (M[3] * M[7] - M[4] * M[6]);
+    return mat[0] * (mat[4] * mat[8] - mat[5] * mat[7]) - mat[1] * (mat[3] * mat[8] - mat[5] * mat[6]) + mat[2] * (mat[3] * mat[7] - mat[4] * mat[6]);
 }
 
-static inline double ldg_mat3_trace(const double M[9])
+static inline double ldg_math_mat3_trace(const double mat[9])
 {
-    return M[0] + M[4] + M[8];
+    return mat[0] + mat[4] + mat[8];
 }
 
-#define LDG_MAT3_DET_EPSILON 1e-14
-#define LDG_MAT3_POLAR_EPSILON 1e-12
-#define LDG_MAT3_POLAR_MAX_ITER 10
+#define LDG_MATH_MAT3_DET_EPSILON 1e-14
+#define LDG_MATH_MAT3_POLAR_EPSILON 1e-12
+#define LDG_MATH_MAT3_POLAR_MAX_ITER 10
 
-static inline uint32_t ldg_mat3_inv(double dst[9], const double M[9])
+static inline uint32_t ldg_math_mat3_inv(double dst[9], const double mat[9])
 {
     double det = 0.0;
     double inv_det = 0.0;
 
-    det = ldg_mat3_det(M);
-    if (__builtin_fabs(det) < LDG_MAT3_DET_EPSILON) { return 1; }
+    det = ldg_math_mat3_det(mat);
+    if (__builtin_fabs(det) < LDG_MATH_MAT3_DET_EPSILON) { return 1; }
 
     inv_det = 1.0 / det;
-    dst[0] = (M[4] * M[8] - M[5] * M[7]) * inv_det;
-    dst[1] = (M[2] * M[7] - M[1] * M[8]) * inv_det;
-    dst[2] = (M[1] * M[5] - M[2] * M[4]) * inv_det;
-    dst[3] = (M[5] * M[6] - M[3] * M[8]) * inv_det;
-    dst[4] = (M[0] * M[8] - M[2] * M[6]) * inv_det;
-    dst[5] = (M[2] * M[3] - M[0] * M[5]) * inv_det;
-    dst[6] = (M[3] * M[7] - M[4] * M[6]) * inv_det;
-    dst[7] = (M[1] * M[6] - M[0] * M[7]) * inv_det;
-    dst[8] = (M[0] * M[4] - M[1] * M[3]) * inv_det;
+    dst[0] = (mat[4] * mat[8] - mat[5] * mat[7]) * inv_det;
+    dst[1] = (mat[2] * mat[7] - mat[1] * mat[8]) * inv_det;
+    dst[2] = (mat[1] * mat[5] - mat[2] * mat[4]) * inv_det;
+    dst[3] = (mat[5] * mat[6] - mat[3] * mat[8]) * inv_det;
+    dst[4] = (mat[0] * mat[8] - mat[2] * mat[6]) * inv_det;
+    dst[5] = (mat[2] * mat[3] - mat[0] * mat[5]) * inv_det;
+    dst[6] = (mat[3] * mat[7] - mat[4] * mat[6]) * inv_det;
+    dst[7] = (mat[1] * mat[6] - mat[0] * mat[7]) * inv_det;
+    dst[8] = (mat[0] * mat[4] - mat[1] * mat[3]) * inv_det;
     return 0;
 }
 
-static inline void ldg_mat3_cols_from(double M[9], const double c0[3], const double c1[3], const double c2[3])
+static inline void ldg_math_mat3_cols_from(double mat[9], const double col0[3], const double col1[3], const double col2[3])
 {
-    M[0] = c0[0];
-    M[3] = c0[1];
-    M[6] = c0[2];
-    M[1] = c1[0];
-    M[4] = c1[1];
-    M[7] = c1[2];
-    M[2] = c2[0];
-    M[5] = c2[1];
-    M[8] = c2[2];
+    mat[0] = col0[0];
+    mat[3] = col0[1];
+    mat[6] = col0[2];
+    mat[1] = col1[0];
+    mat[4] = col1[1];
+    mat[7] = col1[2];
+    mat[2] = col2[0];
+    mat[5] = col2[1];
+    mat[8] = col2[2];
 }
 
-static inline void ldg_mat3_col(double dst[3], const double M[9], uint32_t col)
+static inline void ldg_math_mat3_col(double dst[3], const double mat[9], uint32_t col)
 {
-    dst[0] = M[col];
-    dst[1] = M[3 + col];
-    dst[2] = M[6 + col];
+    dst[0] = mat[col];
+    dst[1] = mat[3 + col];
+    dst[2] = mat[6 + col];
 }
 
-static inline void ldg_mat3_polar(double R[9], double S[9], const double F[9])
+static inline void ldg_math_mat3_polar(double rot[9], double stretch[9], const double mat[9])
 {
     uint32_t iter = 0;
-    uint32_t i = 0;
-    double Rt[9];
-    double Rt_inv[9];
-    double R_next[9];
+    uint32_t idx = 0;
+    double rot_t[9];
+    double rot_t_inv[9];
+    double rot_next[9];
     double diff = 0.0;
-    double d = 0.0;
+    double delta = 0.0;
 
-    ldg_mat3_copy(R, F);
+    ldg_math_mat3_copy(rot, mat);
 
-    for (iter = 0; iter < LDG_MAT3_POLAR_MAX_ITER; iter++)
+    for (iter = 0; iter < LDG_MATH_MAT3_POLAR_MAX_ITER; iter++)
     {
-        ldg_mat3_transpose(Rt, R);
+        ldg_math_mat3_transpose(rot_t, rot);
 
-        if (ldg_mat3_inv(Rt_inv, Rt) != 0)
+        if (ldg_math_mat3_inv(rot_t_inv, rot_t) != 0)
         {
-            ldg_mat3_identity(R);
-            ldg_mat3_identity(S);
+            ldg_math_mat3_identity(rot);
+            ldg_math_mat3_identity(stretch);
             return;
         }
 
-        for (i = 0; i < 9; i++) { R_next[i] = 0.5 * (R[i] + Rt_inv[i]); }
+        for (idx = 0; idx < 9; idx++) { rot_next[idx] = 0.5 * (rot[idx] + rot_t_inv[idx]); }
 
         diff = 0.0;
-        for (i = 0; i < 9; i++)
+        for (idx = 0; idx < 9; idx++)
         {
-            d = R_next[i] - R[i];
-            diff += d * d;
+            delta = rot_next[idx] - rot[idx];
+            diff += delta * delta;
         }
 
-        ldg_mat3_copy(R, R_next);
+        ldg_math_mat3_copy(rot, rot_next);
 
-        if (diff < LDG_MAT3_POLAR_EPSILON) { break; }
+        if (diff < LDG_MATH_MAT3_POLAR_EPSILON) { break; }
     }
 
-    if (ldg_mat3_det(R) < 0.0) { for (i = 0; i < 9; i++) { R[i] = -R[i]; } }
+    if (ldg_math_mat3_det(rot) < 0.0) { for (idx = 0; idx < 9; idx++) { rot[idx] = -rot[idx]; } }
 
-    ldg_mat3_transpose(Rt, R);
-    ldg_mat3_mul(S, Rt, F);
+    ldg_math_mat3_transpose(rot_t, rot);
+    ldg_math_mat3_mul(stretch, rot_t, mat);
 }
 
 #endif

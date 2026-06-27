@@ -135,7 +135,7 @@ typedef struct ldg_gpu_frame_entry
 
 typedef struct ldg_gpu_ctx
 {
-    void *instance;
+    void *inst;
     void *phys_dev;
     void *dev;
     void *queue;

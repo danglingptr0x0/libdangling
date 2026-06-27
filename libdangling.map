@@ -199,7 +199,7 @@ DANGLING_1.0 {
         ldg_audio_stream_list;
         ldg_audio_stream_free;
         ldg_audio_stream_name_get;
-        ldg_audio_self_register;
+        ldg_audio_self_reg;
         ldg_audio_self_id_get;
         ldg_audio_stream_self_get;
         ldg_audio_self_vol_get;
@@ -281,7 +281,7 @@ DANGLING_1.0 {
 DANGLING_2.0 {
     global:
         /* gpu/instance */
-        ldg_gpu_instance_get;
+        ldg_gpu_inst_get;
 
         /* gpu/surface */
         ldg_gpu_surface_create;
@@ -321,3 +321,240 @@ DANGLING_3.0 {
         ldg_gpu_swapchain_img_acquire;
         ldg_gpu_frame_vert_buff_bind;
 } DANGLING_2.0;
+
+DANGLING_4.0 {
+    global:
+        /* core/arith */
+        ldg_arith_32_add;
+        ldg_arith_32_sub;
+        ldg_arith_32_mul;
+        ldg_arith_32_div;
+        ldg_arith_64_add;
+        ldg_arith_64_sub;
+        ldg_arith_64_mul;
+        ldg_arith_64_div;
+
+        /* str/hash */
+        ldg_hash_fnv1a_32_compute;
+        ldg_hash_fnv1a_64_compute;
+
+        /* compress/inflate */
+        ldg_compress_inflate;
+
+        ldg_math_sparse_create;
+        ldg_math_sparse_destroy;
+        ldg_math_sparse_entry_add;
+        ldg_math_sparse_finalize;
+        ldg_math_sparse_val_rst;
+        ldg_math_sparse_mv;
+        ldg_math_sparse_diag_get;
+        ldg_math_sparse_symmetric_is;
+        ldg_math_sparse_nnz_get;
+        ldg_math_sparse_rows_get;
+        ldg_math_sparse_cols_get;
+        ldg_math_krylov_ctx_create;
+        ldg_math_krylov_ctx_destroy;
+        ldg_math_krylov_precond_build;
+        ldg_math_krylov_cg_solve;
+        ldg_math_krylov_pcg_solve;
+        ldg_math_astar_ctx_create;
+        ldg_math_astar_ctx_destroy;
+        ldg_math_astar_solve;
+        ldg_math_astar_traverse;
+        ldg_math_laplace_ctx_create;
+        ldg_math_laplace_ctx_destroy;
+        ldg_math_laplace_solve;
+        ldg_math_laplace_anchor_solve;
+        ldg_math_laplace_resistance_get;
+        ldg_math_laplace_tree_cunt_get;
+        ldg_math_laplace_kron_reduce;
+
+        /* time/timer */
+        ldg_time_timer_wheel_init;
+        ldg_time_timer_wheel_shutdown;
+        ldg_time_timer_create;
+        ldg_time_timer_destroy;
+        ldg_time_timer_active_is;
+        ldg_time_timer_rst;
+        ldg_time_timer_interval_set;
+        ldg_time_timer_wheel_tick;
+        ldg_time_timer_remaining_get;
+        ldg_time_timer_cunt_get;
+
+        /* sched/svm */
+        ldg_sched_svm_init;
+        ldg_sched_svm_shutdown;
+        ldg_sched_svm_predict;
+        ldg_sched_svm_observe;
+        ldg_sched_svm_weights_rst;
+
+        /* sched/bayes */
+        ldg_sched_bayes_init;
+        ldg_sched_bayes_shutdown;
+        ldg_sched_bayes_observe;
+        ldg_sched_bayes_proj;
+        ldg_sched_bayes_proj_k;
+        ldg_sched_bayes_mean_get;
+        ldg_sched_bayes_var_get;
+        ldg_sched_bayes_sigma_get;
+        ldg_sched_bayes_obs_cunt_get;
+        ldg_sched_bayes_risk_k_set;
+        ldg_sched_bayes_class_rst;
+        ldg_sched_bayes_rst;
+
+        /* sched/trace */
+        ldg_sched_trace_init;
+        ldg_sched_trace_shutdown;
+        ldg_sched_trace_push;
+        ldg_sched_trace_pop;
+        ldg_sched_trace_cunt_get;
+        ldg_sched_trace_clear;
+
+        /* sched/event */
+        ldg_sched_event_pool_init;
+        ldg_sched_event_pool_shutdown;
+        ldg_sched_event_create;
+        ldg_sched_event_destroy;
+        ldg_sched_event_valid_is;
+        ldg_sched_event_ctx_set;
+        ldg_sched_event_ctx_get;
+        ldg_sched_event_ctx_size_get;
+        ldg_sched_event_sub;
+        ldg_sched_event_unsub;
+        ldg_sched_event_emit;
+        ldg_sched_event_ctx_emit;
+        ldg_sched_event_on_destroy_set;
+
+        /* sched/job */
+        ldg_sched_job_pool_init;
+        ldg_sched_job_pool_shutdown;
+        ldg_sched_job_create;
+        ldg_sched_job_destroy;
+        ldg_sched_job_dep_add;
+        ldg_sched_job_dep_sig;
+        ldg_sched_job_cont_set;
+        ldg_sched_job_submit;
+        ldg_sched_job_run;
+        ldg_sched_job_yield_ctx_set;
+        ldg_sched_job_est_duration_set;
+        ldg_sched_job_actual_duration_get;
+        ldg_sched_job_class_set;
+        ldg_sched_job_class_get;
+        ldg_sched_job_deadline_set;
+        ldg_sched_prio_deadline_cb;
+        ldg_sched_prio_fastest_cb;
+        ldg_sched_job_plot_weight_set;
+        ldg_sched_job_frame_deadline_set;
+        ldg_sched_job_plot;
+        ldg_sched_job_replot;
+        ldg_sched_worker_deque_init;
+        ldg_sched_worker_deque_shutdown;
+        ldg_sched_worker_deque_push;
+        ldg_sched_worker_deque_pop;
+        ldg_sched_worker_deque_steal;
+        ldg_sched_worker_deque_cunt_get;
+        ldg_sched_job_ready_is;
+        ldg_sched_job_state_get;
+        ldg_sched_job_cunt_get;
+        ldg_sched_job_ready_collect;
+
+        /* sched/core */
+        ldg_sched_conf_default;
+        ldg_sched_ctx_init;
+        ldg_sched_ctx_shutdown;
+        ldg_sched_ctx_spin;
+        ldg_sched_ctx_stop;
+        ldg_sched_ctx_drain;
+        ldg_sched_ctx_phase_event_get;
+        ldg_sched_ctx_event_create;
+        ldg_sched_ctx_event_destroy;
+        ldg_sched_ctx_event_sub;
+        ldg_sched_ctx_event_unsub;
+        ldg_sched_ctx_event_emit;
+        ldg_sched_ctx_event_ctx_emit;
+        ldg_sched_ctx_timer_create;
+        ldg_sched_ctx_timer_destroy;
+        ldg_sched_ctx_job_create;
+        ldg_sched_ctx_job_submit;
+        ldg_sched_ctx_job_dep_add;
+        ldg_sched_ctx_job_class_set;
+        ldg_sched_ctx_job_deadline_set;
+        ldg_sched_ctx_est_strat_set;
+        ldg_sched_ctx_est_strat_get;
+        ldg_sched_ctx_bayes_risk_k_set;
+        ldg_sched_ctx_bayes_observe;
+        ldg_sched_ctx_bayes_proj;
+        ldg_sched_ctx_trace_push;
+        ldg_sched_ctx_dt_get;
+        ldg_sched_ctx_time_get;
+        ldg_sched_ctx_spin_get;
+
+        /* ecs/entity */
+        ldg_ecs_entity_store_init;
+        ldg_ecs_entity_store_shutdown;
+        ldg_ecs_entity_create;
+        ldg_ecs_entity_destroy;
+        ldg_ecs_entity_recycle_bulk;
+        ldg_ecs_entity_alive_is;
+        ldg_ecs_entity_alive_cunt_get;
+        ldg_ecs_entity_idx_get;
+        ldg_ecs_entity_generation_get;
+        ldg_ecs_entity_category_set;
+        ldg_ecs_entity_category_get;
+
+        /* ecs/comp */
+        ldg_ecs_comp_reg;
+        ldg_ecs_comp_unreg;
+        ldg_ecs_comp_add;
+        ldg_ecs_comp_remove;
+        ldg_ecs_comp_get;
+        ldg_ecs_comp_has;
+        ldg_ecs_comp_cunt_get;
+        ldg_ecs_comp_back_get;
+
+        /* ecs/taxon */
+        ldg_ecs_taxon_reg;
+        ldg_ecs_taxon_unreg;
+        ldg_ecs_taxon_comp_required_is;
+        ldg_ecs_taxon_comp_forbidden_is;
+
+        /* ecs/cmd */
+        ldg_ecs_cmd_buff_init;
+        ldg_ecs_cmd_buff_shutdown;
+        ldg_ecs_cmd_entity_create;
+        ldg_ecs_cmd_entity_destroy;
+        ldg_ecs_cmd_comp_add;
+        ldg_ecs_cmd_comp_remove;
+        ldg_ecs_cmd_buff_rst;
+        ldg_ecs_cmd_buff_cunt_get;
+
+        /* ecs/ctx */
+        ldg_ecs_conf_default;
+        ldg_ecs_ctx_init;
+        ldg_ecs_ctx_shutdown;
+        ldg_ecs_ctx_comp_reg;
+        ldg_ecs_ctx_taxon_reg;
+        ldg_ecs_ctx_inst_reg;
+        ldg_ecs_ctx_taxon_inst_reg;
+        ldg_ecs_ctx_comp_add;
+        ldg_ecs_ctx_comp_remove;
+        ldg_ecs_ctx_comp_get;
+        ldg_ecs_ctx_comp_has;
+        ldg_ecs_ctx_glob_rule_add;
+        ldg_ecs_ctx_entity_validate;
+        ldg_ecs_ctx_entity_category_set;
+        ldg_ecs_ctx_entity_category_get;
+        ldg_ecs_ctx_entity_destroy;
+        ldg_ecs_ctx_sys_reg;
+        ldg_ecs_ctx_tick;
+        ldg_ecs_ctx_sys_all_seq_run;
+        ldg_ecs_ctx_sys_all_sched_run;
+        ldg_ecs_sched_init;
+        ldg_ecs_sched_shutdown;
+        ldg_ecs_ctx_cmd_flush;
+        ldg_ecs_ctx_worker_cmd_flush;
+
+        /* ecs/query */
+        ldg_ecs_ctx_query_begin;
+        ldg_ecs_ctx_query_next;
+} DANGLING_3.0;

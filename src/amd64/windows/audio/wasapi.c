@@ -615,7 +615,7 @@ uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
     return LDG_ERR_AUDIO_STREAM_NOT_FOUND;
 }
 
-void ldg_audio_self_register(uint32_t stream_id)
+void ldg_audio_self_reg(uint32_t stream_id)
 {
     g_audio_ctx.self_stream_id = stream_id;
 }

@@ -47,7 +47,7 @@
 #define LDG_MISC_DST_MASK 0x0E000000
 #define LDG_MISC_SRC_SHIFT 22
 #define LDG_MISC_SRC_MASK 0x01C00000
-#define LDG_MISC_CONFIG_MASK 0x003FFFFF
+#define LDG_MISC_CONF_MASK 0x003FFFFF
 
 // mode and arithmetic shift bits
 #define LDG_MISC_MODE_BIT 21
@@ -92,7 +92,7 @@ typedef struct ldg_misc_decoded
     uint8_t mode;
     uint8_t arith;
     uint8_t pudding[3];
-    ldg_dword_t config;
+    ldg_dword_t conf;
     ldg_word_t imm16;
     uint8_t shift_amt;
     uint8_t pudding2;
@@ -104,12 +104,12 @@ extern const char *const LDG_MISC_MNEMONICS[LDG_MISC_OP_CUNT];
 
 // encode
 
-static inline ldg_dword_t ldg_misc_encode(uint8_t opcode, uint8_t dst, uint8_t src, ldg_dword_t config)
+static inline ldg_dword_t ldg_misc_encode(uint8_t opcode, uint8_t dst, uint8_t src, ldg_dword_t conf)
 {
     return ((ldg_dword_t)(opcode & 0xF) << LDG_MISC_OPCODE_SHIFT) |
            ((ldg_dword_t)(dst & 0x7) << LDG_MISC_DST_SHIFT) |
            ((ldg_dword_t)(src & 0x7) << LDG_MISC_SRC_SHIFT) |
-           (config & LDG_MISC_CONFIG_MASK);
+           (conf & LDG_MISC_CONF_MASK);
 }
 
 // decode
@@ -123,14 +123,14 @@ static inline uint32_t ldg_misc_decode(ldg_dword_t raw, ldg_misc_decoded_t *out)
     out->src = 0;
     out->mode = 0;
     out->arith = 0;
-    out->config = 0;
+    out->conf = 0;
     out->imm16 = 0;
     out->shift_amt = 0;
 
     out->opcode = (uint8_t)((raw & LDG_MISC_OPCODE_MASK) >> LDG_MISC_OPCODE_SHIFT);
     out->dst = (uint8_t)((raw & LDG_MISC_DST_MASK) >> LDG_MISC_DST_SHIFT);
     out->src = (uint8_t)((raw & LDG_MISC_SRC_MASK) >> LDG_MISC_SRC_SHIFT);
-    out->config = raw & LDG_MISC_CONFIG_MASK;
+    out->conf = raw & LDG_MISC_CONF_MASK;
     out->mode = (uint8_t)((raw >> LDG_MISC_MODE_BIT) & 1);
     out->arith = (uint8_t)((raw >> LDG_MISC_ARITH_BIT) & 1);
     out->imm16 = (ldg_word_t)(raw & LDG_MISC_IMM16_MASK);
@@ -171,9 +171,9 @@ static inline uint8_t ldg_misc_src_get(ldg_dword_t raw)
     return (uint8_t)((raw & LDG_MISC_SRC_MASK) >> LDG_MISC_SRC_SHIFT);
 }
 
-static inline ldg_dword_t ldg_misc_config_get(ldg_dword_t raw)
+static inline ldg_dword_t ldg_misc_conf_get(ldg_dword_t raw)
 {
-    return raw & LDG_MISC_CONFIG_MASK;
+    return raw & LDG_MISC_CONF_MASK;
 }
 
 // convenience encoders

@@ -54,16 +54,16 @@ uint32_t ldg_mem_secure_copy(void *dst, const void *src, uint64_t len)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *result)
+uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t *out)
 {
     volatile const uint8_t *pa = 0x0;
     volatile const uint8_t *pb = 0x0;
     volatile uint8_t acc = 0;
     uint64_t i = 0;
 
-    if (LDG_UNLIKELY(!a || !b || !result)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!a || !b || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *result = 0;
+    *out = 0;
 
     if (len == 0) { return LDG_ERR_AOK; }
 
@@ -80,7 +80,7 @@ uint32_t ldg_mem_secure_cmp(const void *a, const void *b, uint64_t len, uint32_t
     acc |= acc >> 2;
     acc |= acc >> 1;
 
-    *result = (uint32_t)(acc & 1);
+    *out = (uint32_t)(acc & 1);
 
     return LDG_ERR_AOK;
 }

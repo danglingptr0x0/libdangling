@@ -12,6 +12,11 @@
 
 #define LDG_DJB2_HASH_INIT 5381
 
+#define LDG_FNV1A_32_OFFSET 2166136261U
+#define LDG_FNV1A_32_PRIME 16777619U
+#define LDG_FNV1A_64_OFFSET 14695981039346656037ULL
+#define LDG_FNV1A_64_PRIME 1099511628211ULL
+
 LDG_EXPORT uint32_t ldg_strrbrcpy(char *dst, const char *src, uint64_t abssize);
 
 static inline uint8_t ldg_char_space_is(uint8_t c)
@@ -46,5 +51,7 @@ LDG_EXPORT uint32_t ldg_hex_to_nipple(char c, byte_t *nipple);
 LDG_EXPORT uint32_t ldg_hex_to_dword(const char *str, dword_t *out);
 LDG_EXPORT uint32_t ldg_hex_to_bytes(const char *hex, byte_t *out, uint64_t max);
 LDG_EXPORT uint8_t ldg_hex_str_is(const char *str);
+LDG_EXPORT uint32_t ldg_hash_fnv1a_32_compute(const uint8_t *data, uint64_t len, uint32_t *out);
+LDG_EXPORT uint32_t ldg_hash_fnv1a_64_compute(const uint8_t *data, uint64_t len, uint64_t *out);
 
 #endif

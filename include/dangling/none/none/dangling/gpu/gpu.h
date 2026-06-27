@@ -68,8 +68,8 @@ typedef struct ldg_gpu_init_desc
     uint32_t pipeline_pool_cunt;
     uint32_t slab_cunt;
     uint64_t slab_size;
-    const char **instance_extensions;
-    uint32_t instance_extension_cunt;
+    const char **inst_extensions;
+    uint32_t inst_extension_cunt;
     uint8_t pudding[4];
 } ldg_gpu_init_desc_t;
 
@@ -210,7 +210,7 @@ typedef struct ldg_gpu_frame
     uint8_t pudding[4];
 } ldg_gpu_frame_t;
 
-LDG_EXPORT uint32_t ldg_gpu_instance_get(void *vk, void **out);
+LDG_EXPORT uint32_t ldg_gpu_inst_get(void *vk, void **out);
 
 LDG_EXPORT uint32_t ldg_gpu_surface_create(void *vk, void *native_surface, ldg_gpu_surface_t *out);
 LDG_EXPORT uint32_t ldg_gpu_surface_destroy(void *vk, uint32_t surface_id);
@@ -233,8 +233,8 @@ LDG_EXPORT uint32_t ldg_gpu_frame_vert_buff_bind(void *vk, ldg_gpu_frame_t *fram
 LDG_EXPORT uint32_t ldg_gpu_frame_idx_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t buff_id);
 LDG_EXPORT uint32_t ldg_gpu_frame_buff_bind(void *vk, ldg_gpu_frame_t *frame, uint32_t slot, uint32_t buff_id);
 LDG_EXPORT uint32_t ldg_gpu_frame_push_const(void *vk, ldg_gpu_frame_t *frame, uint32_t offset, uint32_t size, const void *data);
-LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t instance_cunt);
-LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, uint32_t idx_cunt, uint32_t instance_cunt);
+LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t inst_cunt);
+LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, uint32_t idx_cunt, uint32_t inst_cunt);
 LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_end(void *vk, ldg_gpu_frame_t *frame);
 LDG_EXPORT uint32_t ldg_gpu_frame_end(void *vk, ldg_gpu_frame_t *frame);
 
