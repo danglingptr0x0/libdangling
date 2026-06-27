@@ -10,7 +10,7 @@ uint32_t ldg_sys_uuid_gen(uint8_t uuid[LDG_UUID_BYTE_SIZE])
 {
     int32_t fd = 0;
     int64_t total = 0;
-    int64_t result = 0;
+    int64_t res = 0;
     int32_t close_ret = 0;
 
     if (LDG_UNLIKELY(!uuid)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -22,20 +22,20 @@ uint32_t ldg_sys_uuid_gen(uint8_t uuid[LDG_UUID_BYTE_SIZE])
 
     while (total < (int64_t)LDG_UUID_BYTE_SIZE)
     {
-        result = (int64_t)read(fd, uuid + total, (uint64_t)(LDG_UUID_BYTE_SIZE - (uint64_t)total));
-        if (LDG_UNLIKELY(result < 0))
+        res = (int64_t)read(fd, uuid + total, (uint64_t)(LDG_UUID_BYTE_SIZE - (uint64_t)total));
+        if (LDG_UNLIKELY(res < 0))
         {
             close(fd);
             return LDG_ERR_IO_RD;
         }
 
-        if (LDG_UNLIKELY(result == 0))
+        if (LDG_UNLIKELY(res == 0))
         {
             close(fd);
             return LDG_ERR_IO_RD;
         }
 
-        total += result;
+        total += res;
     }
 
     close_ret = (int32_t)close(fd);

@@ -94,7 +94,7 @@ uint32_t ldg_io_symlink_create(const char *target, const char *link_path)
 
 uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size, uint64_t *len)
 {
-    DWORD result = 0;
+    DWORD res = 0;
     HANDLE h = 0x0;
 
     if (LDG_UNLIKELY(!link_path || !buff || !len)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -108,13 +108,13 @@ uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size
     h = CreateFileA(link_path, GENERIC_READ, FILE_SHARE_READ, 0x0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0x0);
     if (LDG_UNLIKELY(h == INVALID_HANDLE_VALUE)) { return LDG_ERR_IO_NOT_FOUND; }
 
-    result = GetFinalPathNameByHandleA(h, buff, (DWORD)(buff_size - LDG_STR_TERM_SIZE), FILE_NAME_NORMALIZED);
+    res = GetFinalPathNameByHandleA(h, buff, (DWORD)(buff_size - LDG_STR_TERM_SIZE), FILE_NAME_NORMALIZED);
     CloseHandle(h);
 
-    if (LDG_UNLIKELY(result == 0 || result >= buff_size)) { return LDG_ERR_IO_RD; }
+    if (LDG_UNLIKELY(res == 0 || res >= buff_size)) { return LDG_ERR_IO_RD; }
 
-    buff[result] = LDG_STR_TERM;
-    *len = (uint64_t)result;
+    buff[res] = LDG_STR_TERM;
+    *len = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }
@@ -358,7 +358,7 @@ uint32_t ldg_io_path_normalize(const char *path, char *buff, uint64_t buff_size)
 
 uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
 {
-    DWORD result = 0;
+    DWORD res = 0;
     const char *fallback = 0x0;
 
     if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -367,10 +367,10 @@ uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
 
     if (LDG_UNLIKELY(memset(buff, 0, (size_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
-    result = GetEnvironmentVariableA("USERPROFILE", buff, (DWORD)(buff_size - LDG_STR_TERM_SIZE));
-    if (result > 0 && result < buff_size)
+    res = GetEnvironmentVariableA("USERPROFILE", buff, (DWORD)(buff_size - LDG_STR_TERM_SIZE));
+    if (res > 0 && res < buff_size)
     {
-        buff[result] = LDG_STR_TERM;
+        buff[res] = LDG_STR_TERM;
         return LDG_ERR_AOK;
     }
 
@@ -382,7 +382,7 @@ uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
 
 uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
 {
-    DWORD result = 0;
+    DWORD res = 0;
 
     if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -390,13 +390,13 @@ uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
 
     if (LDG_UNLIKELY(memset(buff, 0, (size_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
-    result = GetTempPathA((DWORD)buff_size, buff);
-    if (LDG_UNLIKELY(result == 0 || result >= buff_size)) { return LDG_ERR_IO_RD; }
+    res = GetTempPathA((DWORD)buff_size, buff);
+    if (LDG_UNLIKELY(res == 0 || res >= buff_size)) { return LDG_ERR_IO_RD; }
 
-    while (result > 1 && (buff[result - 1] == '\\' || buff[result - 1] == '/'))
+    while (res > 1 && (buff[res - 1] == '\\' || buff[res - 1] == '/'))
     {
-        result--;
-        buff[result] = LDG_STR_TERM;
+        res--;
+        buff[res] = LDG_STR_TERM;
     }
 
     return LDG_ERR_AOK;
@@ -404,7 +404,7 @@ uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
 
 uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 {
-    DWORD result = 0;
+    DWORD res = 0;
 
     if (LDG_UNLIKELY(!path || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -412,12 +412,12 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
     if (LDG_UNLIKELY(memset(buff, 0, (size_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
-    result = GetFullPathNameA(path, (DWORD)buff_size, buff, 0x0);
-    if (LDG_UNLIKELY(result == 0)) { return LDG_ERR_IO_RD; }
+    res = GetFullPathNameA(path, (DWORD)buff_size, buff, 0x0);
+    if (LDG_UNLIKELY(res == 0)) { return LDG_ERR_IO_RD; }
 
-    if (LDG_UNLIKELY(result >= buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
+    if (LDG_UNLIKELY(res >= buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    buff[result] = LDG_STR_TERM;
+    buff[res] = LDG_STR_TERM;
 
     return LDG_ERR_AOK;
 }

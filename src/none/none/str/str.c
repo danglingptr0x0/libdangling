@@ -166,3 +166,43 @@ uint8_t ldg_hex_str_is(const char *str)
 
     return 1;
 }
+
+uint32_t ldg_hash_fnv1a_32_compute(const uint8_t *data, uint64_t len, uint32_t *out)
+{
+    uint32_t hash = LDG_FNV1A_32_OFFSET;
+    uint64_t idx = 0;
+
+    if (!data || !out) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0;
+
+    for (idx = 0; idx < len; idx++)
+    {
+        hash ^= data[idx];
+        hash *= LDG_FNV1A_32_PRIME;
+    }
+
+    *out = hash;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_hash_fnv1a_64_compute(const uint8_t *data, uint64_t len, uint64_t *out)
+{
+    uint64_t hash = LDG_FNV1A_64_OFFSET;
+    uint64_t idx = 0;
+
+    if (!data || !out) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0;
+
+    for (idx = 0; idx < len; idx++)
+    {
+        hash ^= data[idx];
+        hash *= LDG_FNV1A_64_PRIME;
+    }
+
+    *out = hash;
+
+    return LDG_ERR_AOK;
+}

@@ -68,7 +68,7 @@ LDG_EXPORT uint32_t ldg_gpu_surface_destroy(void *vk, uint32_t surface_id)
         return LDG_ERR_GPU_SURFACE_NOT_FOUND;
     }
 
-    if (ctx->surfaces[surface_id].vk_surface) { vkDestroySurfaceKHR((VkInstance)ctx->instance, (VkSurfaceKHR)ctx->surfaces[surface_id].vk_surface, 0x0); }
+    if (ctx->surfaces[surface_id].vk_surface) { vkDestroySurfaceKHR((VkInstance)ctx->inst, (VkSurfaceKHR)ctx->surfaces[surface_id].vk_surface, 0x0); }
 
     ctx->surfaces[surface_id] = (ldg_gpu_surface_entry_t)LDG_STRUCT_ZERO_INIT;
 

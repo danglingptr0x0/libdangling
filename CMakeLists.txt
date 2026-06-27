@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 3.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 4.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -48,30 +48,7 @@ if(LDG_ARCH STREQUAL "i386")
     set(LDG_WITH_FMT OFF)
     set(LDG_WITH_GPU OFF)
     set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
-    add_compile_options(
-        -m32
-        -masm=intel
-        -march=i386
-        -mno-mmx
-        -mno-sse
-        -mno-sse2
-        -ffreestanding
-        -fno-pie
-        -fno-pic
-        -fno-stack-protector
-        -fno-stack-clash-protection
-        -fcf-protection=none
-        -fno-analyzer
-        -fno-builtin
-        -fshort-enums
-        -fpack-struct=1
-        -fno-omit-frame-pointer
-        -fno-strict-aliasing
-        -fno-delete-null-pointer-checks
-        -fno-common
-        -U_POSIX_C_SOURCE
-        -U_FORTIFY_SOURCE
-    )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -masm=intel -march=i386 -mno-mmx -mno-sse -mno-sse2 -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-stack-clash-protection -fcf-protection=none -fno-analyzer -fno-builtin -fshort-enums -fpack-struct=1 -fno-omit-frame-pointer -fno-strict-aliasing -fno-delete-null-pointer-checks -fno-common -U_POSIX_C_SOURCE -U_FORTIFY_SOURCE")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(LDG_PLATFORM "linux")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -96,32 +73,35 @@ set(LDG_OPT_LIBRARIES "")
 set(LDG_OPT_DEFINES "")
 
 if(LDG_WITH_NET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(CURL REQUIRED libcurl)
-    else()
-        find_library(CURL_LIBRARIES NAMES curl libcurl)
-        find_path(CURL_INCLUDE_DIRS curl/curl.h)
-        if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
-            set(CURL_FOUND TRUE)
-        endif()
-    endif()
-    if(CURL_FOUND OR CURL_LIBRARIES)
+    if(LDG_PLATFORM STREQUAL "windows")
         list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/curl.c)
         list(APPEND LDG_OPT_SOURCES src/none/none/net/gql.c)
-        list(APPEND LDG_OPT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS})
-        list(APPEND LDG_OPT_LIBRARIES ${CURL_LIBRARIES})
+        list(APPEND LDG_OPT_LIBRARIES winhttp)
         list(APPEND LDG_OPT_DEFINES LDG_NET)
-        if(NOT PkgConfig_FOUND)
-            list(APPEND LDG_OPT_DEFINES CURL_STATICLIB)
-            if(LDG_PLATFORM STREQUAL "windows")
-                find_library(SSL_LIBRARY NAMES ssl)
-                find_library(CRYPTO_LIBRARY NAMES crypto)
-                list(APPEND LDG_OPT_LIBRARIES ${SSL_LIBRARY} ${CRYPTO_LIBRARY} ws2_32 crypt32 bcrypt advapi32 gdi32 iphlpapi)
+        message(STATUS "net: winhttp")
+    else()
+        if(PkgConfig_FOUND)
+            pkg_check_modules(CURL REQUIRED libcurl)
+        else()
+            find_library(CURL_LIBRARIES NAMES curl libcurl)
+            find_path(CURL_INCLUDE_DIRS curl/curl.h)
+            if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
+                set(CURL_FOUND TRUE)
             endif()
         endif()
-        message(STATUS "net: libcurl")
-    else()
-        message(STATUS "net: off; libcurl not found")
+        if(CURL_FOUND OR CURL_LIBRARIES)
+            list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/curl.c)
+            list(APPEND LDG_OPT_SOURCES src/none/none/net/gql.c)
+            list(APPEND LDG_OPT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS})
+            list(APPEND LDG_OPT_LIBRARIES ${CURL_LIBRARIES})
+            list(APPEND LDG_OPT_DEFINES LDG_NET)
+            if(NOT PkgConfig_FOUND)
+                list(APPEND LDG_OPT_DEFINES CURL_STATICLIB)
+            endif()
+            message(STATUS "net: libcurl")
+        else()
+            message(STATUS "net: off; libcurl not found")
+        endif()
     endif()
 else()
     message(STATUS "net: off")
@@ -203,11 +183,34 @@ endif()
 set(LDG_SOURCES
     src/none/none/str/str.c
     src/none/none/parse/parse.c
+    src/none/none/compress/inflate.c
     src/none/none/proto/emiru.c
     src/none/none/proto/emiemi.c
     src/none/none/misc/misc.c
+    src/none/none/ecs/entity.c
+    src/none/none/ecs/comp.c
+    src/none/none/ecs/taxon.c
+    src/none/none/ecs/cmd.c
+    src/none/none/ecs/ecs.c
+    src/none/none/ecs/query.c
+    src/${LDG_ARCH}/none/ecs/sched.c
     ${LDG_OPT_SOURCES}
 )
+if(NOT LDG_ARCH STREQUAL "i386")
+    list(APPEND LDG_SOURCES
+        src/none/none/math/astar.c
+        src/none/none/math/sparse.c
+        src/none/none/math/krylov.c
+        src/none/none/math/laplace.c
+        src/none/none/time/timer.c
+        src/none/none/sched/svm.c
+        src/none/none/sched/bayes.c
+        src/none/none/sched/trace.c
+        src/none/none/sched/event.c
+        src/none/none/sched/job.c
+        src/none/none/sched/sched.c
+    )
+endif()
 if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
     list(APPEND LDG_SOURCES
         ${LDG_PLATFORM_DIR}/thread/sync.c
@@ -238,6 +241,7 @@ if(LDG_ARCH STREQUAL "amd64")
         ${LDG_PLATFORM_DIR}/arch/time_tsc.asm
         ${LDG_PLATFORM_DIR}/arch/syscall.asm
         ${LDG_PLATFORM_DIR}/arch/cpuid.asm
+        ${LDG_PLATFORM_DIR}/arch/arith.asm
     )
     set_source_files_properties(${LDG_ARCH_SOURCES} PROPERTIES LANGUAGE ASM_NASM)
     if(LDG_PLATFORM STREQUAL "windows")
@@ -245,7 +249,18 @@ if(LDG_ARCH STREQUAL "amd64")
     else()
         set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -f elf64")
     endif()
+elseif(LDG_ARCH STREQUAL "i386")
+    set(LDG_ARCH_SOURCES
+        src/none/none/mem/secure.c
+        ${LDG_PLATFORM_DIR}/arch/arith.asm
+    )
+    set_source_files_properties(${LDG_PLATFORM_DIR}/arch/arith.asm PROPERTIES LANGUAGE ASM_NASM)
+    set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -f elf32")
+else()
+    set(LDG_ARCH_SOURCES src/none/none/mem/secure.c)
+endif()
 
+if(LDG_ARCH STREQUAL "amd64" OR LDG_ARCH STREQUAL "i386")
     set(LDG_ERR_INC "${CMAKE_CURRENT_BINARY_DIR}/include/dangling/core/err.inc")
     add_custom_command(
         OUTPUT ${LDG_ERR_INC}
@@ -258,8 +273,6 @@ if(LDG_ARCH STREQUAL "amd64")
     )
     add_custom_target(err_nasm_gen DEPENDS ${LDG_ERR_INC})
     set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include/")
-else()
-    set(LDG_ARCH_SOURCES src/none/none/mem/secure.c)
 endif()
 
 set(LDG_FMT_CFG_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")

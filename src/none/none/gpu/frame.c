@@ -417,7 +417,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_push_const(void *vk, ldg_gpu_frame_t *frame, u
     return ldg_mut_unlock(&ctx->mut);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t instance_cunt)
+LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_t vert_cunt, uint32_t inst_cunt)
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -443,12 +443,12 @@ LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_
     }
 
     cmd = (VkCommandBuffer)frame_entry->cmd_buff;
-    vkCmdDraw(cmd, vert_cunt, instance_cunt, 0, 0);
+    vkCmdDraw(cmd, vert_cunt, inst_cunt, 0, 0);
 
     return ldg_mut_unlock(&ctx->mut);
 }
 
-LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, uint32_t idx_cunt, uint32_t instance_cunt)
+LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, uint32_t idx_cunt, uint32_t inst_cunt)
 {
     ldg_gpu_ctx_t *ctx = vk;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -474,7 +474,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, ui
     }
 
     cmd = (VkCommandBuffer)frame_entry->cmd_buff;
-    vkCmdDrawIndexed(cmd, idx_cunt, instance_cunt, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, idx_cunt, inst_cunt, 0, 0, 0);
 
     return ldg_mut_unlock(&ctx->mut);
 }

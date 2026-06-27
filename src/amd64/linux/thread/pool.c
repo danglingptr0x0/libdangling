@@ -24,13 +24,12 @@ static void* ldg_thread_pool_worker_enter(void *arg)
 
     while (!LDG_RD_ONCE(worker->should_stop))
     {
-        if (LDG_RD_ONCE(pool->task_queue))
+        if (worker->func) { worker->func(worker->func_arg); }
+        else if (LDG_RD_ONCE(pool->task_queue))
         {
             ret = ldg_mpmc_wait(pool->task_queue, &task, LDG_THREAD_POOL_WAIT_TIMEOUT_MS);
             if (ret == LDG_ERR_AOK && task.func) { task.func(task.arg); }
         }
-        // amd64 TSO; pthread_create implies full barrier before worker entry
-        else if (worker->func) { worker->func(worker->func_arg); }
 
         LDG_PAUSE;
     }
@@ -60,7 +59,7 @@ uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
 
     pool->task_queue = (ldg_mpmc_queue_t *)queue_tmp;
 
-    ret = ldg_mpmc_init(pool->task_queue, sizeof(ldg_thread_pool_task_t), LDG_THREAD_POOL_TASK_QUEUE_CAPACITY);
+    ret = ldg_mpmc_init(pool->task_queue, sizeof(ldg_thread_pool_task_t), LDG_THREAD_POOL_TASK_QUEUE_CAP);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(pool->task_queue);

@@ -88,7 +88,7 @@ uint32_t ldg_io_symlink_create(const char *target, const char *link_path)
 
 uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size, uint64_t *len)
 {
-    int64_t result = 0;
+    int64_t res = 0;
 
     if (LDG_UNLIKELY(!link_path || !buff || !len)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -96,11 +96,11 @@ uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size
 
     *len = 0;
 
-    result = (int64_t)readlink(link_path, buff, (uint64_t)buff_size - LDG_STR_TERM_SIZE);
-    if (LDG_UNLIKELY(result < 0)) { return ldg_io_path_errno_translate(); }
+    res = (int64_t)readlink(link_path, buff, (uint64_t)buff_size - LDG_STR_TERM_SIZE);
+    if (LDG_UNLIKELY(res < 0)) { return ldg_io_path_errno_translate(); }
 
-    buff[result] = LDG_STR_TERM;
-    *len = (uint64_t)result;
+    buff[res] = LDG_STR_TERM;
+    *len = (uint64_t)res;
 
     return LDG_ERR_AOK;
 }
@@ -343,7 +343,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
     uint64_t plen = 0;
     uint64_t clen = 0;
     uint64_t llen = 0;
-    int64_t link_result = 0;
+    int64_t link_res = 0;
     uint32_t symlink_depth = 0;
     uint32_t ret = 0;
     struct stat st = LDG_STRUCT_ZERO_INIT;
@@ -437,11 +437,11 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
             symlink_depth++;
             if (LDG_UNLIKELY(symlink_depth > 40)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_IO_RD; }
 
-            link_result = (int64_t)readlink(resolved, link_target, PATH_MAX - 1);
-            if (LDG_UNLIKELY(link_result < 0)) { ldg_mem_pool_destroy(&scratch); return ldg_io_path_errno_translate(); }
+            link_res = (int64_t)readlink(resolved, link_target, PATH_MAX - 1);
+            if (LDG_UNLIKELY(link_res < 0)) { ldg_mem_pool_destroy(&scratch); return ldg_io_path_errno_translate(); }
 
-            link_target[link_result] = LDG_STR_TERM;
-            llen = (uint64_t)link_result;
+            link_target[link_res] = LDG_STR_TERM;
+            llen = (uint64_t)link_res;
 
             if (LDG_UNLIKELY(memset(tmp, 0, PATH_MAX) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
