@@ -1,6 +1,5 @@
 #ifdef LDG_GPU_VULKAN
 
-#include <string.h>
 #include <vulkan/vulkan.h>
 
 #include "state.h"
@@ -21,7 +20,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     uint32_t attach_cunt = 0;
     uint32_t slot = UINT32_MAX;
     uint32_t ret = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -31,9 +30,9 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
 
     *id = UINT32_MAX;
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
-    if (LDG_UNLIKELY(!ctx->has_gfx)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
+    if (LDG_UNLIKELY(ctx->has_gfx != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
 
     color_vk = (VkFormat)gpu_fmt_to_vk(desc->color_fmt);
     if (LDG_UNLIKELY(color_vk == VK_FORMAT_UNDEFINED)) { return LDG_ERR_GPU_FMT_UNSUPPORTED; }
@@ -42,9 +41,9 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     ret = ldg_mut_lock(&ctx->mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    for (i = 0; i < LDG_GPU_RENDERPASS_MAX; i++) { if (!ctx->renderpasses[i].in_use)
+    for (idx = 0; idx < LDG_GPU_RENDERPASS_MAX; idx++) { if (!ctx->renderpasses[idx].in_use)
         {
-            slot = i;
+            slot = idx;
             break;
         }
     }
@@ -135,7 +134,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_destroy(void *vk, uint32_t id)
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(id >= LDG_GPU_RENDERPASS_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 

@@ -1,0 +1,44 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer vel_x_blk { double vel_x[]; };
+layout(std430, binding = 1) readonly buffer vel_y_blk { double vel_y[]; };
+layout(std430, binding = 2) readonly buffer vel_z_blk { double vel_z[]; };
+layout(std430, binding = 3) readonly buffer mask_blk { uint mask[]; };
+layout(std430, binding = 4) writeonly buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 5) writeonly buffer divergence_blk { double divergence[]; };
+layout(std430, binding = 6) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double pudding_d;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding_a;
+};
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint cell = (idx_z * ny + idx_y) * nx + idx_x;
+    uint face_x_row = nx + 1u;
+    uint face_y_plane = nx * (ny + 1u);
+    if (mask[cell] != 2u)
+    {
+        pressure[cell] = 0.0;
+        divergence[cell] = 0.0;
+        return;
+    }
+
+    double rhs_scale = density * spacing / dt;
+    divergence[cell] = rhs_scale * (vel_x[(idx_z * ny + idx_y) * face_x_row + idx_x + 1u] - vel_x[(idx_z * ny + idx_y) * face_x_row + idx_x] + vel_y[idx_z * face_y_plane + (idx_y + 1u) * nx + idx_x] - vel_y[idx_z * face_y_plane + idx_y * nx + idx_x] + vel_z[((idx_z + 1u) * ny + idx_y) * nx + idx_x] - vel_z[(idx_z * ny + idx_y) * nx + idx_x]);
+}

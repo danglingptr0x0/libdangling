@@ -2,7 +2,6 @@
 #define LDG_MATH_LINALG_H
 
 #include <stdint.h>
-#include <math.h>
 
 static inline void ldg_math_vec3_zero(double vec[3])
 {
@@ -11,7 +10,7 @@ static inline void ldg_math_vec3_zero(double vec[3])
     vec[2] = 0.0;
 }
 
-static inline void ldg_math_vec3_copy(double dst[3], const double src[3])
+static inline void ldg_math_vec3_cpy(double dst[3], const double src[3])
 {
     dst[0] = src[0];
     dst[1] = src[1];
@@ -53,7 +52,7 @@ static inline double ldg_math_vec3_dot(const double lhs[3], const double rhs[3])
 
 static inline double ldg_math_vec3_len(const double vec[3])
 {
-    return sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+    return __builtin_sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
 }
 
 static inline void ldg_math_vec3_cross(double dst[3], const double lhs[3], const double rhs[3])
@@ -77,7 +76,7 @@ static inline void ldg_math_mat3_identity(double mat[9])
     mat[8] = 1.0;
 }
 
-static inline void ldg_math_mat3_copy(double dst[9], const double src[9])
+static inline void ldg_math_mat3_cpy(double dst[9], const double src[9])
 {
     uint32_t idx = 0;
     for (idx = 0; idx < 9; idx++) { dst[idx] = src[idx]; }
@@ -126,7 +125,7 @@ static inline void ldg_math_mat3_mul(double dst[9], const double lhs[9], const d
     tmp[6] = lhs[6] * rhs[0] + lhs[7] * rhs[3] + lhs[8] * rhs[6];
     tmp[7] = lhs[6] * rhs[1] + lhs[7] * rhs[4] + lhs[8] * rhs[7];
     tmp[8] = lhs[6] * rhs[2] + lhs[7] * rhs[5] + lhs[8] * rhs[8];
-    ldg_math_mat3_copy(dst, tmp);
+    ldg_math_mat3_cpy(dst, tmp);
 }
 
 static inline void ldg_math_mat3_vec_mul(double dst[3], const double mat[9], const double vec[3])
@@ -201,7 +200,7 @@ static inline void ldg_math_mat3_polar(double rot[9], double stretch[9], const d
     double diff = 0.0;
     double delta = 0.0;
 
-    ldg_math_mat3_copy(rot, mat);
+    ldg_math_mat3_cpy(rot, mat);
 
     for (iter = 0; iter < LDG_MATH_MAT3_POLAR_MAX_ITER; iter++)
     {
@@ -223,7 +222,7 @@ static inline void ldg_math_mat3_polar(double rot[9], double stretch[9], const d
             diff += delta * delta;
         }
 
-        ldg_math_mat3_copy(rot, rot_next);
+        ldg_math_mat3_cpy(rot, rot_next);
 
         if (diff < LDG_MATH_MAT3_POLAR_EPSILON) { break; }
     }

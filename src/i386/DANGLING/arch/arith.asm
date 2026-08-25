@@ -2,8 +2,8 @@
 
 section .text
 
-global ldg_arith_32_add
-ldg_arith_32_add:
+global ldg_arith_uint32_add
+ldg_arith_uint32_add:
     mov ecx, [esp+12]
     test ecx, ecx
     jz .null
@@ -21,8 +21,8 @@ ldg_arith_32_add:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_sub
-ldg_arith_32_sub:
+global ldg_arith_uint32_sub
+ldg_arith_uint32_sub:
     mov ecx, [esp+12]
     test ecx, ecx
     jz .null
@@ -40,8 +40,8 @@ ldg_arith_32_sub:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_mul
-ldg_arith_32_mul:
+global ldg_arith_uint32_mul
+ldg_arith_uint32_mul:
     mov ecx, [esp+12]
     test ecx, ecx
     jz .null
@@ -59,8 +59,8 @@ ldg_arith_32_mul:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_div
-ldg_arith_32_div:
+global ldg_arith_uint32_div
+ldg_arith_uint32_div:
     mov ecx, [esp+12]
     test ecx, ecx
     jz .null

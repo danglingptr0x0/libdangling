@@ -1,0 +1,50 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) buffer vel_x_blk { double vel_x[]; };
+layout(std430, binding = 1) buffer vel_y_blk { double vel_y[]; };
+layout(std430, binding = 2) buffer vel_z_blk { double vel_z[]; };
+layout(std430, binding = 3) readonly buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 4) readonly buffer mask_blk { uint mask[]; };
+layout(std430, binding = 5) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double pudding_d;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding_a;
+};
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint plane = nx * ny;
+    uint cell = (idx_z * ny + idx_y) * nx + idx_x;
+    uint face_x_row = nx + 1u;
+    uint face_y_plane = nx * (ny + 1u);
+    double scale = dt / (density * spacing);
+    if (idx_x > 0u && mask[cell] != 1u && mask[cell - 1u] != 1u && (mask[cell] == 2u || mask[cell - 1u] == 2u))
+    {
+        vel_x[(idx_z * ny + idx_y) * face_x_row + idx_x] -= scale * (pressure[cell] - pressure[cell - 1u]);
+    }
+
+    if (idx_y > 0u && mask[cell] != 1u && mask[cell - nx] != 1u && (mask[cell] == 2u || mask[cell - nx] == 2u))
+    {
+        vel_y[idx_z * face_y_plane + idx_y * nx + idx_x] -= scale * (pressure[cell] - pressure[cell - nx]);
+    }
+
+    if (idx_z > 0u && mask[cell] != 1u && mask[cell - plane] != 1u && (mask[cell] == 2u || mask[cell - plane] == 2u))
+    {
+        vel_z[(idx_z * ny + idx_y) * nx + idx_x] -= scale * (pressure[cell] - pressure[cell - plane]);
+    }
+}

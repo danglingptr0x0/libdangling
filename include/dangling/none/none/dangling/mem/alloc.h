@@ -31,9 +31,10 @@ typedef struct ldg_mem_pool
     }
     mode;
     ldg_mut_t mut;
+    volatile uint32_t active_op_cunt;
     uint8_t is_var;
-    uint8_t is_destroying;
-    uint8_t pudding[6];
+    volatile uint8_t is_destroying;
+    uint8_t pudding[2];
 } ldg_mem_pool_t;
 
 LDG_EXPORT uint32_t ldg_mem_init(void);

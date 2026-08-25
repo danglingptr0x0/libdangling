@@ -1,6 +1,5 @@
 #ifdef LDG_GPU_VULKAN
 
-#include <string.h>
 #include <vulkan/vulkan.h>
 
 #include "state.h"
@@ -38,7 +37,7 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
     uint32_t slot = UINT32_MAX;
     uint32_t rp_id = 0;
     uint32_t ret = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -54,9 +53,9 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
 
     if (LDG_UNLIKELY(desc->vert.code_size % 4 != 0 || desc->frag.code_size % 4 != 0)) { return LDG_ERR_GPU_SPIRV_INVALID; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
-    if (LDG_UNLIKELY(!ctx->has_gfx)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
+    if (LDG_UNLIKELY(ctx->has_gfx != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
 
     rp_id = desc->renderpass_id;
     if (LDG_UNLIKELY(rp_id >= LDG_GPU_RENDERPASS_MAX || !ctx->renderpasses[rp_id].in_use)) { return LDG_ERR_GPU_RENDERPASS_NOT_FOUND; }
@@ -81,9 +80,9 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
         return ret;
     }
 
-    for (i = 0; i < LDG_GPU_PIPELINE_POOL_MAX; i++) { if (!ctx->pipelines[i].in_use)
+    for (idx = 0; idx < LDG_GPU_PIPELINE_POOL_MAX; idx++) { if (!ctx->pipelines[idx].in_use)
         {
-            slot = i;
+            slot = idx;
             break;
         }
     }
@@ -132,12 +131,12 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
     vk_info->binding.stride = desc->vert_stride;
     vk_info->binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    for (i = 0; i < desc->vert_attr_cunt && i < LDG_GPU_VERT_ATTR_MAX; i++)
+    for (idx = 0; idx < desc->vert_attr_cunt && idx < LDG_GPU_VERT_ATTR_MAX; idx++)
     {
-        vk_info->attrs[i].location = desc->vert_attrs[i].location;
-        vk_info->attrs[i].binding = 0;
-        vk_info->attrs[i].format = (VkFormat)gpu_fmt_to_vk(desc->vert_attrs[i].fmt);
-        vk_info->attrs[i].offset = desc->vert_attrs[i].offset;
+        vk_info->attrs[idx].location = desc->vert_attrs[idx].location;
+        vk_info->attrs[idx].binding = 0;
+        vk_info->attrs[idx].format = (VkFormat)gpu_fmt_to_vk(desc->vert_attrs[idx].fmt);
+        vk_info->attrs[idx].offset = desc->vert_attrs[idx].offset;
     }
 
     vk_info->vert_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -174,7 +173,7 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
     vk_info->depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
 
     vk_info->blend_attach.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    if (desc->blend_enable)
+    if (desc->blend_enable == LDG_TRUTH_TRUE)
     {
         vk_info->blend_attach.blendEnable = VK_TRUE;
         vk_info->blend_attach.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

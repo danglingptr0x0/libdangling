@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <string.h>
 
 #include <dangling/core/macros.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/ecs/comp.h>
 
@@ -19,7 +19,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_reg(ldg_ecs_comp_t *comp, uint32_t id, const ld
 
     if (LDG_UNLIKELY(!comp || !desc || !pool)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(comp->is_reg)) { return LDG_ERR_EXISTS; }
+    if (LDG_UNLIKELY(comp->is_reg == LDG_TRUTH_TRUE)) { return LDG_ERR_EXISTS; }
 
     if (LDG_UNLIKELY(id == LDG_ECS_COMP_ID_INVALID)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -76,7 +76,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_reg(ldg_ecs_comp_t *comp, uint32_t id, const ld
     comp->dense_cunt = 0;
     comp->cap = desc->cap;
     comp->entity_cap = entity_cap;
-    comp->is_reg = 1;
+    comp->is_reg = LDG_TRUTH_TRUE;
     return LDG_ERR_AOK;
 }
 
@@ -84,7 +84,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_unreg(ldg_ecs_comp_t *comp)
 {
     if (LDG_UNLIKELY(!comp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!comp->is_reg)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     comp->dense = 0x0;
     comp->sparse = 0x0;
@@ -96,7 +96,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_unreg(ldg_ecs_comp_t *comp)
     comp->dense_cunt = 0;
     comp->cap = 0;
     comp->entity_cap = 0;
-    comp->is_reg = 0;
+    comp->is_reg = LDG_TRUTH_FALSE;
     return LDG_ERR_AOK;
 }
 
@@ -107,7 +107,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_add(ldg_ecs_comp_t *comp, uint64_t entity, cons
 
     if (LDG_UNLIKELY(!comp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!comp->is_reg)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     idx = (uint32_t)(entity & 0xFFFFFFFFULL);
     if (LDG_UNLIKELY(idx == LDG_ECS_ENTITY_IDX_RESERVED || idx >= comp->entity_cap)) { return LDG_ERR_FUNC_ARG_INVALID; }
@@ -117,8 +117,8 @@ LDG_EXPORT uint32_t ldg_ecs_comp_add(ldg_ecs_comp_t *comp, uint64_t entity, cons
     if (LDG_UNLIKELY(comp->dense_cunt >= comp->cap)) { return LDG_ERR_FULL; }
 
     pos = comp->dense_cunt;
-    if (src != 0x0) { memcpy(comp->dense + (uint64_t)pos * comp->stride, src, (uint32_t)comp->item_size); }
-    else{ memset(comp->dense + (uint64_t)pos * comp->stride, 0, (uint32_t)comp->item_size); }
+    if (src != 0x0) { ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, src, (uint32_t)comp->item_size); }
+    else { ldg_mem_zero(comp->dense + (uint64_t)pos * comp->stride, (uint32_t)comp->item_size); }
 
     comp->back[pos] = entity;
     comp->sparse[idx] = pos;
@@ -136,7 +136,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_remove(ldg_ecs_comp_t *comp, uint64_t entity)
 
     if (LDG_UNLIKELY(!comp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!comp->is_reg)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     idx = (uint32_t)(entity & 0xFFFFFFFFULL);
     if (LDG_UNLIKELY(idx == LDG_ECS_ENTITY_IDX_RESERVED || idx >= comp->entity_cap)) { return LDG_ERR_FUNC_ARG_INVALID; }
@@ -149,7 +149,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_remove(ldg_ecs_comp_t *comp, uint64_t entity)
     {
         last_entity = comp->back[last_pos];
         last_idx = (uint32_t)(last_entity & 0xFFFFFFFFULL);
-        memcpy(comp->dense + (uint64_t)pos * comp->stride, comp->dense + (uint64_t)last_pos * comp->stride, (uint32_t)comp->item_size);
+        ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, comp->dense + (uint64_t)last_pos * comp->stride, (uint32_t)comp->item_size);
         comp->back[pos] = last_entity;
         comp->sparse[last_idx] = pos;
     }
@@ -167,7 +167,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_get(ldg_ecs_comp_t *comp, uint64_t entity, void
     if (LDG_UNLIKELY(!comp || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0x0;
-    if (LDG_UNLIKELY(!comp->is_reg)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     idx = (uint32_t)(entity & 0xFFFFFFFFULL);
     if (LDG_UNLIKELY(idx == LDG_ECS_ENTITY_IDX_RESERVED || idx >= comp->entity_cap)) { return LDG_ERR_FUNC_ARG_INVALID; }
@@ -183,14 +183,16 @@ LDG_EXPORT uint8_t ldg_ecs_comp_has(ldg_ecs_comp_t *comp, uint64_t entity)
 {
     uint32_t idx = 0x0;
 
-    if (LDG_UNLIKELY(!comp)) { return 0; }
+    if (LDG_UNLIKELY(!comp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!comp->is_reg)) { return 0; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     idx = (uint32_t)(entity & 0xFFFFFFFFULL);
-    if (LDG_UNLIKELY(idx == LDG_ECS_ENTITY_IDX_RESERVED || idx >= comp->entity_cap)) { return 0; }
+    if (idx == LDG_ECS_ENTITY_IDX_RESERVED || idx >= comp->entity_cap) { return LDG_TRUTH_FALSE; }
 
-    return (uint8_t)(comp->sparse[idx] != LDG_ECS_DENSE_NULL);
+    if (comp->sparse[idx] != LDG_ECS_DENSE_NULL) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
 }
 
 LDG_EXPORT uint64_t ldg_ecs_comp_cunt_get(ldg_ecs_comp_t *comp)
@@ -205,7 +207,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_back_get(ldg_ecs_comp_t *comp, uint32_t dense_p
     if (LDG_UNLIKELY(!comp || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = LDG_ECS_ENTITY_NULL;
-    if (LDG_UNLIKELY(!comp->is_reg)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(comp->is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(dense_pos >= comp->dense_cunt)) { return LDG_ERR_BOUNDS; }
 

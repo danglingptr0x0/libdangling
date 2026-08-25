@@ -1,0 +1,728 @@
+#include <stdint.h>
+
+#include <dangling/mem/alloc.h>
+#include <dangling/mem/mem.h>
+#include <dangling/mem/frame.h>
+#include <dangling/mem/slab.h>
+#include <dangling/mem/secure.h>
+#include <dangling/core/err.h>
+#include <dangling/core/arith.h>
+#include <dangling/core/macros.h>
+
+#define LDG_DNG_FRAME_ALIGN_BIAS (LDG_MEM_FRAME_WIDTH - 1)
+#define LDG_MEM_PTR_ALIGN_BIAS ((uint64_t)sizeof(void *) - 1)
+#define LDG_MEM_POOL_VAR_ALIGN_MASK ((uint64_t)LDG_MEM_POOL_VAR_ALIGN - 1)
+
+typedef struct ldg_mem_hdr
+{
+    uint32_t sentinel_front;
+    uint8_t pudding_inner[4];
+    struct ldg_mem_hdr *next;
+    struct ldg_mem_hdr *prev;
+    uint64_t size;
+    uint64_t frame_cunt;
+    uint8_t pudding[16];
+} ldg_mem_hdr_t;
+
+typedef struct ldg_mem_state
+{
+    ldg_mem_hdr_t *alloc_list;
+    ldg_mem_stats_t stats;
+    uint8_t is_init;
+    uint8_t is_locked;
+    uint8_t pudding[6];
+} ldg_mem_state_t;
+
+static ldg_mem_state_t g_mem = { .is_init = LDG_TRUTH_FALSE, .is_locked = LDG_TRUTH_FALSE };
+
+static uint32_t mem_leak_dump(void)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint64_t leak_cunt = 0;
+    uint64_t max_walk = 0;
+
+    max_walk = g_mem.stats.active_alloc_cunt;
+    hdr = g_mem.alloc_list;
+    while (hdr)
+    {
+        leak_cunt++;
+        if (LDG_UNLIKELY(leak_cunt > max_walk)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        hdr = hdr->next;
+    }
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t mem_sentinel_wr(uint8_t *user_ptr, uint64_t size)
+{
+    uint32_t sentinel = LDG_MEM_SENTINEL;
+
+    if (LDG_UNLIKELY(!user_ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(user_ptr + size, &sentinel, (uint64_t)sizeof(uint32_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t mem_sentinel_back_ck(const ldg_mem_hdr_t *hdr)
+{
+    uint8_t *user_ptr = 0x0;
+    uint32_t sentinel = 0;
+
+    if (LDG_UNLIKELY(!hdr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    user_ptr = (uint8_t *)(uintptr_t)hdr + (uint64_t)sizeof(ldg_mem_hdr_t);
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(&sentinel, user_ptr + hdr->size, (uint64_t)sizeof(uint32_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    if (LDG_UNLIKELY(sentinel != LDG_MEM_SENTINEL)) { return LDG_ERR_MEM_BAD; }
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t mem_hdr_find(const void *ptr, ldg_mem_hdr_t **out)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+
+    if (LDG_UNLIKELY(!ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY((uintptr_t)ptr < (uint64_t)sizeof(ldg_mem_hdr_t))) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    hdr = (ldg_mem_hdr_t *)(void *)((uint8_t *)(uintptr_t)ptr - (uint64_t)sizeof(ldg_mem_hdr_t));
+
+    if (LDG_UNLIKELY(hdr->sentinel_front != LDG_MEM_SENTINEL)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    *out = hdr;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t mem_block_alloc(uint64_t size, void **out)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint8_t *raw = 0x0;
+    uint8_t *user_ptr = 0x0;
+    uint64_t total_size = 0;
+    uint64_t frame_cunt = 0;
+    uint64_t new_bytes = 0;
+    uint64_t addr = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+
+    if (LDG_UNLIKELY(size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(g_mem.is_locked == LDG_TRUTH_TRUE)) { return LDG_ERR_DENIED; }
+
+    if (ldg_mem_slab_serves_is(size) == LDG_TRUTH_TRUE)
+    {
+        ret = ldg_mem_slab_alloc(size, out);
+        if (ret == LDG_ERR_AOK)
+        {
+            ret = ldg_arith_uint64_add(g_mem.stats.bytes_alloc, size, &new_bytes);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+            {
+                ldg_mem_slab_dealloc(*out);
+                *out = 0x0;
+                return LDG_ERR_OVERFLOW;
+            }
+
+            g_mem.stats.bytes_alloc = new_bytes;
+            g_mem.stats.alloc_cunt++;
+            g_mem.stats.active_alloc_cunt++;
+
+            if (g_mem.stats.bytes_alloc > g_mem.stats.bytes_peak) { g_mem.stats.bytes_peak = g_mem.stats.bytes_alloc; }
+
+            return LDG_ERR_AOK;
+        }
+    }
+
+    ret = ldg_arith_uint64_add((uint64_t)sizeof(ldg_mem_hdr_t), size, &total_size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
+
+    ret = ldg_arith_uint64_add(total_size, (uint64_t)sizeof(uint32_t), &total_size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
+
+    ret = ldg_arith_uint64_add(total_size, LDG_DNG_FRAME_ALIGN_BIAS, &total_size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
+
+    frame_cunt = total_size / LDG_MEM_FRAME_WIDTH;
+    if (LDG_UNLIKELY(frame_cunt == 0)) { return LDG_ERR_OVERFLOW; }
+
+    ret = ldg_mem_frame_alloc(frame_cunt, &addr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
+
+    raw = (uint8_t *)(uintptr_t)addr;
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(raw, frame_cunt * LDG_MEM_FRAME_WIDTH) != LDG_ERR_AOK))
+    {
+        ldg_mem_frame_dealloc(addr);
+        return LDG_ERR_MEM_BAD;
+    }
+
+    hdr = (ldg_mem_hdr_t *)(void *)raw;
+    user_ptr = raw + (uint64_t)sizeof(ldg_mem_hdr_t);
+
+    hdr->sentinel_front = LDG_MEM_SENTINEL;
+    hdr->size = size;
+    hdr->frame_cunt = frame_cunt;
+    hdr->next = g_mem.alloc_list;
+    hdr->prev = 0x0;
+
+    ret = mem_sentinel_wr(user_ptr, size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        ldg_mem_frame_dealloc(addr);
+        return ret;
+    }
+
+    ret = ldg_arith_uint64_add(g_mem.stats.bytes_alloc, size, &new_bytes);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        ldg_mem_frame_dealloc(addr);
+        return LDG_ERR_OVERFLOW;
+    }
+
+    if (g_mem.alloc_list) { g_mem.alloc_list->prev = hdr; }
+
+    g_mem.alloc_list = hdr;
+    g_mem.stats.bytes_alloc = new_bytes;
+    g_mem.stats.alloc_cunt++;
+    g_mem.stats.active_alloc_cunt++;
+
+    if (g_mem.stats.bytes_alloc > g_mem.stats.bytes_peak) { g_mem.stats.bytes_peak = g_mem.stats.bytes_alloc; }
+
+    *out = user_ptr;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t mem_block_dealloc(void *ptr)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint64_t poison_len = 0;
+    uint64_t addr = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (ldg_mem_slab_owned_is(ptr) == LDG_TRUTH_TRUE)
+    {
+        poison_len = ldg_mem_slab_size_get(ptr);
+        if (LDG_UNLIKELY(poison_len == UINT64_MAX)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        if (LDG_UNLIKELY(poison_len > g_mem.stats.bytes_alloc)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        if (LDG_UNLIKELY(g_mem.stats.active_alloc_cunt == 0)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        ret = ldg_mem_slab_dealloc(ptr);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        g_mem.stats.bytes_alloc -= poison_len;
+        g_mem.stats.dealloc_cunt++;
+        g_mem.stats.active_alloc_cunt--;
+
+        return LDG_ERR_AOK;
+    }
+
+    ret = mem_hdr_find(ptr, &hdr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    ret = mem_sentinel_back_ck(hdr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    if (LDG_UNLIKELY(hdr->size > g_mem.stats.bytes_alloc)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    if (LDG_UNLIKELY(g_mem.stats.active_alloc_cunt == 0)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    ret = ldg_arith_uint64_add((uint64_t)sizeof(ldg_mem_hdr_t), hdr->size, &poison_len);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    ret = ldg_arith_uint64_add(poison_len, (uint64_t)sizeof(uint32_t), &poison_len);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    if (LDG_UNLIKELY(poison_len > (hdr->frame_cunt * LDG_MEM_FRAME_WIDTH))) { return LDG_ERR_MEM_CORRUPTION; }
+
+    if (LDG_UNLIKELY(ldg_mem_frame_run_cunt_get((uint64_t)(uintptr_t)hdr) != hdr->frame_cunt)) { return LDG_ERR_MEM_CORRUPTION; }
+
+    if (hdr->prev) { hdr->prev->next = hdr->next; }
+    else { g_mem.alloc_list = hdr->next; }
+
+    if (hdr->next) { hdr->next->prev = hdr->prev; }
+
+    g_mem.stats.bytes_alloc -= hdr->size;
+    g_mem.stats.dealloc_cunt++;
+    g_mem.stats.active_alloc_cunt--;
+
+    addr = (uint64_t)(uintptr_t)hdr;
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero((uint8_t *)hdr, poison_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    return ldg_mem_frame_dealloc(addr);
+}
+
+uint32_t ldg_mem_init(void)
+{
+    uint32_t ret = 0;
+
+    if (g_mem.is_init == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+    ret = ldg_mem_secure_zero(&g_mem, (uint64_t)sizeof(ldg_mem_state_t));
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    g_mem.is_init = LDG_TRUTH_TRUE;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_shutdown(void)
+{
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(g_mem.stats.active_alloc_cunt > 0))
+    {
+        mem_leak_dump();
+
+        return LDG_ERR_BUSY;
+    }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(&g_mem, (uint64_t)sizeof(ldg_mem_state_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_lock(void)
+{
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    g_mem.is_locked = LDG_TRUTH_TRUE;
+
+    return LDG_ERR_AOK;
+}
+
+uint8_t ldg_mem_locked_is(void)
+{
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (g_mem.is_locked == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
+}
+
+uint32_t ldg_mem_alloc(uint64_t size, void **out)
+{
+    return mem_block_alloc(size, out);
+}
+
+uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+    void *new_ptr = 0x0;
+    uint64_t copy_size = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+
+    if (LDG_UNLIKELY(size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(!ptr)) { return mem_block_alloc(size, out); }
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(g_mem.is_locked == LDG_TRUTH_TRUE)) { return LDG_ERR_DENIED; }
+
+    if (ldg_mem_slab_owned_is(ptr) == LDG_TRUTH_TRUE)
+    {
+        copy_size = ldg_mem_slab_size_get(ptr);
+        if (LDG_UNLIKELY(copy_size == UINT64_MAX)) { return LDG_ERR_MEM_CORRUPTION; }
+    }
+    else
+    {
+        ret = mem_hdr_find(ptr, &hdr);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        ret = mem_sentinel_back_ck(hdr);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        copy_size = hdr->size;
+    }
+
+    ret = mem_block_alloc(size, &new_ptr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (copy_size > size) { copy_size = size; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(new_ptr, ptr, copy_size) != LDG_ERR_AOK))
+    {
+        mem_block_dealloc(new_ptr);
+        return LDG_ERR_MEM_BAD;
+    }
+
+    ret = mem_block_dealloc(ptr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        mem_block_dealloc(new_ptr);
+        *out = ptr;
+        return ret;
+    }
+
+    *out = new_ptr;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_dealloc(void *ptr)
+{
+    return mem_block_dealloc(ptr);
+}
+
+uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t cap, ldg_mem_pool_t **out)
+{
+    ldg_mem_pool_t *pool = 0x0;
+    void *pool_tmp = 0x0;
+    void *buff = 0x0;
+    uint64_t aligned_item_size = 0;
+    uint64_t buff_size = 0;
+    uint64_t idx = 0;
+    uint8_t *item = 0x0;
+    uint8_t *prev = 0x0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+
+    if (LDG_UNLIKELY(cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(g_mem.is_locked == LDG_TRUTH_TRUE)) { return LDG_ERR_DENIED; }
+
+    if (LDG_UNLIKELY(g_mem.stats.pool_cunt >= LDG_MEM_POOL_MAX)) { return LDG_ERR_FULL; }
+
+    ret = mem_block_alloc((uint64_t)sizeof(ldg_mem_pool_t), &pool_tmp);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    pool = (ldg_mem_pool_t *)pool_tmp;
+
+    if (item_size == 0)
+    {
+        ret = mem_block_alloc(cap, &buff);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+        {
+            mem_block_dealloc(pool);
+            return LDG_ERR_ALLOC_NULL;
+        }
+
+        pool->buff = buff;
+        pool->free_list = 0x0;
+        pool->item_size = 0;
+        pool->cap = cap;
+        pool->alloc_cunt = 0;
+        pool->buff_size = cap;
+        pool->mode.bump_offset = 0;
+        pool->is_var = LDG_TRUTH_TRUE;
+        pool->is_destroying = LDG_TRUTH_FALSE;
+
+        g_mem.stats.pool_cunt++;
+
+        *out = pool;
+
+        return LDG_ERR_AOK;
+    }
+
+    ret = ldg_arith_uint64_add(item_size, LDG_MEM_PTR_ALIGN_BIAS, &aligned_item_size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        mem_block_dealloc(pool);
+        return LDG_ERR_OVERFLOW;
+    }
+
+    aligned_item_size &= ~LDG_MEM_PTR_ALIGN_BIAS;
+
+    if (LDG_UNLIKELY(ldg_arith_uint64_mul(aligned_item_size, cap, &buff_size) != LDG_ERR_AOK))
+    {
+        mem_block_dealloc(pool);
+        return LDG_ERR_OVERFLOW;
+    }
+
+    ret = mem_block_alloc(buff_size, &buff);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        mem_block_dealloc(pool);
+        return LDG_ERR_ALLOC_NULL;
+    }
+
+    pool->buff = buff;
+    pool->item_size = aligned_item_size;
+    pool->cap = cap;
+    pool->alloc_cunt = 0;
+    pool->buff_size = buff_size;
+    pool->mode.user_item_size = item_size;
+    pool->is_var = LDG_TRUTH_FALSE;
+    pool->is_destroying = LDG_TRUTH_FALSE;
+
+    prev = 0x0;
+    for (idx = 0; idx < cap; idx++)
+    {
+        item = pool->buff + (idx * aligned_item_size);
+
+        if (prev) { *(uint8_t **)(void *)(prev) = item; }
+
+        prev = item;
+    }
+
+    if (prev) { *(uint8_t **)(void *)(prev) = 0x0; }
+
+    pool->free_list = pool->buff;
+
+    g_mem.stats.pool_cunt++;
+
+    *out = pool;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out)
+{
+    uint8_t *item = 0x0;
+    uint64_t aligned = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0x0;
+
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return LDG_ERR_INVALID; }
+
+    if (pool->is_var == LDG_TRUTH_TRUE)
+    {
+        if (LDG_UNLIKELY(size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+        aligned = (pool->mode.bump_offset + LDG_MEM_POOL_VAR_ALIGN_MASK) & ~LDG_MEM_POOL_VAR_ALIGN_MASK;
+        if (LDG_UNLIKELY(aligned < pool->mode.bump_offset)) { return LDG_ERR_OVERFLOW; }
+
+        if (LDG_UNLIKELY(aligned + size < aligned)) { return LDG_ERR_OVERFLOW; }
+
+        if (LDG_UNLIKELY(aligned + size > pool->cap)) { return LDG_ERR_MEM_POOL_FULL; }
+
+        item = pool->buff + aligned;
+        if (LDG_UNLIKELY(ldg_mem_secure_zero(item, size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+        pool->mode.bump_offset = aligned + size;
+        pool->alloc_cunt++;
+
+        *out = item;
+
+        return LDG_ERR_AOK;
+    }
+
+    if (LDG_UNLIKELY(size != pool->mode.user_item_size)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(!pool->free_list)) { return LDG_ERR_MEM_POOL_FULL; }
+
+    item = pool->free_list;
+    pool->free_list = *(uint8_t **)(void *)(item);
+    pool->alloc_cunt++;
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(item, pool->mode.user_item_size) != LDG_ERR_AOK))
+    {
+        *(uint8_t **)(void *)(item) = pool->free_list;
+        pool->free_list = item;
+        pool->alloc_cunt--;
+        return LDG_ERR_MEM_BAD;
+    }
+
+    *out = item;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_pool_dealloc(ldg_mem_pool_t *pool, void *ptr)
+{
+    uint8_t *item = 0x0;
+    uint8_t *walk = 0x0;
+    uint64_t walk_cunt = 0;
+    uint64_t max_free = 0;
+
+    if (LDG_UNLIKELY(!pool || !ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    item = (uint8_t *)ptr;
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return LDG_ERR_INVALID; }
+
+    if (LDG_UNLIKELY(pool->is_var == LDG_TRUTH_TRUE)) { return LDG_ERR_UNSUPPORTED; }
+
+    if (LDG_UNLIKELY(item < pool->buff || item >= pool->buff + pool->buff_size)) { return LDG_ERR_BOUNDS; }
+
+    if (LDG_UNLIKELY((uintptr_t)(item - pool->buff) % pool->item_size != 0)) { return LDG_ERR_MEM_ALIGNMENT; }
+
+    if (LDG_UNLIKELY(pool->alloc_cunt == 0)) { return LDG_ERR_MEM_DOUBLE_FREE; }
+
+    max_free = pool->cap - pool->alloc_cunt;
+    walk = pool->free_list;
+    while (walk)
+    {
+        if (LDG_UNLIKELY(walk == item)) { return LDG_ERR_MEM_DOUBLE_FREE; }
+
+        walk_cunt++;
+        if (LDG_UNLIKELY(walk_cunt > max_free)) { return LDG_ERR_MEM_CORRUPTION; }
+
+        walk = *(uint8_t **)(void *)(walk);
+    }
+
+    *(uint8_t **)(void *)(item) = pool->free_list;
+    pool->free_list = item;
+    pool->alloc_cunt--;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_mem_pool_destroy(ldg_mem_pool_t **pool)
+{
+    void *buff = 0x0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!pool || !*pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    (*pool)->is_destroying = LDG_TRUTH_TRUE;
+    buff = (*pool)->buff;
+
+    ret = mem_block_dealloc(buff);
+
+    if (LDG_LIKELY(mem_block_dealloc(*pool) == LDG_ERR_AOK)) { *pool = 0x0; }
+    else if (ret == LDG_ERR_AOK) { ret = LDG_ERR_MEM_BAD; }
+
+    if (LDG_UNLIKELY(g_mem.stats.pool_cunt == 0)) { return (ret != LDG_ERR_AOK) ? ret : LDG_ERR_MEM_CORRUPTION; }
+
+    g_mem.stats.pool_cunt--;
+
+    return ret;
+}
+
+uint32_t ldg_mem_pool_rst(ldg_mem_pool_t *pool)
+{
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return LDG_ERR_INVALID; }
+
+    if (LDG_UNLIKELY(pool->is_var != LDG_TRUTH_TRUE)) { return LDG_ERR_UNSUPPORTED; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(pool->buff, pool->cap) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    pool->mode.bump_offset = 0;
+    pool->alloc_cunt = 0;
+
+    return LDG_ERR_AOK;
+}
+
+uint64_t ldg_mem_pool_remaining_get(ldg_mem_pool_t *pool)
+{
+    uint64_t aligned = 0;
+    uint64_t remaining = 0;
+
+    if (LDG_UNLIKELY(!pool)) { return UINT64_MAX; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return UINT64_MAX; }
+
+    if (pool->is_var != LDG_TRUTH_TRUE) { return pool->cap - pool->alloc_cunt; }
+
+    aligned = (pool->mode.bump_offset + LDG_MEM_POOL_VAR_ALIGN_MASK) & ~LDG_MEM_POOL_VAR_ALIGN_MASK;
+    if (LDG_UNLIKELY(aligned < pool->mode.bump_offset)) { return UINT64_MAX; }
+
+    if (aligned < pool->cap) { remaining = pool->cap - aligned; }
+
+    return remaining;
+}
+
+uint64_t ldg_mem_pool_used_get(ldg_mem_pool_t *pool)
+{
+    uint64_t used = 0;
+
+    if (LDG_UNLIKELY(!pool)) { return UINT64_MAX; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return UINT64_MAX; }
+
+    if (pool->is_var == LDG_TRUTH_TRUE) { used = pool->mode.bump_offset; }
+
+    return used;
+}
+
+uint64_t ldg_mem_pool_cap_get(ldg_mem_pool_t *pool)
+{
+    if (LDG_UNLIKELY(!pool)) { return UINT64_MAX; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return UINT64_MAX; }
+
+    return pool->cap;
+}
+
+uint8_t ldg_mem_pool_var_is(ldg_mem_pool_t *pool)
+{
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_destroying == LDG_TRUTH_TRUE)) { return LDG_ERR_CLOSED; }
+
+    if (pool->is_var == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
+}
+
+uint32_t ldg_mem_stats_get(ldg_mem_stats_t *stats)
+{
+    if (LDG_UNLIKELY(!stats)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    return ldg_mem_secure_cpy(stats, &g_mem.stats, (uint64_t)sizeof(ldg_mem_stats_t));
+}
+
+uint32_t ldg_mem_leaks_dump(void)
+{
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    return mem_leak_dump();
+}
+
+uint8_t ldg_mem_valid_is(const void *ptr)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (ldg_mem_slab_owned_is(ptr) == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
+
+    ret = mem_hdr_find(ptr, &hdr);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_TRUTH_FALSE; }
+
+    if (LDG_UNLIKELY(mem_sentinel_back_ck(hdr) != LDG_ERR_AOK)) { return LDG_TRUTH_FALSE; }
+
+    return LDG_TRUTH_TRUE;
+}
+
+uint64_t ldg_mem_size_get(const void *ptr)
+{
+    ldg_mem_hdr_t *hdr = 0x0;
+
+    if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { return UINT64_MAX; }
+
+    if (ldg_mem_slab_owned_is(ptr) == LDG_TRUTH_TRUE) { return ldg_mem_slab_size_get(ptr); }
+
+    if (LDG_UNLIKELY(mem_hdr_find(ptr, &hdr) != LDG_ERR_AOK)) { return UINT64_MAX; }
+
+    return hdr->size;
+}

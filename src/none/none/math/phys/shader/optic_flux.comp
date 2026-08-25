@@ -1,0 +1,31 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer radiance_blk { double radiance[]; };
+layout(std430, binding = 1) writeonly buffer flux_out_blk { double flux_out[]; };
+layout(std430, binding = 2) readonly buffer ordinate_blk { double ordinate[]; };
+layout(std430, binding = 3) readonly buffer param_blk
+{
+    double spacing;
+    double tol;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint ord_cunt;
+};
+
+void main()
+{
+    uint center = gl_GlobalInvocationID.x;
+    uint cell_cunt = nx * ny * nz;
+    double flux_val = 0.0;
+    uint ord_idx = 0u;
+    if (center >= cell_cunt) { return; }
+
+    for (ord_idx = 0u; ord_idx < ord_cunt; ord_idx++)
+    {
+        flux_val += ordinate[ord_idx * 4u + 3u] * radiance[ord_idx * cell_cunt + center];
+    }
+    flux_out[center] = flux_val;
+}

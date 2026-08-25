@@ -1,0 +1,111 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer phase_in_blk { double phase_in[]; };
+layout(std430, binding = 1) writeonly buffer phase_out_blk { double phase_out[]; };
+layout(std430, binding = 2) readonly buffer refract_blk { double refract[]; };
+layout(std430, binding = 3) readonly buffer param_blk
+{
+    double spacing;
+    double tol;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding_a;
+};
+layout(std430, binding = 4) buffer flag_blk { uint flag; };
+
+const double PHASE_FAR = 1.0e300;
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    double val_x = PHASE_FAR;
+    double val_y = PHASE_FAR;
+    double val_z = PHASE_FAR;
+    double low = 0.0;
+    double mid = 0.0;
+    double high = 0.0;
+    double swap_val = 0.0;
+    double path_cost = 0.0;
+    double candidate = 0.0;
+    double diff = 0.0;
+    double disc = 0.0;
+    double sum_three = 0.0;
+    double current = phase_in[center];
+    if (idx_x > 0u) { val_x = phase_in[center - 1u]; }
+
+    if (idx_x + 1u < nx) { val_x = min(val_x, phase_in[center + 1u]); }
+
+    if (idx_y > 0u) { val_y = phase_in[center - nx]; }
+
+    if (idx_y + 1u < ny) { val_y = min(val_y, phase_in[center + nx]); }
+
+    if (idx_z > 0u) { val_z = phase_in[center - plane]; }
+
+    if (idx_z + 1u < nz) { val_z = min(val_z, phase_in[center + plane]); }
+
+    low = val_x;
+    mid = val_y;
+    high = val_z;
+    if (low > mid)
+    {
+        swap_val = low;
+        low = mid;
+        mid = swap_val;
+    }
+
+    if (mid > high)
+    {
+        swap_val = mid;
+        mid = high;
+        high = swap_val;
+    }
+
+    if (low > mid)
+    {
+        swap_val = low;
+        low = mid;
+        mid = swap_val;
+    }
+
+    if (low >= PHASE_FAR)
+    {
+        phase_out[center] = current;
+        return;
+    }
+
+    path_cost = refract[center] * spacing;
+    candidate = low + path_cost;
+    if (candidate > mid)
+    {
+        diff = low - mid;
+        disc = 2.0 * path_cost * path_cost - diff * diff;
+        if (disc > 0.0) { candidate = 0.5 * (low + mid + sqrt(disc)); }
+    }
+
+    if (candidate > high)
+    {
+        sum_three = low + mid + high;
+        disc = sum_three * sum_three - 3.0 * (low * low + mid * mid + high * high - path_cost * path_cost);
+        if (disc > 0.0) { candidate = (sum_three + sqrt(disc)) / 3.0; }
+    }
+
+    if (candidate < current)
+    {
+        if (current - candidate > tol) { atomicOr(flag, 1u); }
+
+        phase_out[center] = candidate;
+    }
+    else
+    {
+        phase_out[center] = current;
+    }
+}

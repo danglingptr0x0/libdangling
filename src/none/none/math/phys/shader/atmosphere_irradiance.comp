@@ -1,0 +1,159 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere_common.glsl"
+
+#define ATMOSPHERE_HEMI_POLAR_CUNT 8
+#define ATMOSPHERE_HEMI_AZIM_CUNT 16
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer param_blk
+{
+    double planet_radius;
+    double thickness;
+    double rayleigh_scale_height;
+    double mie_scale_height;
+    double mie_scatter;
+    double mie_absorb;
+    double mie_anisotropy;
+    double fog_scale_height;
+    double fog_scatter;
+    double fog_absorb;
+    double fog_anisotropy;
+    double ozone_center_altitude;
+    double ozone_half_width;
+    uint bin_cunt;
+    uint order_cunt;
+    uint altitude_cunt;
+    uint view_cunt;
+    uint sun_cunt;
+    uint view_sun_cunt;
+    uint flag0;
+};
+layout(std430, binding = 1) readonly buffer sun_irradiance_blk { double sun_irradiance[]; };
+layout(std430, binding = 2) readonly buffer transmittance_blk { double transmittance[]; };
+layout(std430, binding = 3) readonly buffer delta_rayleigh_blk { double delta_rayleigh[]; };
+layout(std430, binding = 4) readonly buffer delta_mie_blk { double delta_mie[]; };
+layout(std430, binding = 5) readonly buffer delta_fog_blk { double delta_fog[]; };
+layout(std430, binding = 6) readonly buffer delta_prev_blk { double delta_prev[]; };
+layout(std430, binding = 7) buffer delta_irradiance_blk { double delta_irradiance[]; };
+layout(std430, binding = 8) readonly buffer dirs_blk { double dirs[]; };
+
+void quad_setup(uint idx0, uint idx1, uint idx2, uint idx3, double f0, double f1, double f2, double f3, out uint cbase[16], out double cweight[16])
+{
+    uint corner = 0u;
+    uint pick_a = 0u;
+    uint pick_v = 0u;
+    uint pick_s = 0u;
+    uint pick_n = 0u;
+    for (corner = 0u; corner < 16u; corner++)
+    {
+        pick_a = idx0 + (corner & 1u);
+        pick_v = idx1 + ((corner >> 1u) & 1u);
+        pick_s = idx2 + ((corner >> 2u) & 1u);
+        pick_n = idx3 + ((corner >> 3u) & 1u);
+        cweight[corner] = ((corner & 1u) != 0u ? f0 : 1.0lf - f0) * (((corner >> 1u) & 1u) != 0u ? f1 : 1.0lf - f1) * (((corner >> 2u) & 1u) != 0u ? f2 : 1.0lf - f2) * (((corner >> 3u) & 1u) != 0u ? f3 : 1.0lf - f3);
+        cbase[corner] = (((pick_a * view_cunt + pick_v) * sun_cunt + pick_s) * view_sun_cunt + pick_n) * bin_cunt;
+    }
+}
+
+double trans_bin_sun(double mu_s, uint bin)
+{
+    double frac_v = 0.0lf;
+    uint idx_v = 0u;
+    if (mu_s < 0.0lf) { return 0.0lf; }
+
+    atmosphere_axis(mu_s, 0.0lf - 1.0lf, 2.0lf, view_cunt, idx_v, frac_v);
+    return transmittance[idx_v * bin_cunt + bin] * (1.0lf - frac_v) + transmittance[(idx_v + 1u) * bin_cunt + bin] * frac_v;
+}
+
+void main()
+{
+    uint idx_s = gl_GlobalInvocationID.x;
+    if (idx_s >= sun_cunt) { return; }
+
+    double polar_step = (LDG_ATMOSPHERE_PI * 0.5lf) / double(ATMOSPHERE_HEMI_POLAR_CUNT);
+    double azim_step = LDG_ATMOSPHERE_TAU / double(ATMOSPHERE_HEMI_AZIM_CUNT);
+    double mu_s = 0.0lf - 1.0lf + 2.0lf * double(idx_s) / (double(sun_cunt) - 1.0lf);
+    double direct_weight = 0.0lf;
+    double sin_s = 0.0lf;
+    double cos_polar = 0.0lf;
+    double sin_polar = 0.0lf;
+    double cos_azim = 0.0lf;
+    double dir_x = 0.0lf;
+    double nu = 0.0lf;
+    double weight = 0.0lf;
+    double incoming = 0.0lf;
+    double corner_r = 0.0lf;
+    double corner_m = 0.0lf;
+    double corner_f = 0.0lf;
+    double frac0 = 0.0lf;
+    double frac1 = 0.0lf;
+    double frac2 = 0.0lf;
+    double frac3 = 0.0lf;
+    uint qidx0 = 0u;
+    uint qidx1 = 0u;
+    uint qidx2 = 0u;
+    uint qidx3 = 0u;
+    uint cbase[16];
+    double cweight[16];
+    uint polar_idx = 0u;
+    uint azim_idx = 0u;
+    uint corner = 0u;
+    uint bin = 0u;
+    uint base = idx_s * bin_cunt;
+    if (flag0 == 0u)
+    {
+        direct_weight = mu_s;
+        if (direct_weight < 0.0lf) { direct_weight = 0.0lf; }
+
+        for (bin = 0u; bin < bin_cunt; bin++) { delta_irradiance[base + bin] = trans_bin_sun(mu_s, bin) * sun_irradiance[bin] * direct_weight; }
+        return;
+    }
+
+    sin_s = 1.0lf - mu_s * mu_s;
+    if (sin_s < 0.0lf) { sin_s = 0.0lf; }
+
+    sin_s = sqrt(sin_s);
+    for (bin = 0u; bin < bin_cunt; bin++) { delta_irradiance[base + bin] = 0.0lf; }
+    for (polar_idx = 0u; polar_idx < ATMOSPHERE_HEMI_POLAR_CUNT; polar_idx++)
+    {
+        cos_polar = dirs[48u + polar_idx];
+        sin_polar = dirs[56u + polar_idx];
+        for (azim_idx = 0u; azim_idx < ATMOSPHERE_HEMI_AZIM_CUNT; azim_idx++)
+        {
+            cos_azim = dirs[16u + azim_idx];
+            dir_x = sin_polar * cos_azim;
+            nu = dir_x * sin_s + cos_polar * mu_s;
+            atmosphere_axis(0.0lf, 0.0lf, thickness, altitude_cunt, qidx0, frac0);
+            atmosphere_axis(cos_polar, 0.0lf - 1.0lf, 2.0lf, view_cunt, qidx1, frac1);
+            atmosphere_axis(mu_s, 0.0lf - 1.0lf, 2.0lf, sun_cunt, qidx2, frac2);
+            atmosphere_axis(nu, 0.0lf - 1.0lf, 2.0lf, view_sun_cunt, qidx3, frac3);
+            quad_setup(qidx0, qidx1, qidx2, qidx3, frac0, frac1, frac2, frac3, cbase, cweight);
+            weight = cos_polar * sin_polar * polar_step * azim_step;
+            for (bin = 0u; bin < bin_cunt; bin++)
+            {
+                if (flag0 >= 2u)
+                {
+                    incoming = 0.0lf;
+                    for (corner = 0u; corner < 16u; corner++) { incoming += cweight[corner] * delta_prev[cbase[corner] + bin]; }
+                }
+                else
+                {
+                    corner_r = 0.0lf;
+                    corner_m = 0.0lf;
+                    corner_f = 0.0lf;
+                    for (corner = 0u; corner < 16u; corner++)
+                    {
+                        corner_r += cweight[corner] * delta_rayleigh[cbase[corner] + bin];
+                        corner_m += cweight[corner] * delta_mie[cbase[corner] + bin];
+                        corner_f += cweight[corner] * delta_fog[cbase[corner] + bin];
+                    }
+                    incoming = corner_r * atmosphere_rayleigh_phase(nu) + corner_m * atmosphere_mie_phase(mie_anisotropy, nu) + corner_f * atmosphere_mie_phase(fog_anisotropy, nu);
+                }
+                delta_irradiance[base + bin] += incoming * weight;
+            }
+        }
+    }
+}

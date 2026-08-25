@@ -1,0 +1,109 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer particle_blk { double particle[]; };
+layout(std430, binding = 1) readonly buffer bin_cunt_blk { uint bin_cunt[]; };
+layout(std430, binding = 2) readonly buffer bin_slot_blk { uint bin_slot[]; };
+layout(std430, binding = 3) writeonly buffer vel_x_blk { double vel_x[]; };
+layout(std430, binding = 4) writeonly buffer vel_y_blk { double vel_y[]; };
+layout(std430, binding = 5) writeonly buffer vel_z_blk { double vel_z[]; };
+layout(std430, binding = 6) writeonly buffer vel_x_old_blk { double vel_x_old[]; };
+layout(std430, binding = 7) writeonly buffer vel_y_old_blk { double vel_y_old[]; };
+layout(std430, binding = 8) writeonly buffer vel_z_old_blk { double vel_z_old[]; };
+layout(std430, binding = 9) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_x;
+    double ball_y;
+    double ball_z;
+    double ball_r;
+    double ball_vel;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+
+double face_gather(uint comp, double face_x, double face_y, double face_z, out double weight_sum)
+{
+    double inv_spacing = 1.0 / spacing;
+    double val_sum = 0.0;
+    weight_sum = 0.0;
+    int lo_x = int(face_x) - 1;
+    int lo_y = int(face_y) - 1;
+    int lo_z = int(face_z) - 1;
+    for (int cz = lo_z; cz <= lo_z + 2; cz++)
+    {
+        for (int cy = lo_y; cy <= lo_y + 2; cy++)
+        {
+            for (int cx = lo_x; cx <= lo_x + 2; cx++)
+            {
+                if (cx < 0 || cy < 0 || cz < 0 || cx >= int(nx) || cy >= int(ny) || cz >= int(nz)) { continue; }
+
+                uint cell = (uint(cz) * ny + uint(cy)) * nx + uint(cx);
+                uint cunt = min(bin_cunt[cell], bin_cap);
+                for (uint slot = 0u; slot < cunt; slot++)
+                {
+                    uint pick = bin_slot[cell * bin_cap + slot];
+                    double px = particle[pick * 6u] * inv_spacing;
+                    double py = particle[pick * 6u + 1u] * inv_spacing;
+                    double pz = particle[pick * 6u + 2u] * inv_spacing;
+                    if (comp == 0u) { py -= 0.5; pz -= 0.5; }
+                    else if (comp == 1u) { px -= 0.5; pz -= 0.5; }
+                    else { px -= 0.5; py -= 0.5; }
+                    double wx = 1.0 - abs(px - face_x);
+                    double wy = 1.0 - abs(py - face_y);
+                    double wz = 1.0 - abs(pz - face_z);
+                    if (wx <= 0.0 || wy <= 0.0 || wz <= 0.0) { continue; }
+
+                    double weight = wx * wy * wz;
+                    weight_sum += weight;
+                    val_sum += weight * particle[pick * 6u + 3u + comp];
+                }
+            }
+        }
+    }
+    return val_sum;
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    double weight_sum = 0.0;
+    double val_sum = 0.0;
+    double vel_val = 0.0;
+    if (idx_x <= nx && idx_y < ny && idx_z < nz)
+    {
+        val_sum = face_gather(0u, double(idx_x), double(idx_y), double(idx_z), weight_sum);
+        vel_val = (weight_sum > 0.0) ? (val_sum / weight_sum) : 0.0;
+        vel_x[(idx_z * ny + idx_y) * (nx + 1u) + idx_x] = vel_val;
+        vel_x_old[(idx_z * ny + idx_y) * (nx + 1u) + idx_x] = vel_val;
+    }
+
+    if (idx_x < nx && idx_y <= ny && idx_z < nz)
+    {
+        val_sum = face_gather(1u, double(idx_x), double(idx_y), double(idx_z), weight_sum);
+        vel_val = (weight_sum > 0.0) ? (val_sum / weight_sum) : 0.0;
+        vel_y[idx_z * nx * (ny + 1u) + idx_y * nx + idx_x] = vel_val;
+        vel_y_old[idx_z * nx * (ny + 1u) + idx_y * nx + idx_x] = vel_val;
+    }
+
+    if (idx_x < nx && idx_y < ny && idx_z <= nz)
+    {
+        val_sum = face_gather(2u, double(idx_x), double(idx_y), double(idx_z), weight_sum);
+        vel_val = (weight_sum > 0.0) ? (val_sum / weight_sum) : 0.0;
+        vel_z[(idx_z * ny + idx_y) * nx + idx_x] = vel_val;
+        vel_z_old[(idx_z * ny + idx_y) * nx + idx_x] = vel_val;
+    }
+}

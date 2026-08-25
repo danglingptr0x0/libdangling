@@ -1,6 +1,5 @@
 #ifdef LDG_GPU_VULKAN
 
-#include <string.h>
 #include <vulkan/vulkan.h>
 
 #include "state.h"
@@ -10,20 +9,20 @@ static uint32_t frame_fbos_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t 
     VkFramebufferCreateInfo fb_info = { 0 };
     VkImageView attachments[2] = { 0 };
     uint32_t attach_cunt = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
 
     if (sc->cached_renderpass_id == renderpass_id) { return LDG_ERR_AOK; }
 
-    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++) { if (sc->imgs[i].fbo)
+    for (idx = 0; idx < sc->img_cunt && idx < LDG_GPU_SWAPCHAIN_IMG_MAX; idx++) { if (sc->imgs[idx].fbo)
         {
-            vkDestroyFramebuffer(dev, (VkFramebuffer)sc->imgs[i].fbo, 0x0);
-            sc->imgs[i].fbo = 0x0;
+            vkDestroyFramebuffer(dev, (VkFramebuffer)sc->imgs[idx].fbo, 0x0);
+            sc->imgs[idx].fbo = 0x0;
         }
     }
 
-    for (i = 0; i < sc->img_cunt && i < LDG_GPU_SWAPCHAIN_IMG_MAX; i++)
+    for (idx = 0; idx < sc->img_cunt && idx < LDG_GPU_SWAPCHAIN_IMG_MAX; idx++)
     {
-        attachments[0] = (VkImageView)sc->imgs[i].img_view;
+        attachments[0] = (VkImageView)sc->imgs[idx].img_view;
         attach_cunt = 1;
 
         if (sc->depth_img_view)
@@ -40,7 +39,7 @@ static uint32_t frame_fbos_ensure(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t 
         fb_info.height = sc->h;
         fb_info.layers = 1;
 
-        if (LDG_UNLIKELY(vkCreateFramebuffer(dev, &fb_info, 0x0, (VkFramebuffer *)&sc->imgs[i].fbo) != VK_SUCCESS)) { return LDG_ERR_GPU_FRAME_BEGIN; }
+        if (LDG_UNLIKELY(vkCreateFramebuffer(dev, &fb_info, 0x0, (VkFramebuffer *)&sc->imgs[idx].fbo) != VK_SUCCESS)) { return LDG_ERR_GPU_FRAME_BEGIN; }
     }
 
     sc->cached_renderpass_id = renderpass_id;
@@ -56,13 +55,13 @@ LDG_EXPORT uint32_t ldg_gpu_frame_begin(void *vk, uint32_t swapchain_id, ldg_gpu
     uint32_t fidx = UINT32_MAX;
     uint32_t slot = UINT32_MAX;
     uint32_t ret = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *frame = (ldg_gpu_frame_t)LDG_STRUCT_ZERO_INIT;
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -76,9 +75,9 @@ LDG_EXPORT uint32_t ldg_gpu_frame_begin(void *vk, uint32_t swapchain_id, ldg_gpu
         return LDG_ERR_GPU_SWAPCHAIN_NOT_FOUND;
     }
 
-    for (i = 0; i < LDG_GPU_FRAME_IN_FLIGHT; i++) { if (!ctx->frames[i].in_use)
+    for (idx = 0; idx < LDG_GPU_FRAME_IN_FLIGHT; idx++) { if (!ctx->frames[idx].in_use)
         {
-            slot = i;
+            slot = idx;
             break;
         }
     }
@@ -136,7 +135,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_begin(void *vk, ldg_gpu_frame_t *fr
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -219,7 +218,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_pipeline_bind(void *vk, ldg_gpu_frame_t *frame
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -273,7 +272,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_vert_buff_bind(void *vk, ldg_gpu_frame_t *fram
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -307,7 +306,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_idx_buff_bind(void *vk, ldg_gpu_frame_t *frame
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -340,7 +339,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_buff_bind(void *vk, ldg_gpu_frame_t *frame, ui
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -395,7 +394,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_push_const(void *vk, ldg_gpu_frame_t *frame, u
 
     if (LDG_UNLIKELY(!data)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -428,7 +427,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_draw(void *vk, ldg_gpu_frame_t *frame, uint32_
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -459,7 +458,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_draw_idxd(void *vk, ldg_gpu_frame_t *frame, ui
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -490,7 +489,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_renderpass_end(void *vk, ldg_gpu_frame_t *fram
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -526,7 +525,7 @@ LDG_EXPORT uint32_t ldg_gpu_frame_end(void *vk, ldg_gpu_frame_t *frame)
 
     if (LDG_UNLIKELY(!frame)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(frame->id >= LDG_GPU_FRAME_IN_FLIGHT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 

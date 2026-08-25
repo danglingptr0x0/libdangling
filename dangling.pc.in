@@ -8,5 +8,5 @@ Name: dangling
 Description: Personal utility library
 Version: @PROJECT_VERSION@
 Requires: @LDG_PC_REQUIRES@
-Libs: -L${libdir} -ldangling
+Libs: -L${libdir} -ldangling@LDG_PC_LIBS@
 Cflags: -I${includedir}

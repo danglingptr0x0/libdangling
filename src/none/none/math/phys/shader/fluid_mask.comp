@@ -1,0 +1,63 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer base_mask_blk { uint base_mask[]; };
+layout(std430, binding = 1) writeonly buffer mask_blk { uint mask[]; };
+layout(std430, binding = 2) readonly buffer bin_cunt_blk { uint bin_cunt[]; };
+layout(std430, binding = 3) buffer submerged_blk { uint submerged; };
+layout(std430, binding = 4) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_rho;
+    double ball_r;
+    double pudding_b;
+    double pudding_c;
+    double pudding_e;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+layout(std430, binding = 5) readonly buffer ball_blk
+{
+    double ball_x;
+    double ball_y;
+    double ball_z;
+    double ball_vel;
+};
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint cell = (idx_z * ny + idx_y) * nx + idx_x;
+    uint state = base_mask[cell];
+    if (state != 1u && bin_cunt[cell] > 0u) { state = 2u; }
+
+    if (ball_on == 1u && state != 1u)
+    {
+        double delta_x = (double(idx_x) + 0.5) * spacing - ball_x;
+        double delta_y = (double(idx_y) + 0.5) * spacing - ball_y;
+        double delta_z = (double(idx_z) + 0.5) * spacing - ball_z;
+        if (delta_x * delta_x + delta_y * delta_y + delta_z * delta_z <= ball_r * ball_r)
+        {
+            if (state == 2u) { atomicAdd(submerged, 1u); }
+
+            state = 1u;
+        }
+    }
+
+    mask[cell] = state;
+}

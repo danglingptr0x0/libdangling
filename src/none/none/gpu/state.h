@@ -27,10 +27,11 @@ typedef struct ldg_gpu_slab
     uint64_t size;
     uint64_t offset;
     uint32_t mem_type_idx;
+    uint32_t live_cunt;
     uint8_t is_dev_local;
     uint8_t is_host_visible;
     uint8_t in_use;
-    uint8_t pudding[1];
+    uint8_t pudding[5];
 } ldg_gpu_slab_t;
 
 typedef struct ldg_gpu_buff_entry
@@ -58,11 +59,16 @@ typedef struct ldg_gpu_pipeline_entry
     uint8_t pudding[6];
 } ldg_gpu_pipeline_entry_t;
 
+#define LDG_GPU_ASYNC_BATCH_MAX 4
+
 typedef struct ldg_gpu_fence_entry
 {
     void *fence;
     void *cmd_buff;
     void *desc_set;
+    void **ds_arr;
+    uint32_t ds_cunt;
+    uint32_t ds_slot;
     uint8_t in_use;
     uint8_t pudding[7];
 } ldg_gpu_fence_entry_t;
@@ -160,11 +166,19 @@ typedef struct ldg_gpu_ctx
     uint32_t gfx_queue_family_idx;
     uint32_t flags;
     uint32_t slab_cunt;
+    uint32_t pipeline_pool_cunt;
     uint8_t has_unified_mem;
     uint8_t has_gfx;
     uint8_t has_swapchain_ext;
+    uint8_t has_float64;
     uint8_t mut_init;
-    uint8_t pudding_ctx[4];
+    uint8_t pudding_ctx[7];
+    void *batch_ds[LDG_GPU_BATCH_MAX];
+    void *async_ds[LDG_GPU_ASYNC_BATCH_MAX][LDG_GPU_BATCH_MAX];
+    uint8_t async_ds_used[LDG_GPU_ASYNC_BATCH_MAX];
+    uint8_t pudding_async[4];
+    uint8_t bind_info_blk[LDG_GPU_BIND_MAX * 32];
+    uint8_t bind_wr_blk[LDG_GPU_BIND_MAX * 96];
     ldg_gpu_slab_t slabs[LDG_GPU_MEM_SLAB_MAX];
     ldg_gpu_buff_entry_t buffs[LDG_GPU_BUFF_MAX];
     ldg_gpu_pipeline_entry_t pipelines[LDG_GPU_PIPELINE_POOL_MAX];

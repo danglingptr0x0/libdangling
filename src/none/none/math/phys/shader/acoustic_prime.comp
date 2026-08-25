@@ -1,0 +1,16 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer batch_blk
+{
+    uint seq;
+    uint pudding_seq;
+    double drive_series[4 * 255];
+    double tap_ring[8 * 255];
+};
+
+void main()
+{
+    seq = 0u;
+}

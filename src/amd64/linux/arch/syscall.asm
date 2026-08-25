@@ -29,19 +29,20 @@ ldg_syscall2:
 
 global ldg_syscall3
 ldg_syscall3:
-    mov     rax, rdi
-    mov     rdi, rsi
-    mov     rsi, rdx
-    mov     r10, rcx
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
     syscall
     ret
 
 global ldg_syscall4
 ldg_syscall4:
-    mov     rax, rdi
-    mov     rdi, rsi
-    mov     rsi, rdx
-    mov     r10, rcx
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
     syscall
     ret
 

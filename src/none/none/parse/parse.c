@@ -2,19 +2,21 @@
 #include <dangling/core/err.h>
 #include <dangling/str/str.h>
 
-uint8_t ldg_parse_streq_is(const char *a, const char *b)
+uint8_t ldg_parse_streq_is(const char *lhs, const char *rhs)
 {
-    if (LDG_UNLIKELY(!a || !b)) { return 0; }
+    if (LDG_UNLIKELY(!lhs || !rhs)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    while (*a && *b)
+    while (*lhs && *rhs)
     {
-        if (*a != *b) { return 0; }
+        if (*lhs != *rhs) { return LDG_TRUTH_FALSE; }
 
-        a++;
-        b++;
+        lhs++;
+        rhs++;
     }
 
-    return (*a == *b);
+    if (*lhs != *rhs) { return LDG_TRUTH_FALSE; }
+
+    return LDG_TRUTH_TRUE;
 }
 
 uint32_t ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
@@ -29,7 +31,7 @@ uint32_t ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
 
     while (*input && toks->cunt < LDG_TOK_MAX)
     {
-        while (ldg_char_space_is((uint8_t)*input))
+        while (ldg_char_space_is((uint8_t)*input) == LDG_TRUTH_TRUE)
         {
             input++;
             pos++;
@@ -41,19 +43,19 @@ uint32_t ldg_parse_tokenize(const char *input, ldg_tok_arr_t *toks)
         tok->pos = pos;
         val_idx = 0;
 
-        if (ldg_char_alpha_is((uint8_t)*input))
+        if (ldg_char_alpha_is((uint8_t)*input) == LDG_TRUTH_TRUE)
         {
             tok->type = LDG_TOK_WORD;
-            while (ldg_char_alpha_is((uint8_t)*input) && val_idx < LDG_TOK_LEN_MAX - 1)
+            while (ldg_char_alpha_is((uint8_t)*input) == LDG_TRUTH_TRUE && val_idx < LDG_TOK_LEN_MAX - 1)
             {
                 tok->val[val_idx++] = *input++;
                 pos++;
             }
         }
-        else if (ldg_char_digit_is((uint8_t)*input))
+        else if (ldg_char_digit_is((uint8_t)*input) == LDG_TRUTH_TRUE)
         {
             tok->type = LDG_TOK_NUM;
-            while ((ldg_char_digit_is((uint8_t)*input) || ldg_char_hex_is((uint8_t)*input) || *input == 'x' || *input == 'X') && val_idx < LDG_TOK_LEN_MAX - 1)
+            while ((ldg_char_digit_is((uint8_t)*input) == LDG_TRUTH_TRUE || ldg_char_hex_is((uint8_t)*input) == LDG_TRUTH_TRUE || *input == 'x' || *input == 'X') && val_idx < LDG_TOK_LEN_MAX - 1)
             {
                 tok->val[val_idx++] = *input++;
                 pos++;

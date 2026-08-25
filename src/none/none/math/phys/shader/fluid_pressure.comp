@@ -1,0 +1,94 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer pressure_in_blk { double pressure_in[]; };
+layout(std430, binding = 1) writeonly buffer pressure_out_blk { double pressure_out[]; };
+layout(std430, binding = 2) readonly buffer divergence_blk { double divergence[]; };
+layout(std430, binding = 3) readonly buffer mask_blk { uint mask[]; };
+layout(std430, binding = 4) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double pudding_d;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding_a;
+};
+layout(std430, binding = 5) buffer flag_blk { uint flag; };
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint plane = nx * ny;
+    uint cell = (idx_z * ny + idx_y) * nx + idx_x;
+    if (mask[cell] != 2u)
+    {
+        pressure_out[cell] = 0.0;
+        return;
+    }
+
+    if (idx_x == 0u || idx_y == 0u || idx_z == 0u || idx_x + 1u >= nx || idx_y + 1u >= ny || idx_z + 1u >= nz)
+    {
+        pressure_out[cell] = pressure_in[cell];
+        return;
+    }
+
+    double nb_sum = 0.0;
+    double nb_cunt = 0.0;
+    double candidate = 0.0;
+    if (mask[cell - 1u] != 1u)
+    {
+        nb_sum += pressure_in[cell - 1u];
+        nb_cunt += 1.0;
+    }
+
+    if (mask[cell + 1u] != 1u)
+    {
+        nb_sum += pressure_in[cell + 1u];
+        nb_cunt += 1.0;
+    }
+
+    if (mask[cell - nx] != 1u)
+    {
+        nb_sum += pressure_in[cell - nx];
+        nb_cunt += 1.0;
+    }
+
+    if (mask[cell + nx] != 1u)
+    {
+        nb_sum += pressure_in[cell + nx];
+        nb_cunt += 1.0;
+    }
+
+    if (mask[cell - plane] != 1u)
+    {
+        nb_sum += pressure_in[cell - plane];
+        nb_cunt += 1.0;
+    }
+
+    if (mask[cell + plane] != 1u)
+    {
+        nb_sum += pressure_in[cell + plane];
+        nb_cunt += 1.0;
+    }
+
+    if (nb_cunt <= 0.0)
+    {
+        pressure_out[cell] = pressure_in[cell];
+        return;
+    }
+
+    candidate = (nb_sum - divergence[cell]) / nb_cunt;
+    if (abs(candidate - pressure_in[cell]) > tol) { atomicOr(flag, 1u); }
+
+    pressure_out[cell] = candidate;
+}

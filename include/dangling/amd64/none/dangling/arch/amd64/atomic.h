@@ -7,8 +7,8 @@
 #define LDG_RD_ONCE_AGGREGATE(x) ({ typeof(x) __v; __atomic_load(&(x), &__v, __ATOMIC_RELAXED); __v; })
 #define LDG_WR_ONCE_AGGREGATE(x, val) do { typeof(x) __w = (val); __atomic_store(&(x), &__w, __ATOMIC_RELAXED); } while (0)
 
-#define LDG_LOAD_ACQUIRE(x) __atomic_load_n(&(x), __ATOMIC_ACQUIRE)
-#define LDG_STORE_RELEASE(x, val) __atomic_store_n(&(x), (val), __ATOMIC_RELEASE)
+#define LDG_LD_ACQUIRE(x) __atomic_load_n(&(x), __ATOMIC_ACQUIRE)
+#define LDG_ST_RELEASE(x, val) __atomic_store_n(&(x), (val), __ATOMIC_RELEASE)
 
 #define LDG_FETCH_ADD(x, val) __atomic_fetch_add(&(x), (val), __ATOMIC_SEQ_CST)
 #define LDG_FETCH_SUB(x, val) __atomic_fetch_sub(&(x), (val), __ATOMIC_SEQ_CST)

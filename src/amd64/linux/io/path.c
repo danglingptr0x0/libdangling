@@ -42,7 +42,7 @@ uint32_t ldg_io_path_rename(const char *old_path, const char *new_path)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_unlink(const char *path)
+uint32_t ldg_io_path_destroy(const char *path)
 {
     if (LDG_UNLIKELY(!path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -51,33 +51,27 @@ uint32_t ldg_io_path_unlink(const char *path)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_mode_set(const char *path, uint32_t mode)
+uint32_t ldg_io_path_access_set(const char *path, uint32_t access)
 {
     if (LDG_UNLIKELY(!path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(chmod(path, (mode_t)mode) < 0)) { return ldg_io_path_errno_translate(); }
+    if (LDG_UNLIKELY(chmod(path, (mode_t)access) < 0)) { return ldg_io_path_errno_translate(); }
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_exists_is(const char *path, uint8_t *exists)
+uint8_t ldg_io_path_exists_is(const char *path)
 {
-    if (LDG_UNLIKELY(!path || !exists)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *exists = 0;
+    if (access(path, F_OK) == 0) { return LDG_TRUTH_TRUE; }
 
-    if (access(path, F_OK) == 0)
-    {
-        *exists = 1;
-        return LDG_ERR_AOK;
-    }
+    if (errno == ENOENT) { return LDG_TRUTH_FALSE; }
 
-    if (errno == ENOENT) { return LDG_ERR_AOK; }
-
-    return ldg_io_path_errno_translate();
+    return LDG_TRUTH_MAYBE;
 }
 
-uint32_t ldg_io_symlink_create(const char *target, const char *link_path)
+uint32_t ldg_io_link_create(const char *target, const char *link_path)
 {
     if (LDG_UNLIKELY(!target || !link_path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -86,7 +80,7 @@ uint32_t ldg_io_symlink_create(const char *target, const char *link_path)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size, uint64_t *len)
+uint32_t ldg_io_link_rd(const char *link_path, char *buff, uint64_t buff_size, uint64_t *len)
 {
     int64_t res = 0;
 
@@ -104,8 +98,6 @@ uint32_t ldg_io_symlink_rd(const char *link_path, char *buff, uint64_t buff_size
 
     return LDG_ERR_AOK;
 }
-
-// path helpers
 
 uint8_t ldg_io_path_sep_get(void)
 {
@@ -133,7 +125,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
 
     if (LDG_UNLIKELY(base_len + 1 + name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, base, (uint64_t)base_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(buff, base, (uint64_t)base_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     pos = base_len;
 
@@ -142,7 +134,7 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
         buff[pos] = '/';
         pos++;
 
-        if (LDG_UNLIKELY(ldg_mem_secure_copy(buff + pos, name, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+        if (LDG_UNLIKELY(ldg_mem_secure_cpy(buff + pos, name, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
         pos += name_len;
     }
@@ -152,10 +144,10 @@ uint32_t ldg_io_path_join(const char *base, const char *name, char *buff, uint64
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_basename_get(const char *path, char *buff, uint64_t buff_size)
+uint32_t ldg_io_path_leaf_get(const char *path, char *buff, uint64_t buff_size)
 {
     uint64_t len = 0;
-    uint64_t i = 0;
+    uint64_t idx = 0;
     uint64_t last_sep = UINT64_MAX;
     const char *start = 0x0;
     uint64_t name_len = 0;
@@ -171,24 +163,24 @@ uint32_t ldg_io_path_basename_get(const char *path, char *buff, uint64_t buff_si
 
     while (len > 1 && path[len - 1] == '/') { len--; }
 
-    for (i = 0; i < len; i++) { if (path[i] == '/') { last_sep = i; } }
+    for (idx = 0; idx < len; idx++) { if (path[idx] == '/') { last_sep = idx; } }
 
     if (last_sep == UINT64_MAX) { start = path; name_len = len; }
     else { start = path + last_sep + 1; name_len = len - last_sep - 1; }
 
     if (LDG_UNLIKELY(name_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, start, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(buff, start, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[name_len] = LDG_STR_TERM;
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_size)
+uint32_t ldg_io_path_parent_get(const char *path, char *buff, uint64_t buff_size)
 {
     uint64_t len = 0;
-    uint64_t i = 0;
+    uint64_t idx = 0;
     uint64_t last_sep = UINT64_MAX;
     uint64_t dir_len = 0;
 
@@ -203,7 +195,7 @@ uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_siz
 
     while (len > 1 && path[len - 1] == '/') { len--; }
 
-    for (i = 0; i < len; i++) { if (path[i] == '/') { last_sep = i; } }
+    for (idx = 0; idx < len; idx++) { if (path[idx] == '/') { last_sep = idx; } }
 
     if (last_sep == UINT64_MAX)
     {
@@ -217,7 +209,7 @@ uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_siz
 
     if (LDG_UNLIKELY(dir_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path, (uint64_t)dir_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(buff, path, (uint64_t)dir_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[dir_len] = LDG_STR_TERM;
 
@@ -227,7 +219,7 @@ uint32_t ldg_io_path_dirname_get(const char *path, char *buff, uint64_t buff_siz
 uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
 {
     uint64_t len = 0;
-    uint64_t i = 0;
+    uint64_t idx = 0;
     uint64_t last_sep = UINT64_MAX;
     uint64_t dot_pos = UINT64_MAX;
     uint64_t base_start = 0;
@@ -242,18 +234,18 @@ uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
     len = strlen(path);
     if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_NOT_FOUND; }
 
-    for (i = 0; i < len; i++) { if (path[i] == '/') { last_sep = i; } }
+    for (idx = 0; idx < len; idx++) { if (path[idx] == '/') { last_sep = idx; } }
 
     base_start = (last_sep == UINT64_MAX) ? 0 : last_sep + 1;
 
-    for (i = len; i > base_start; i--) { if (path[i - 1] == '.') { dot_pos = i - 1; break; } }
+    for (idx = len; idx > base_start; idx--) { if (path[idx - 1] == '.') { dot_pos = idx - 1; break; } }
 
     if (dot_pos == UINT64_MAX || dot_pos == base_start) { return LDG_ERR_NOT_FOUND; }
 
     ext_len = len - dot_pos;
     if (LDG_UNLIKELY(ext_len + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_copy(buff, path + dot_pos, (uint64_t)ext_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(buff, path + dot_pos, (uint64_t)ext_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     buff[ext_len] = LDG_STR_TERM;
 
@@ -262,15 +254,17 @@ uint32_t ldg_io_path_ext_get(const char *path, char *buff, uint64_t buff_size)
 
 uint8_t ldg_io_path_absolute_is(const char *path)
 {
-    if (LDG_UNLIKELY(!path)) { return 0; }
+    if (LDG_UNLIKELY(!path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return (path[0] == '/') ? 1 : 0;
+    if (path[0] == '/') { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
 }
 
 uint32_t ldg_io_path_normalize(const char *path, char *buff, uint64_t buff_size)
 {
     uint64_t len = 0;
-    uint64_t i = 0;
+    uint64_t idx = 0;
     uint64_t pos = 0;
 
     if (LDG_UNLIKELY(!path || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -282,13 +276,13 @@ uint32_t ldg_io_path_normalize(const char *path, char *buff, uint64_t buff_size)
     len = strlen(path);
     if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_STR_EMPTY; }
 
-    for (i = 0; i < len; i++)
+    for (idx = 0; idx < len; idx++)
     {
         if (LDG_UNLIKELY(pos >= buff_size - LDG_STR_TERM_SIZE)) { return LDG_ERR_MEM_STR_TRUNC; }
 
-        if (path[i] == '/' && pos > 0 && buff[pos - 1] == '/') { continue; }
+        if (path[idx] == '/' && pos > 0 && buff[pos - 1] == '/') { continue; }
 
-        buff[pos] = path[i];
+        buff[pos] = path[idx];
         pos++;
     }
 
@@ -299,7 +293,7 @@ uint32_t ldg_io_path_normalize(const char *path, char *buff, uint64_t buff_size)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
+uint32_t ldg_io_path_user_get(char *buff, uint64_t buff_size)
 {
     const char *home = 0x0;
 
@@ -312,10 +306,10 @@ uint32_t ldg_io_path_home_get(char *buff, uint64_t buff_size)
     home = getenv("HOME");
     if (LDG_UNLIKELY(!home)) { return LDG_ERR_NOT_FOUND; }
 
-    return ldg_strrbrcpy(buff, home, buff_size);
+    return ldg_str_rbrcpy(buff, home, buff_size);
 }
 
-uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
+uint32_t ldg_io_path_work_get(char *buff, uint64_t buff_size)
 {
     const char *tmp = 0x0;
 
@@ -326,9 +320,125 @@ uint32_t ldg_io_path_tmp_get(char *buff, uint64_t buff_size)
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
     tmp = getenv("TMPDIR");
-    if (tmp) { return ldg_strrbrcpy(buff, tmp, buff_size); }
+    if (tmp) { return ldg_str_rbrcpy(buff, tmp, buff_size); }
 
-    return ldg_strrbrcpy(buff, "/tmp", buff_size);
+    return ldg_str_rbrcpy(buff, "/tmp", buff_size);
+}
+
+uint32_t ldg_io_path_prog_get(char *buff, uint64_t buff_size)
+{
+    int64_t res = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size < 2)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
+
+    res = (int64_t)readlink("/proc/self/exe", buff, (uint64_t)buff_size - LDG_STR_TERM_SIZE);
+    if (LDG_UNLIKELY(res < 0)) { return ldg_io_path_errno_translate(); }
+
+    if (LDG_UNLIKELY((uint64_t)res >= (uint64_t)buff_size - LDG_STR_TERM_SIZE)) { return LDG_ERR_STR_TRUNC; }
+
+    buff[res] = LDG_STR_TERM;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_io_path_conf_get(char *buff, uint64_t buff_size)
+{
+    const char *val = 0x0;
+    uint64_t len = 0;
+    uint32_t err = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
+
+    val = getenv("XDG_CONFIG_HOME");
+    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+
+    err = ldg_io_path_user_get(buff, buff_size);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    len = strlen(buff);
+    if (LDG_UNLIKELY(len + strlen("/.config") + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
+
+    return ldg_str_rbrcpy(buff + len, "/.config", buff_size - len);
+}
+
+uint32_t ldg_io_path_data_get(char *buff, uint64_t buff_size)
+{
+    const char *val = 0x0;
+    uint64_t len = 0;
+    uint32_t err = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
+
+    val = getenv("XDG_DATA_HOME");
+    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+
+    err = ldg_io_path_user_get(buff, buff_size);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    len = strlen(buff);
+    if (LDG_UNLIKELY(len + strlen("/.local/share") + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
+
+    return ldg_str_rbrcpy(buff + len, "/.local/share", buff_size - len);
+}
+
+uint32_t ldg_io_path_cache_get(char *buff, uint64_t buff_size)
+{
+    const char *val = 0x0;
+    uint64_t len = 0;
+    uint32_t err = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
+
+    val = getenv("XDG_CACHE_HOME");
+    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+
+    err = ldg_io_path_user_get(buff, buff_size);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    len = strlen(buff);
+    if (LDG_UNLIKELY(len + strlen("/.cache") + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
+
+    return ldg_str_rbrcpy(buff + len, "/.cache", buff_size - len);
+}
+
+uint32_t ldg_io_path_state_get(char *buff, uint64_t buff_size)
+{
+    const char *val = 0x0;
+    uint64_t len = 0;
+    uint32_t err = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
+
+    val = getenv("XDG_STATE_HOME");
+    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+
+    err = ldg_io_path_user_get(buff, buff_size);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    len = strlen(buff);
+    if (LDG_UNLIKELY(len + strlen("/.local/state") + LDG_STR_TERM_SIZE > buff_size)) { return LDG_ERR_MEM_STR_TRUNC; }
+
+    return ldg_str_rbrcpy(buff + len, "/.local/state", buff_size - len);
 }
 
 uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
@@ -423,7 +533,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
         if (LDG_UNLIKELY(rpos + clen >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
 
-        if (LDG_UNLIKELY(ldg_mem_secure_copy(resolved + rpos, component, (uint64_t)clen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+        if (LDG_UNLIKELY(ldg_mem_secure_cpy(resolved + rpos, component, (uint64_t)clen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
         rpos += clen;
         resolved[rpos] = LDG_STR_TERM;
@@ -445,14 +555,14 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
             if (LDG_UNLIKELY(memset(tmp, 0, PATH_MAX) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
-            if (LDG_UNLIKELY(ldg_mem_secure_copy(tmp, link_target, llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+            if (LDG_UNLIKELY(ldg_mem_secure_cpy(tmp, link_target, llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
             if (ppos < plen)
             {
                 if (LDG_UNLIKELY(llen + 1 + (plen - ppos) >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
 
                 tmp[llen] = '/';
-                if (LDG_UNLIKELY(ldg_mem_secure_copy(tmp + llen + 1, path + ppos, plen - ppos) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+                if (LDG_UNLIKELY(ldg_mem_secure_cpy(tmp + llen + 1, path + ppos, plen - ppos) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
                 tmp[llen + 1 + (plen - ppos)] = LDG_STR_TERM;
             }
@@ -484,7 +594,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
     resolved[rpos] = LDG_STR_TERM;
 
-    ret = ldg_strrbrcpy(buff, resolved, buff_size);
+    ret = ldg_str_rbrcpy(buff, resolved, buff_size);
     ldg_mem_pool_destroy(&scratch);
 
     return ret;
@@ -512,7 +622,7 @@ uint32_t ldg_io_path_expand(const char *path, char *buff, uint64_t buff_size)
     ret = ldg_mem_pool_alloc(scratch, (uint64_t)PATH_MAX, (void **)&home);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
 
-    ret = ldg_io_path_home_get(home, PATH_MAX);
+    ret = ldg_io_path_user_get(home, PATH_MAX);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
 
     if (path[1] == LDG_STR_TERM)

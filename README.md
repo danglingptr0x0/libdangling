@@ -1,5 +1,8 @@
 # libdangling
 
+## LDG 5.0.0 is finally here!!
+added a bunch of stuff needed by my other projects
+
 libdangling is my personal util lib. I grew tired of writing the same things over and over or copying chunks of code, so I wrote this lib to solve that problem. it largely follows C99 and POSIX.1-2008, and it runs on both the AMD64 and the i386. there's a GNU/Linux-native build and a windows (sadly, some of my work requires windows) cross-compile via mingw-w64 (i386 ships a freestanding 32-bit subset). it serves as the canonical source of types, err codes, mem, threading, strings, timing, timers, scheduling, an entity-component-system, net, audio, gpu compute and graphics, math (dense and sparse linear algebra, iterative solvers, graph algorithms), parsing, binary protocols, compression, I/O, and system utilities for all my projects.
 
 conforms to [dangstd 2.17](https://github.com/danglingptr0x0/dangstd).
@@ -45,7 +48,7 @@ after install, query the lib with `pkg-config --cflags --libs dangling`.
 
 ## API
 
-the API sits at level `DANGLING_4.0`. `symbols.txt` records the authoritative surface: it lists 453 exported subroutines, 1 data sym, 54 inline subroutines, 111 types, and ~331 macros. `libdangling.map` enforces sym visibility at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms.
+the API sits at level `DANGLING_5.0`. `libdangling.map` is the authoritative export list: ~1276 syms across five version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. `symbols.txt` documents the surface with signatures and semantics.
 
 the ABI ck requires `abi-dumper` and `abi-compliance-checker`:
 
@@ -61,7 +64,7 @@ make -C build abi-check
 
 `core/types.h` defines `ldg_byte_t`, `ldg_word_t`, `ldg_dword_t`, and `ldg_qword_t`, plus the short aliases `byte_t`, `word_t`, `dword_t`, and `qword_t`.
 
-`core/err.h` reserves err codes 0-690 for libdangling and leaves 700-990 for projects; every subroutine returns `uint32_t`, and `LDG_ERR_AOK` equals 0. the macros `LDG_ERRLOG_ERR/WARN/INFO()` log diagnostics.
+`core/err.h` reserves err codes 0-690 for libdangling and leaves 700-1199 for projects; every subroutine returns `uint32_t`, and `LDG_ERR_AOK` equals 0. the macros `LDG_ERRLOG_ERR/WARN/INFO()` log diagnostics.
 
 `core/macros.h` supplies `LDG_LIKELY/UNLIKELY`, `LDG_KIB/MIB/GIB`, `LDG_MS_PER_SEC`, `LDG_NS_PER_SEC`, `LDG_STRUCT_ZERO_INIT`, `LDG_AMD64_CACHE_LINE_WIDTH`, and `LDG_ALIGNED_UP/DOWN()`.
 
@@ -98,11 +101,11 @@ ldg_mem_pool_rst(var_pool);
 ldg_mem_pool_destroy(&var_pool);
 ```
 
-`mem/secure.h` provides constant-time ops; `ldg_mem_secure_zero/copy/cmp/cmov/neq_is()` all return `uint32_t`, and amd64 implements them in NASM.
+`mem/secure.h` provides constant-time ops; `ldg_mem_secure_zero/cpy/cmp/cmov()` return `uint32_t` and `ldg_mem_secure_eq_is()` returns `uint8_t`, and amd64 implements them in NASM.
 
 ### str
 
-`str/str.h` provides bounded copy (`ldg_strrbrcpy`), hex and decimal conversion (`ldg_str_to_dec`, `ldg_hex_to_dword`, `ldg_hex_to_bytes`, `ldg_byte_to_hex`, `ldg_dword_to_hex`), char predicates (`ldg_char_digit_is`, `ldg_char_alpha_is`, `ldg_char_hex_is`), and reusable FNV-1a hashing (`ldg_hash_fnv1a_32_compute`, `ldg_hash_fnv1a_64_compute`).
+`str/str.h` provides bounded copy (`ldg_str_rbrcpy`), hex and decimal conversion (`ldg_str_to_dec`, `ldg_hex_to_dword`, `ldg_hex_to_bytes`, `ldg_byte_to_hex`, `ldg_dword_to_hex`), char predicates (`ldg_char_digit_is`, `ldg_char_alpha_is`, `ldg_char_hex_is`), and reusable FNV-1a hashing (`ldg_hash_fnv1a_32_compute`, `ldg_hash_fnv1a_64_compute`).
 
 ### time
 
@@ -134,11 +137,11 @@ ldg_mpmc_shutdown(&queue);
 
 ### io
 
-`io/file.h` provides `ldg_io_file_open/close/rd/wr/seek/sync/truncate/lock/unlock/dup()`, `ldg_io_pipe_create()`, and `ldg_io_file_stat/fstat()`.
+`io/file.h` provides `ldg_io_file_open/close/rd/wr/seek/commit/truncate/lock/unlock/dup()`, `ldg_io_pipe_create()`, and `ldg_io_file_info_get()`.
 
-`io/dir.h` provides `ldg_io_dir_create/destroy/open/rd/close()`, `ldg_io_dirent_name_get()`, and `ldg_io_dirent_dir_is()`.
+`io/dir.h` provides `ldg_io_dir_create/destroy/open/rd/close()`, `ldg_io_entry_name_get()`, and `ldg_io_entry_dir_is()`.
 
-`io/path.h` provides `ldg_io_path_rename/unlink/exists_is/join/resolve/expand/normalize()`, basename, dirname, and ext extraction, symlink create and read, and home and tmp dir getters.
+`io/path.h` provides `ldg_io_path_rename/destroy/exists_is/join/resolve/expand/normalize()`, leaf, parent, and ext extraction, link create and read (`ldg_io_link_create/rd`), and user and work dir getters.
 
 ### sys
 
@@ -236,7 +239,7 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 ### math
 
-`math/math.h` defines the math subsystem's own err codes (`LDG_MATH_OK` through `LDG_MATH_DIM_MISMATCH`) and constants (`LDG_MATH_PI`, `LDG_MATH_TAU`, `LDG_MATH_DEG_TO_RAD`, `LDG_MATH_RAD_TO_DEG`).
+`math/math.h` defines the math subsystem's own err codes (`LDG_ERR_MATH_STATE` through `LDG_ERR_MATH_PATTERN_MISMATCH`) and constants (`LDG_MATH_PI`, `LDG_MATH_TAU`, `LDG_MATH_DEG_TO_RAD`, `LDG_MATH_RAD_TO_DEG`).
 
 `math/vec.h` provides header-only dense vector ops (`ldg_math_vec_zero/set/cpy/scale/axpy/sub/mul_elem`, dot, and the L1, L2, and inf norms); it stays `static inline` and depends only on the math header.
 
@@ -248,11 +251,11 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 `math/astar.h` runs A* over a caller-described graph; `ldg_math_astar_solve` returns a shortest path and `ldg_math_astar_traverse` returns the visit order, both driven by successor and heuristic callbacks.
 
-`math/linalg.h` stays header-only; `ldg_math_vec3_*` covers add, sub, scale, dot, cross, len, and scaled add, while `ldg_math_mat3_*` covers add, sub, mul, vec mul, inv, det, trace, transpose, and polar decomposition. it stays `static inline` and depends only on `<math.h>` and `<stdint.h>`.
+`math/linalg.h` stays header-only; `ldg_math_vec3_*` covers add, sub, scale, dot, cross, len, and scaled add, while `ldg_math_mat3_*` covers add, sub, mul, vec mul, inv, det, trace, transpose, and polar decomposition. it stays `static inline` and depends only on `<stdint.h>`.
 
 ### sched
 
-`sched/sched.h` runs a frame-oriented job scheduler. it ticks through phases (start, spin begin, fixed step, step, late step, spin end, stop), runs jobs on a work-stealing thread pool, and orders them with an A*-based planner under a frame deadline. it estimates each job's duration with one of three strategies (manual, a linear SVM in `sched/svm.h`, or a Bayesian model in `sched/bayes.h`) and the caller selects one through `ldg_sched_ctx_est_strat_set`. `sched/event.h` provides a filtered pub-sub event pool, `sched/job.h` provides the job pool, dependency graph, and per-worker deques, and `sched/trace.h` records a TSC-stamped trace ring.
+`sched/sched.h` runs a frame-oriented job scheduler. it ticks through phases (start, spin begin, fixed step, step, late step, spin end, stop), runs jobs on a work-stealing thread pool, and orders them with an A*-based planner under a frame deadline. it estimates each job's duration with one of three strategies (manual, a linear SVM, or a Bayesian model, both from `math/stat.h`) and the caller selects one through `ldg_sched_ctx_est_strat_set`. `sched/event.h` provides a filtered pub-sub event pool, `sched/job.h` provides the job pool, dependency graph, and per-worker deques, and `sched/trace.h` records a TSC-stamped trace ring.
 
 ### ecs
 
@@ -261,6 +264,8 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 ### compress
 
 `compress/inflate.h` inflates a zlib stream (DEFLATE under a zlib hdr, with an Adler-32 trailer) without any heap allocation; `ldg_compress_inflate(src, src_len, dst, dst_cap, out_len)` writes the inflated bytes into a caller-supplied buffer and reports the produced length.
+
+`compress/deflate.h` produces the matching zlib stream; `ldg_compress_deflate_ctx_create(pool, &ctx)` draws the hash tables from a caller-supplied pool sized by `ldg_compress_deflate_ctx_pool_size_get()`, `ldg_compress_deflate(ctx, src, src_len, dst, dst_cap, out_len)` compresses, and `ldg_compress_deflate_ctx_destroy(&ctx)` returns the pool space.
 
 ### parse
 
@@ -274,7 +279,7 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 ### arch/amd64
 
-`atomic.h` provides `LDG_RD/WR_ONCE`, `LDG_LOAD_ACQUIRE/STORE_RELEASE`, `LDG_CAS`, and `LDG_FETCH_ADD/SUB`.
+`atomic.h` provides `LDG_RD/WR_ONCE`, `LDG_LD_ACQUIRE/ST_RELEASE`, `LDG_CAS`, and `LDG_FETCH_ADD/SUB`.
 
 `fence.h` provides `LDG_MFENCE/SFENCE/LFENCE` and `LDG_SMP_MB/WMB/RMB`.
 
@@ -286,16 +291,11 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 `syscall.h` provides `ldg_syscall0` through `ldg_syscall4`.
 
-### arch/misc
+### arch/MISC
 
-`misc/misc.h` encodes, decodes, validates, and disassembles a 32-bit fixed-width ISA: 16 opcodes (cpy, ldd, std, cph, add, sub, and, or, xor, shl, shr, jmp, jnz, call, ret, cpl), 8 registers (dr0 through dr5, dr6 as LOC, dr7 as SP), and a memory map over RAM, CPU control, and IO.
+`MISC/MISC.h` encodes, decodes, validates, and disassembles a 32-bit fixed-width ISA: 23 opcodes (cpy, ld, st, cph, add, sub, and, or, xor, shl, shr, jmp, jnz, call, ret, cpl, mul, div, bcc, setcc, mulh, clz, addi), 16 registers (dr0 through dr15, dr14 as LOC, dr15 as SP), and a memory map over RAM, CPU control, and IO.
 
 ### fmt
 
 `fmt/fmt.h` embeds an uncrustify cfg; `ldg_fmt_cfg_get()` returns the string and `ldg_fmt_cfg_path_get()` returns the install path.
 
-## tests
-
-```sh
-make tests-run
-```

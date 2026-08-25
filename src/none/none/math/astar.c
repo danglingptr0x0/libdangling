@@ -1,11 +1,12 @@
-#include <string.h>
 
 #include <dangling/math/astar.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/core/macros.h>
 
 #define LDG_MATH_ASTAR_UNSEEN 0
+#define LDG_MATH_ASTAR_STEP 1
 #define LDG_MATH_ASTAR_OPEN 1
 #define LDG_MATH_ASTAR_CLOSED 2
 
@@ -15,11 +16,11 @@ static uint32_t astar_alloc_doubles(uint64_t cunt, double **out)
     uint32_t ret = 0;
 
     ret = ldg_mem_alloc(cunt * (uint64_t)sizeof(double), &tmp);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_MATH_ALLOC; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     *out = (double *)tmp;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static uint32_t astar_alloc_u64(uint64_t cunt, uint64_t **out)
@@ -28,11 +29,11 @@ static uint32_t astar_alloc_u64(uint64_t cunt, uint64_t **out)
     uint32_t ret = 0;
 
     ret = ldg_mem_alloc(cunt * (uint64_t)sizeof(uint64_t), &tmp);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_MATH_ALLOC; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     *out = (uint64_t *)tmp;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static uint32_t astar_alloc_u8(uint64_t cunt, uint8_t **out)
@@ -41,11 +42,11 @@ static uint32_t astar_alloc_u8(uint64_t cunt, uint8_t **out)
     uint32_t ret = 0;
 
     ret = ldg_mem_alloc(cunt * (uint64_t)sizeof(uint8_t), &tmp);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_MATH_ALLOC; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     *out = (uint8_t *)tmp;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static void astar_ctx_destroy_internal(ldg_math_astar_ctx_t *ctx)
@@ -82,14 +83,15 @@ static uint8_t astar_heap_less(const ldg_math_astar_ctx_t *ctx, uint64_t node_a,
 {
     double f_a = 0.0;
     double f_b = 0.0;
-    uint8_t res = 0;
+    uint8_t res = UINT8_MAX;
 
     f_a = ctx->g_score[node_a] + ctx->h_score[node_a];
     f_b = ctx->g_score[node_b] + ctx->h_score[node_b];
 
-    if (f_a < f_b) { res = 1; }
-    else if (f_a > f_b) { res = 0; }
-    else if (ctx->g_score[node_a] > ctx->g_score[node_b]) { res = 1; }
+    if (f_a < f_b) { res = LDG_TRUTH_TRUE; }
+    else if (f_a > f_b) { res = LDG_TRUTH_FALSE; }
+    else if (ctx->g_score[node_a] > ctx->g_score[node_b]) { res = LDG_TRUTH_TRUE; }
+    else { res = LDG_TRUTH_FALSE; }
 
     return res;
 }
@@ -143,12 +145,16 @@ static void astar_heap_sift_down(ldg_math_astar_ctx_t *ctx, uint64_t pos)
     }
 }
 
-static void astar_heap_push(ldg_math_astar_ctx_t *ctx, uint64_t node)
+static uint32_t astar_heap_push(ldg_math_astar_ctx_t *ctx, uint64_t node)
 {
+    if (LDG_UNLIKELY(ctx->heap_cunt >= ctx->max_nodes)) { return LDG_ERR_FULL; }
+
     ctx->heap[ctx->heap_cunt] = node;
     ctx->heap_pos[node] = ctx->heap_cunt;
     ctx->heap_cunt++;
-    astar_heap_sift_up(ctx, ctx->heap_cunt - 1);
+    astar_heap_sift_up(ctx, ctx->heap_cunt - LDG_MATH_ASTAR_STEP);
+
+    return LDG_ERR_AOK;
 }
 
 static uint64_t astar_heap_pop(ldg_math_astar_ctx_t *ctx)
@@ -175,80 +181,80 @@ LDG_EXPORT uint32_t ldg_math_astar_ctx_create(uint64_t max_nodes, uint64_t max_d
     void *tmp = 0x0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0x0;
 
-    if (LDG_UNLIKELY(max_nodes == 0 || max_degree == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(max_nodes == 0 || max_degree == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(max_nodes > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(max_nodes > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(max_degree > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(max_degree > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     ret = ldg_mem_alloc((uint64_t)sizeof(ldg_math_astar_ctx_t), &tmp);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_MATH_ALLOC; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     ctx = (ldg_math_astar_ctx_t *)tmp;
-    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_math_astar_ctx_t)) != ctx))
+    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_astar_ctx_t)) != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(ctx);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     ctx->max_nodes = max_nodes;
     ctx->max_degree = max_degree;
 
     ret = astar_alloc_doubles(max_nodes, &ctx->g_score);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_doubles(max_nodes, &ctx->h_score);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_doubles(max_degree, &ctx->cost_buff);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_u64(max_nodes, &ctx->came_from);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_u64(max_nodes, &ctx->heap);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_u64(max_nodes, &ctx->heap_pos);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_u64(max_degree, &ctx->nbr_buff);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
     }
 
     ret = astar_alloc_u8(max_nodes, &ctx->state);
-    if (LDG_UNLIKELY(ret != LDG_MATH_OK))
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         astar_ctx_destroy_internal(ctx);
         return ret;
@@ -256,19 +262,19 @@ LDG_EXPORT uint32_t ldg_math_astar_ctx_create(uint64_t max_nodes, uint64_t max_d
 
     *out = ctx;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_astar_ctx_destroy(ldg_math_astar_ctx_t **ctx)
 {
-    if (LDG_UNLIKELY(!ctx)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!*ctx)) { return LDG_MATH_OK; }
+    if (LDG_UNLIKELY(!*ctx)) { return LDG_ERR_AOK; }
 
     astar_ctx_destroy_internal(*ctx);
     *ctx = 0x0;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t start, uint64_t goal, ldg_math_astar_succ_cb_t succ_cb, ldg_math_astar_heur_cb_t heur_cb, void *user_ctx, uint64_t *path_out, uint64_t path_cap, uint64_t *path_cunt, double *total_cost)
@@ -283,13 +289,13 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
     double cand_g = 0.0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!ctx || !succ_cb || !path_out || !path_cunt || !total_cost)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || !succ_cb || !path_out || !path_cunt || !total_cost)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *path_cunt = 0;
     *total_cost = 0.0;
-    if (LDG_UNLIKELY(start >= ctx->max_nodes || goal >= ctx->max_nodes)) { return LDG_MATH_BOUNDS; }
+    if (LDG_UNLIKELY(start >= ctx->max_nodes || goal >= ctx->max_nodes)) { return LDG_ERR_BOUNDS; }
 
-    if (LDG_UNLIKELY(path_cap == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(path_cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < ctx->max_nodes; idx++)
     {
@@ -302,7 +308,8 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
     ctx->g_score[start] = 0.0;
     ctx->h_score[start] = astar_heur_eval(heur_cb, start, goal, user_ctx);
     ctx->state[start] = LDG_MATH_ASTAR_OPEN;
-    astar_heap_push(ctx, start);
+    ret = astar_heap_push(ctx, start);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     while (ctx->heap_cunt > 0)
     {
@@ -313,15 +320,19 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
         {
             node = goal;
             path_len = 0;
-            while (1)
+            while (path_len <= ctx->max_nodes)
             {
                 path_len++;
                 if (node == start) { break; }
 
                 node = ctx->came_from[node];
+
+                if (LDG_UNLIKELY(node >= ctx->max_nodes)) { return LDG_ERR_MEM_CORRUPTION; }
             }
 
-            if (LDG_UNLIKELY(path_len > path_cap)) { return LDG_MATH_BOUNDS; }
+            if (LDG_UNLIKELY(path_len > ctx->max_nodes)) { return LDG_ERR_MEM_CORRUPTION; }
+
+            if (LDG_UNLIKELY(path_len > path_cap)) { return LDG_ERR_BOUNDS; }
 
             node = goal;
             idx = path_len;
@@ -335,22 +346,22 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
             *path_cunt = path_len;
             *total_cost = ctx->g_score[goal];
 
-            return LDG_MATH_OK;
+            return LDG_ERR_AOK;
         }
 
         ret = succ_cb(cur, ctx->nbr_buff, ctx->cost_buff, ctx->max_degree, &nbr_cunt, user_ctx);
-        if (LDG_UNLIKELY(ret != LDG_MATH_OK)) { return ret; }
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if (LDG_UNLIKELY(nbr_cunt > ctx->max_degree)) { return LDG_MATH_BOUNDS; }
+        if (LDG_UNLIKELY(nbr_cunt > ctx->max_degree)) { return LDG_ERR_BOUNDS; }
 
         for (idx = 0; idx < nbr_cunt; idx++)
         {
             nbr = ctx->nbr_buff[idx];
             edge_cost = ctx->cost_buff[idx];
 
-            if (LDG_UNLIKELY(nbr >= ctx->max_nodes)) { return LDG_MATH_BOUNDS; }
+            if (LDG_UNLIKELY(nbr >= ctx->max_nodes)) { return LDG_ERR_BOUNDS; }
 
-            if (LDG_UNLIKELY(edge_cost < 0.0)) { return LDG_MATH_ARG_INVALID; }
+            if (LDG_UNLIKELY(edge_cost < 0.0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
             cand_g = ctx->g_score[cur] + edge_cost;
 
@@ -360,7 +371,8 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
                 ctx->h_score[nbr] = astar_heur_eval(heur_cb, nbr, goal, user_ctx);
                 ctx->came_from[nbr] = cur;
                 ctx->state[nbr] = LDG_MATH_ASTAR_OPEN;
-                astar_heap_push(ctx, nbr);
+                ret = astar_heap_push(ctx, nbr);
+                if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
             }
             else if (cand_g < ctx->g_score[nbr])
             {
@@ -370,13 +382,14 @@ LDG_EXPORT uint32_t ldg_math_astar_solve(ldg_math_astar_ctx_t *ctx, uint64_t sta
                 else
                 {
                     ctx->state[nbr] = LDG_MATH_ASTAR_OPEN;
-                    astar_heap_push(ctx, nbr);
+                    ret = astar_heap_push(ctx, nbr);
+                    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
                 }
             }
         }
     }
 
-    return LDG_MATH_NOT_FOUND;
+    return LDG_ERR_NOT_FOUND;
 }
 
 LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t start, ldg_math_astar_succ_cb_t succ_cb, ldg_math_astar_heur_cb_t heur_cb, void *user_ctx, uint64_t *order_out, uint64_t order_cap, uint64_t *order_cunt, double *total_cost)
@@ -391,13 +404,13 @@ LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t 
     double max_g = 0.0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!ctx || !succ_cb || !order_out || !order_cunt || !total_cost)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || !succ_cb || !order_out || !order_cunt || !total_cost)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *order_cunt = 0;
     *total_cost = 0.0;
-    if (LDG_UNLIKELY(start >= ctx->max_nodes)) { return LDG_MATH_BOUNDS; }
+    if (LDG_UNLIKELY(start >= ctx->max_nodes)) { return LDG_ERR_BOUNDS; }
 
-    if (LDG_UNLIKELY(order_cap == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(order_cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < ctx->max_nodes; idx++)
     {
@@ -410,14 +423,15 @@ LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t 
     ctx->g_score[start] = 0.0;
     ctx->h_score[start] = astar_heur_eval(heur_cb, start, UINT64_MAX, user_ctx);
     ctx->state[start] = LDG_MATH_ASTAR_OPEN;
-    astar_heap_push(ctx, start);
+    ret = astar_heap_push(ctx, start);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     while (ctx->heap_cunt > 0)
     {
         cur = astar_heap_pop(ctx);
         ctx->state[cur] = LDG_MATH_ASTAR_CLOSED;
 
-        if (LDG_UNLIKELY(closed_cunt >= order_cap)) { return LDG_MATH_BOUNDS; }
+        if (LDG_UNLIKELY(closed_cunt >= order_cap)) { return LDG_ERR_BOUNDS; }
 
         order_out[closed_cunt] = cur;
         closed_cunt++;
@@ -425,18 +439,18 @@ LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t 
         if (ctx->g_score[cur] > max_g) { max_g = ctx->g_score[cur]; }
 
         ret = succ_cb(cur, ctx->nbr_buff, ctx->cost_buff, ctx->max_degree, &nbr_cunt, user_ctx);
-        if (LDG_UNLIKELY(ret != LDG_MATH_OK)) { return ret; }
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if (LDG_UNLIKELY(nbr_cunt > ctx->max_degree)) { return LDG_MATH_BOUNDS; }
+        if (LDG_UNLIKELY(nbr_cunt > ctx->max_degree)) { return LDG_ERR_BOUNDS; }
 
         for (idx = 0; idx < nbr_cunt; idx++)
         {
             nbr = ctx->nbr_buff[idx];
             edge_cost = ctx->cost_buff[idx];
 
-            if (LDG_UNLIKELY(nbr >= ctx->max_nodes)) { return LDG_MATH_BOUNDS; }
+            if (LDG_UNLIKELY(nbr >= ctx->max_nodes)) { return LDG_ERR_BOUNDS; }
 
-            if (LDG_UNLIKELY(edge_cost < 0.0)) { return LDG_MATH_ARG_INVALID; }
+            if (LDG_UNLIKELY(edge_cost < 0.0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
             if (ctx->state[nbr] == LDG_MATH_ASTAR_CLOSED) { continue; }
 
@@ -448,7 +462,8 @@ LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t 
                 ctx->h_score[nbr] = astar_heur_eval(heur_cb, nbr, UINT64_MAX, user_ctx);
                 ctx->came_from[nbr] = cur;
                 ctx->state[nbr] = LDG_MATH_ASTAR_OPEN;
-                astar_heap_push(ctx, nbr);
+                ret = astar_heap_push(ctx, nbr);
+                if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
             }
             else if (cand_g < ctx->g_score[nbr])
             {
@@ -462,5 +477,5 @@ LDG_EXPORT uint32_t ldg_math_astar_traverse(ldg_math_astar_ctx_t *ctx, uint64_t 
     *order_cunt = closed_cunt;
     *total_cost = max_g;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }

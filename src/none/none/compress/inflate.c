@@ -21,15 +21,15 @@ typedef struct inflate_state
     uint64_t incnt;
     uint64_t outlen;
     uint64_t outcnt;
-    uint32_t bitbuf;
+    uint32_t bitbuff;
     uint32_t bitcnt;
 } inflate_state_t;
 
 static uint32_t inflate_bits(inflate_state_t *st, uint32_t need, uint32_t *out_val)
 {
-    uint32_t val = 0x0;
+    uint32_t val = 0;
 
-    val = st->bitbuf;
+    val = st->bitbuff;
     while (st->bitcnt < need)
     {
         if (LDG_UNLIKELY(st->incnt >= st->inlen)) { return LDG_ERR_INVALID; }
@@ -39,7 +39,7 @@ static uint32_t inflate_bits(inflate_state_t *st, uint32_t need, uint32_t *out_v
         st->bitcnt += 8;
     }
 
-    st->bitbuf = val >> need;
+    st->bitbuff = val >> need;
     st->bitcnt -= need;
     *out_val = val & (((uint32_t)1 << need) - 1);
     return LDG_ERR_AOK;
@@ -47,13 +47,13 @@ static uint32_t inflate_bits(inflate_state_t *st, uint32_t need, uint32_t *out_v
 
 static uint32_t inflate_decode(inflate_state_t *st, const uint16_t *cunt, const uint16_t *sym, int32_t *out_sym)
 {
-    uint32_t code = 0x0;
-    uint32_t first = 0x0;
-    uint32_t idx = 0x0;
-    uint32_t len_cunt = 0x0;
-    int32_t len = 0x0;
-    uint32_t bit = 0x0;
-    uint32_t ret = 0x0;
+    uint32_t code = 0;
+    uint32_t first = 0;
+    uint32_t idx = 0;
+    uint32_t len_cunt = 0;
+    int32_t len = 0;
+    uint32_t bit = 0;
+    uint32_t ret = 0;
 
     for (len = 1; len <= LDG_INFLATE_MAX_BITS; len++)
     {
@@ -80,9 +80,9 @@ static uint32_t inflate_decode(inflate_state_t *st, const uint16_t *cunt, const 
 static uint32_t inflate_construct(uint16_t *cunt, uint16_t *sym, const uint8_t *code_len, uint32_t num, uint32_t *out_avail)
 {
     uint16_t offs[LDG_INFLATE_MAX_BITS + 1] = LDG_ARR_ZERO_INIT;
-    uint32_t idx = 0x0;
-    int32_t len = 0x0;
-    uint32_t avail = 0x0;
+    uint32_t idx = 0;
+    int32_t len = 0;
+    uint32_t avail = 0;
 
     for (len = 0; len <= LDG_INFLATE_MAX_BITS; len++) { cunt[len] = 0; }
 
@@ -119,15 +119,15 @@ static uint32_t inflate_construct(uint16_t *cunt, uint16_t *sym, const uint8_t *
 
 static LDG_INFLATE_NOINLINE uint32_t inflate_codes(inflate_state_t *st, const uint16_t *len_cunt, const uint16_t *len_sym, const uint16_t *dist_cunt, const uint16_t *dist_sym)
 {
-    const uint16_t lens[29] = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258 };
-    const uint16_t lext[29] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0 };
-    const uint16_t dists[30] = { 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577 };
-    const uint16_t dext[30] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13 };
-    int32_t sym = 0x0;
-    uint32_t len = 0x0;
-    uint64_t dist = 0x0;
-    uint32_t extra = 0x0;
-    uint32_t ret = 0x0;
+    const uint16_t len_base[29] = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258 };
+    const uint16_t len_extra[29] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0 };
+    const uint16_t dist_base[30] = { 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577 };
+    const uint16_t dist_extra[30] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13 };
+    int32_t sym = 0;
+    uint32_t len = 0;
+    uint64_t dist = 0;
+    uint32_t extra = 0;
+    uint32_t ret = 0;
 
     do
     {
@@ -146,20 +146,20 @@ static LDG_INFLATE_NOINLINE uint32_t inflate_codes(inflate_state_t *st, const ui
             sym -= 257;
             if (LDG_UNLIKELY(sym >= 29)) { return LDG_ERR_INVALID; }
 
-            ret = inflate_bits(st, lext[sym], &extra);
+            ret = inflate_bits(st, len_extra[sym], &extra);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-            len = (uint32_t)lens[sym] + extra;
+            len = (uint32_t)len_base[sym] + extra;
 
             ret = inflate_decode(st, dist_cunt, dist_sym, &sym);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
             if (LDG_UNLIKELY(sym >= 30)) { return LDG_ERR_INVALID; }
 
-            ret = inflate_bits(st, dext[sym], &extra);
+            ret = inflate_bits(st, dist_extra[sym], &extra);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-            dist = (uint64_t)dists[sym] + extra;
+            dist = (uint64_t)dist_base[sym] + extra;
             if (LDG_UNLIKELY(dist > st->outcnt)) { return LDG_ERR_INVALID; }
 
             while (len > 0)
@@ -178,10 +178,10 @@ static LDG_INFLATE_NOINLINE uint32_t inflate_codes(inflate_state_t *st, const ui
 
 static uint32_t inflate_stored(inflate_state_t *st)
 {
-    uint32_t len = 0x0;
-    uint32_t nlen = 0x0;
+    uint32_t len = 0;
+    uint32_t nlen = 0;
 
-    st->bitbuf = 0;
+    st->bitbuff = 0;
     st->bitcnt = 0;
 
     if (LDG_UNLIKELY(st->incnt + 4 > st->inlen)) { return LDG_ERR_INVALID; }
@@ -212,9 +212,9 @@ static uint32_t inflate_stored(inflate_state_t *st)
 static LDG_INFLATE_NOINLINE uint32_t inflate_fixed(inflate_state_t *st, uint16_t *len_cunt, uint16_t *len_sym, uint16_t *dist_cunt, uint16_t *dist_sym)
 {
     uint8_t code_len[LDG_INFLATE_MAX_LIT] = LDG_ARR_ZERO_INIT;
-    uint32_t idx = 0x0;
-    uint32_t avail = 0x0;
-    uint32_t ret = 0x0;
+    uint32_t idx = 0;
+    uint32_t avail = 0;
+    uint32_t ret = 0;
 
     for (idx = 0; idx < 144; idx++) { code_len[idx] = 8; }
 
@@ -241,16 +241,16 @@ static LDG_INFLATE_NOINLINE uint32_t inflate_dynamic(inflate_state_t *st, uint16
     uint8_t code_len[LDG_INFLATE_MAX_LIT + LDG_INFLATE_MAX_DIST] = LDG_ARR_ZERO_INIT;
     uint16_t cl_cunt[LDG_INFLATE_MAX_BITS + 1] = LDG_ARR_ZERO_INIT;
     uint16_t cl_sym[LDG_INFLATE_MAX_CODE_LEN] = LDG_ARR_ZERO_INIT;
-    int32_t sym = 0x0;
-    uint32_t avail = 0x0;
-    uint32_t nlen = 0x0;
-    uint32_t ndist = 0x0;
-    uint32_t ncode = 0x0;
-    uint32_t idx = 0x0;
-    uint32_t prev = 0x0;
-    uint32_t repeat = 0x0;
-    uint32_t val = 0x0;
-    uint32_t ret = 0x0;
+    int32_t sym = 0;
+    uint32_t avail = 0;
+    uint32_t nlen = 0;
+    uint32_t ndist = 0;
+    uint32_t ncode = 0;
+    uint32_t idx = 0;
+    uint32_t prev = 0;
+    uint32_t repeat = 0;
+    uint32_t val = 0;
+    uint32_t ret = 0;
 
     ret = inflate_bits(st, 5, &val);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -365,12 +365,12 @@ static LDG_INFLATE_NOINLINE uint32_t inflate_dynamic(inflate_state_t *st, uint16
 
 static uint32_t inflate_adler32(const uint8_t *data, uint64_t len)
 {
-    uint32_t sum1 = 1;
-    uint32_t sum2 = 0;
-    uint64_t idx = 0x0;
-    uint64_t remain = 0x0;
-    uint64_t block = 0x0;
-    uint64_t inner = 0x0;
+    uint32_t lo = 1;
+    uint32_t hi = 0;
+    uint64_t idx = 0;
+    uint64_t remain = 0;
+    uint64_t block = 0;
+    uint64_t inner = 0;
 
     remain = len;
     while (remain > 0)
@@ -380,17 +380,17 @@ static uint32_t inflate_adler32(const uint8_t *data, uint64_t len)
 
         for (inner = 0; inner < block; inner++)
         {
-            sum1 += (uint32_t)data[idx];
-            sum2 += sum1;
+            lo += (uint32_t)data[idx];
+            hi += lo;
             idx++;
         }
 
-        sum1 %= LDG_INFLATE_ADLER_BASE;
-        sum2 %= LDG_INFLATE_ADLER_BASE;
+        lo %= LDG_INFLATE_ADLER_BASE;
+        hi %= LDG_INFLATE_ADLER_BASE;
         remain -= block;
     }
 
-    return (sum2 << 16) | sum1;
+    return (hi << 16) | lo;
 }
 
 LDG_EXPORT uint32_t ldg_compress_inflate(const uint8_t *src, uint64_t src_len, uint8_t *dst, uint64_t dst_cap, uint64_t *out_len)
@@ -400,13 +400,13 @@ LDG_EXPORT uint32_t ldg_compress_inflate(const uint8_t *src, uint64_t src_len, u
     uint16_t len_sym[LDG_INFLATE_MAX_LIT] = LDG_ARR_ZERO_INIT;
     uint16_t dist_cunt[LDG_INFLATE_MAX_BITS + 1] = LDG_ARR_ZERO_INIT;
     uint16_t dist_sym[LDG_INFLATE_MAX_DIST] = LDG_ARR_ZERO_INIT;
-    uint32_t cmf = 0x0;
-    uint32_t flg = 0x0;
-    uint32_t bfinal = 0x0;
-    uint32_t btype = 0x0;
-    uint32_t computed = 0x0;
-    uint32_t stored_adler = 0x0;
-    uint32_t ret = 0x0;
+    uint32_t cmf = 0;
+    uint32_t flg = 0;
+    uint32_t bfinal = 0;
+    uint32_t btype = 0;
+    uint32_t computed = 0;
+    uint32_t stored_adler = 0;
+    uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!src || !dst || !out_len)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -430,7 +430,7 @@ LDG_EXPORT uint32_t ldg_compress_inflate(const uint8_t *src, uint64_t src_len, u
     state.out = dst;
     state.outlen = dst_cap;
     state.outcnt = 0;
-    state.bitbuf = 0;
+    state.bitbuff = 0;
     state.bitcnt = 0;
 
     do

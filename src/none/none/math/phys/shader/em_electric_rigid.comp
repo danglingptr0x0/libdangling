@@ -1,0 +1,104 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) buffer electric_blk { double electric[]; };
+layout(std430, binding = 1) readonly buffer magnetic_blk { double magnetic[]; };
+layout(std430, binding = 2) readonly buffer param_blk
+{
+    double inv_spacing;
+    double coeff_ca;
+    double coeff_cb;
+    double coeff_db;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pml_depth;
+    uint coeff_mode;
+    uint pudding_a;
+    uint pudding_b;
+    uint pudding_c;
+};
+layout(std430, binding = 3) readonly buffer batch_blk
+{
+    uint seq;
+    uint pudding_seq;
+    double drive_series[4 * 255];
+    double tap_ring[8 * 255];
+};
+layout(std430, binding = 4) readonly buffer tap_param_blk
+{
+    double frac_x[8];
+    double frac_y[8];
+    double frac_z[8];
+    double src_weight[8];
+    uint corner[8];
+    uint stride_y;
+    uint stride_z;
+    uint batch_cap;
+    uint probe_cunt;
+    uint src_cell[8];
+    uint src_comp[8];
+    uint src_slot[8];
+    uint src_cunt;
+    uint pudding_src[3];
+};
+layout(std430, binding = 5) readonly buffer mask_blk { uint pec_mask[]; };
+layout(std430, binding = 6) readonly buffer cell_coeff_blk { double cell_coeff[]; };
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    if (pml_depth > 0u)
+    {
+        if (!(idx_x >= pml_depth && idx_x + pml_depth + 1u < nx && idx_y >= pml_depth && idx_y + pml_depth + 1u < ny && idx_z >= pml_depth && idx_z + pml_depth + 1u < nz)) { return; }
+    }
+
+    uint cell_cunt = nx * ny * nz;
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    if (((pec_mask[center >> 5u] >> (center & 31u)) & 1u) == 1u) { return; }
+
+    uint src_idx = 0u;
+    double ca_val = (coeff_mode == 1u) ? cell_coeff[center] : coeff_ca;
+    double cb_val = (coeff_mode == 1u) ? cell_coeff[cell_cunt + center] : coeff_cb;
+    double diff_a = 0.0;
+    double diff_b = 0.0;
+    double drive_x = 0.0;
+    double drive_y = 0.0;
+    double drive_z = 0.0;
+    for (src_idx = 0u; src_idx < src_cunt; src_idx++)
+    {
+        if (center == src_cell[src_idx])
+        {
+            double drive_val = drive_series[src_slot[src_idx] * 255u + seq] * src_weight[src_idx];
+            if (src_comp[src_idx] == 0u) { drive_x = drive_val; }
+            else if (src_comp[src_idx] == 1u) { drive_y = drive_val; }
+            else { drive_z = drive_val; }
+        }
+    }
+    if (idx_y >= 1u && idx_z >= 1u)
+    {
+        diff_a = (magnetic[2u * cell_cunt + center] - magnetic[2u * cell_cunt + center - nx]) * inv_spacing;
+        diff_b = (magnetic[cell_cunt + center] - magnetic[cell_cunt + center - plane]) * inv_spacing;
+        electric[center] = ca_val * electric[center] + cb_val * (diff_a - diff_b - drive_x);
+    }
+
+    if (idx_x >= 1u && idx_z >= 1u)
+    {
+        diff_a = (magnetic[center] - magnetic[center - plane]) * inv_spacing;
+        diff_b = (magnetic[2u * cell_cunt + center] - magnetic[2u * cell_cunt + center - 1u]) * inv_spacing;
+        electric[cell_cunt + center] = ca_val * electric[cell_cunt + center] + cb_val * (diff_a - diff_b - drive_y);
+    }
+
+    if (idx_x >= 1u && idx_y >= 1u)
+    {
+        diff_a = (magnetic[cell_cunt + center] - magnetic[cell_cunt + center - 1u]) * inv_spacing;
+        diff_b = (magnetic[center] - magnetic[center - nx]) * inv_spacing;
+        electric[2u * cell_cunt + center] = ca_val * electric[2u * cell_cunt + center] + cb_val * (diff_a - diff_b - drive_z);
+    }
+}

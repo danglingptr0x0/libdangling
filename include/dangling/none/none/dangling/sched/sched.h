@@ -5,13 +5,12 @@
 
 #include <dangling/core/macros.h>
 #include <dangling/math/astar.h>
+#include <dangling/math/stat.h>
 #include <dangling/time/perf.h>
 #include <dangling/time/timer.h>
 #include <dangling/thread/pool.h>
 #include <dangling/sched/event.h>
 #include <dangling/sched/job.h>
-#include <dangling/sched/svm.h>
-#include <dangling/sched/bayes.h>
 #include <dangling/sched/trace.h>
 
 #define LDG_SCHED_WORKER_MAX 64
@@ -19,6 +18,9 @@
 #define LDG_SCHED_SPIN_DT_MAX 0.25
 
 #define LDG_SCHED_WORKER_CUNT_DEFAULT 4
+#define LDG_SCHED_DRAIN_WAVE_MAX 4096
+#define LDG_SCHED_DRAIN_SPIN_MAX 16777216
+#define LDG_SCHED_MULTI_WORKER_MIN 2
 #define LDG_SCHED_SVM_COST_DEFAULT 1.0
 #define LDG_SCHED_SVM_EPSILON_DEFAULT 0.1
 
@@ -44,6 +46,33 @@ typedef enum ldg_sched_est_strat
     LDG_SCHED_EST_STRAT_BAYES,
     LDG_SCHED_EST_STRAT_MAX
 } ldg_sched_est_strat_t;
+
+#define LDG_SCHED_SVM_FEAT_CUNT 16
+
+typedef enum ldg_sched_svm_feat_idx
+{
+    LDG_SCHED_SVM_FEAT_JOB_TYPE = 0,
+    LDG_SCHED_SVM_FEAT_INPUT_SIZE,
+    LDG_SCHED_SVM_FEAT_HIST_MEAN,
+    LDG_SCHED_SVM_FEAT_HIST_VAR,
+    LDG_SCHED_SVM_FEAT_HIST_MIN,
+    LDG_SCHED_SVM_FEAT_HIST_MAX,
+    LDG_SCHED_SVM_FEAT_CPU_LOAD,
+    LDG_SCHED_SVM_FEAT_MEM_PRESSURE,
+    LDG_SCHED_SVM_FEAT_CACHE_MISS_RATE,
+    LDG_SCHED_SVM_FEAT_LAST_DURATION,
+    LDG_SCHED_SVM_FEAT_LAST_ERR,
+    LDG_SCHED_SVM_FEAT_FRAME_BUDGET_REMAINING,
+    LDG_SCHED_SVM_FEAT_PENDING_JOB_CUNT,
+    LDG_SCHED_SVM_FEAT_ACTIVE_WORKER_CUNT,
+    LDG_SCHED_SVM_FEAT_RESERVED0,
+    LDG_SCHED_SVM_FEAT_RESERVED1
+} ldg_sched_svm_feat_idx_t;
+
+typedef struct ldg_sched_svm_feat
+{
+    double val[LDG_SCHED_SVM_FEAT_CUNT];
+} ldg_sched_svm_feat_t;
 
 typedef struct ldg_sched_conf
 {
@@ -79,8 +108,8 @@ typedef struct ldg_sched_ctx
     ldg_sched_event_pool_t event_pool;
     ldg_time_timer_wheel_t timer_wheel;
     ldg_sched_job_pool_t job_pool;
-    ldg_sched_svm_t svm;
-    ldg_sched_bayes_t bayes;
+    ldg_math_stat_svm_t svm;
+    ldg_math_stat_bayes_t bayes;
     ldg_sched_trace_ring_t trace;
     ldg_sched_worker_deque_t worker_deques[LDG_SCHED_WORKER_MAX];
     ldg_thread_pool_t pool;
@@ -97,7 +126,7 @@ typedef struct ldg_sched_ctx
     uint8_t pudding[51];
 } LDG_ALIGNED ldg_sched_ctx_t;
 
-LDG_EXPORT uint32_t ldg_sched_conf_default(ldg_sched_conf_t *conf);
+LDG_EXPORT uint32_t ldg_sched_conf_default_get(ldg_sched_conf_t *conf);
 LDG_EXPORT uint32_t ldg_sched_ctx_init(ldg_sched_ctx_t *ctx, const ldg_sched_conf_t *conf);
 LDG_EXPORT uint32_t ldg_sched_ctx_shutdown(ldg_sched_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_sched_ctx_spin(ldg_sched_ctx_t *ctx);
@@ -118,9 +147,6 @@ LDG_EXPORT uint32_t ldg_sched_ctx_job_dep_add(ldg_sched_ctx_t *ctx, ldg_sched_jo
 LDG_EXPORT uint32_t ldg_sched_ctx_job_class_set(ldg_sched_ctx_t *ctx, ldg_sched_job_id_t id, uint16_t job_class);
 LDG_EXPORT uint32_t ldg_sched_ctx_est_strat_set(ldg_sched_ctx_t *ctx, uint32_t est_strat);
 LDG_EXPORT uint32_t ldg_sched_ctx_est_strat_get(ldg_sched_ctx_t *ctx, uint32_t *out);
-LDG_EXPORT uint32_t ldg_sched_ctx_bayes_risk_k_set(ldg_sched_ctx_t *ctx, double risk_k);
-LDG_EXPORT uint32_t ldg_sched_ctx_bayes_observe(ldg_sched_ctx_t *ctx, uint16_t job_class, double duration);
-LDG_EXPORT uint32_t ldg_sched_ctx_bayes_proj(ldg_sched_ctx_t *ctx, uint16_t job_class, double *out);
 LDG_EXPORT uint32_t ldg_sched_ctx_job_deadline_set(ldg_sched_ctx_t *ctx, ldg_sched_job_id_t id, double deadline);
 LDG_EXPORT uint32_t ldg_sched_ctx_trace_push(ldg_sched_ctx_t *ctx, ldg_sched_trace_type_t type, uint32_t data0, uint64_t data1);
 LDG_EXPORT uint32_t ldg_sched_ctx_dt_get(ldg_sched_ctx_t *ctx, double *out);

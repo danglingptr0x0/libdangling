@@ -50,6 +50,15 @@ typedef struct ldg_curl_easy_ctx
 
 typedef uint64_t (*ldg_curl_stream_cb_t)(void *chunk, uint64_t size, void *user_data);
 
+typedef struct ldg_curl_emiemi_res
+{
+    const uint8_t *payload;
+    uint32_t payload_len;
+    uint32_t req_checksum;
+    uint32_t resp_checksum;
+    uint8_t pudding[4];
+} ldg_curl_emiemi_res_t;
+
 LDG_EXPORT void ldg_curl_resp_init(ldg_curl_resp_t *resp);
 LDG_EXPORT void ldg_curl_resp_free(ldg_curl_resp_t *resp);
 
@@ -62,14 +71,16 @@ LDG_EXPORT uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *u
 LDG_EXPORT uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out);
 
-LDG_EXPORT uint32_t ldg_curl_hdrs_append(void **list, const char *hdr);
-LDG_EXPORT uint32_t ldg_curl_hdrs_copy(void *src, void **dst);
-LDG_EXPORT void ldg_curl_hdrs_destroy(void **list);
+LDG_EXPORT uint32_t ldg_curl_hdr_append(void **list, const char *hdr);
+LDG_EXPORT uint32_t ldg_curl_hdr_cpy(void *src, void **dst);
+LDG_EXPORT void ldg_curl_hdr_destroy(void **list);
 
 LDG_EXPORT uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx);
 LDG_EXPORT void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_resp_t *resp);
 LDG_EXPORT uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_curl_resp_t *resp);
+LDG_EXPORT uint32_t ldg_curl_easy_raw_post(ldg_curl_easy_ctx_t *ctx, const char *url, const void *data, uint64_t len, void *hdrs, ldg_curl_resp_t *resp);
+LDG_EXPORT uint32_t ldg_curl_emiemi_post(ldg_curl_easy_ctx_t *ctx, const char *url, const uint8_t *payload, uint32_t payload_len, void *hdrs, ldg_curl_resp_t *resp, ldg_curl_emiemi_res_t *out);
 LDG_EXPORT uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_stream_cb_t cb, void *user_data);
 LDG_EXPORT uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_curl_stream_cb_t cb, void *user_data);
 

@@ -1,0 +1,105 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) buffer velocity_blk { double velocity[]; };
+layout(std430, binding = 1) readonly buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 2) readonly buffer mtl_blk { uint mtl_packed[]; };
+layout(std430, binding = 3) readonly buffer coeff_blk { double coeff[]; };
+layout(std430, binding = 4) readonly buffer param_blk
+{
+    double spacing;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding;
+};
+layout(std430, binding = 5) buffer batch_blk
+{
+    uint seq;
+    uint pudding_seq;
+    double drive_series[4 * 255];
+    double tap_ring[8 * 255];
+};
+layout(std430, binding = 6) readonly buffer tap_param_blk
+{
+    double frac_x[8];
+    double frac_y[8];
+    double frac_z[8];
+    double src_weight[8];
+    uint corner[8];
+    uint stride_y;
+    uint stride_z;
+    uint batch_cap;
+    uint probe_cunt;
+    uint src_cell[8];
+    uint src_comp[8];
+    uint src_slot[8];
+    uint src_cunt;
+    uint pudding_src[3];
+};
+
+const uint COEFF_STRIDE = 6u;
+const uint COEFF_CV = 5u;
+
+uint mtl_get(uint cell)
+{
+    uint word = mtl_packed[cell >> 1u];
+    return ((cell & 1u) == 1u) ? (word >> 16u) : (word & 0xFFFFu);
+}
+
+double cv_get(uint cell)
+{
+    return coeff[mtl_get(cell) * COEFF_STRIDE + COEFF_CV];
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    if (idx_x == 0u && idx_y == 0u && idx_z == 0u)
+    {
+        uint tick = seq;
+        if (tick > 0u)
+        {
+            uint probe_idx = 0u;
+            for (probe_idx = 0u; probe_idx < probe_cunt; probe_idx++)
+            {
+                uint base = corner[probe_idx];
+                double lo_val = pressure[base] + (pressure[base + 1u] - pressure[base]) * frac_x[probe_idx];
+                double hi_val = pressure[base + stride_y] + (pressure[base + stride_y + 1u] - pressure[base + stride_y]) * frac_x[probe_idx];
+                double front = lo_val + (hi_val - lo_val) * frac_y[probe_idx];
+                lo_val = pressure[base + stride_z] + (pressure[base + stride_z + 1u] - pressure[base + stride_z]) * frac_x[probe_idx];
+                hi_val = pressure[base + stride_z + stride_y] + (pressure[base + stride_z + stride_y + 1u] - pressure[base + stride_z + stride_y]) * frac_x[probe_idx];
+                double back = lo_val + (hi_val - lo_val) * frac_y[probe_idx];
+                tap_ring[(tick - 1u) * 8u + probe_idx] = front + (back - front) * frac_z[probe_idx];
+            }
+        }
+        seq = tick + 1u;
+    }
+
+    uint cell_cunt = nx * ny * nz;
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    double cv_face = 0.0;
+    if (idx_x + 1u < nx)
+    {
+        cv_face = 0.5 * (cv_get(center) + cv_get(center + 1u));
+        velocity[center] -= cv_face * (pressure[center + 1u] - pressure[center]) / spacing;
+    }
+
+    if (idx_y + 1u < ny)
+    {
+        cv_face = 0.5 * (cv_get(center) + cv_get(center + nx));
+        velocity[cell_cunt + center] -= cv_face * (pressure[center + nx] - pressure[center]) / spacing;
+    }
+
+    if (idx_z + 1u < nz)
+    {
+        cv_face = 0.5 * (cv_get(center) + cv_get(center + plane));
+        velocity[2u * cell_cunt + center] -= cv_face * (pressure[center + plane] - pressure[center]) / spacing;
+    }
+}

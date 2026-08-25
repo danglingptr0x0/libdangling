@@ -26,6 +26,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_destroy(ldg_math_sparse_t **mat);
 LDG_EXPORT uint32_t ldg_math_sparse_entry_add(ldg_math_sparse_t *mat, uint64_t row, uint64_t col, double val);
 LDG_EXPORT uint32_t ldg_math_sparse_finalize(ldg_math_sparse_t *mat);
 LDG_EXPORT uint32_t ldg_math_sparse_val_rst(ldg_math_sparse_t *mat);
+LDG_EXPORT uint32_t ldg_math_sparse_elem_idx_get(const ldg_math_sparse_t *mat, uint64_t row, uint64_t col, uint64_t *out);
 LDG_EXPORT uint32_t ldg_math_sparse_mv(const ldg_math_sparse_t *mat, const double *vec, double *out);
 LDG_EXPORT uint32_t ldg_math_sparse_diag_get(const ldg_math_sparse_t *mat, double *out);
 LDG_EXPORT uint8_t ldg_math_sparse_symmetric_is(const ldg_math_sparse_t *mat, double tol);

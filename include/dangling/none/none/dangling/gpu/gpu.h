@@ -7,7 +7,9 @@
 #define LDG_GPU_NAME_MAX 256
 #define LDG_GPU_PIPELINE_POOL_MAX 64
 #define LDG_GPU_MEM_SLAB_MAX 16
-#define LDG_GPU_BIND_MAX 8
+#define LDG_GPU_BUFF_ID_NONE UINT32_MAX
+#define LDG_GPU_BIND_MAX 16
+#define LDG_GPU_BATCH_MAX 1024
 
 #define LDG_GPU_FLAG_SPILL_ENABLE 0x01
 #define LDG_GPU_FLAG_VALIDATION 0x02
@@ -58,7 +60,9 @@ typedef struct ldg_gpu_dev_info
     uint64_t host_visible_size;
     char name[LDG_GPU_NAME_MAX];
     uint8_t is_discrete;
-    uint8_t pudding[7];
+    uint8_t is_integrated;
+    uint8_t is_cpu;
+    uint8_t pudding[5];
 } ldg_gpu_dev_info_t;
 
 typedef struct ldg_gpu_init_desc
@@ -104,7 +108,8 @@ typedef struct ldg_gpu_dispatch_desc
     uint32_t group_cunt_z;
     uint32_t buff_ids[LDG_GPU_BIND_MAX];
     uint32_t buff_cunt;
-    uint8_t pudding[4];
+    uint8_t concurrent;
+    uint8_t pudding[3];
 } ldg_gpu_dispatch_desc_t;
 
 typedef struct ldg_gpu_fence
@@ -140,6 +145,8 @@ LDG_EXPORT uint32_t ldg_gpu_pipeline_destroy(void *vk, uint32_t id);
 
 LDG_EXPORT uint32_t ldg_gpu_dispatch(void *vk, const ldg_gpu_dispatch_desc_t *desc);
 LDG_EXPORT uint32_t ldg_gpu_dispatch_async(void *vk, const ldg_gpu_dispatch_desc_t *desc, ldg_gpu_fence_t *fence);
+LDG_EXPORT uint32_t ldg_gpu_batch_async_dispatch(void *vk, const ldg_gpu_dispatch_desc_t *desc, uint32_t cunt, ldg_gpu_fence_t *fence);
+LDG_EXPORT uint32_t ldg_gpu_batch_dispatch(void *vk, const ldg_gpu_dispatch_desc_t *desc, uint32_t cunt);
 LDG_EXPORT uint32_t ldg_gpu_fence_wait(void *vk, ldg_gpu_fence_t *fence, uint64_t timeout_ms);
 LDG_EXPORT uint32_t ldg_gpu_fence_poll(void *vk, ldg_gpu_fence_t *fence, uint8_t *ready);
 LDG_EXPORT uint32_t ldg_gpu_fence_destroy(void *vk, ldg_gpu_fence_t *fence);

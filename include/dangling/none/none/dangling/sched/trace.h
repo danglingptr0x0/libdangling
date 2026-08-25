@@ -6,6 +6,10 @@
 #include <dangling/core/macros.h>
 
 #define LDG_SCHED_TRACE_RING_SIZE (4 * LDG_MIB)
+#define LDG_SCHED_TRACE_LOCK_SPIN_MAX 65536
+#define LDG_SCHED_TRACE_LOCK_FREE 0
+#define LDG_SCHED_TRACE_LOCK_HELD 1
+#define LDG_SCHED_TRACE_STEP 1
 
 typedef enum ldg_sched_trace_type
 {

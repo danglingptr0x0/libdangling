@@ -1,0 +1,168 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere_common.glsl"
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer param_blk
+{
+    double thickness;
+    double mie_anisotropy;
+    double fog_anisotropy;
+    double ref_altitude;
+    double spacing;
+    double cam_altitude;
+    double mu_s;
+    double rayleigh_scale_height;
+    double mie_scale_height;
+    double fog_scale_height;
+    double mie_extinction;
+    double fog_extinction;
+    double ozone_center_altitude;
+    double ozone_half_width;
+    double orig[3];
+    double cam[3];
+    double sun[3];
+    double up[3];
+    uint bin_cunt;
+    uint altitude_cunt;
+    uint view_cunt;
+    uint sun_cunt;
+    uint view_sun_cunt;
+    uint cunt_x;
+    uint cunt_y;
+    uint cunt_z;
+};
+layout(std430, binding = 1) readonly buffer rayleigh_blk { double rayleigh[]; };
+layout(std430, binding = 2) readonly buffer delta_rayleigh_blk { double delta_rayleigh[]; };
+layout(std430, binding = 3) readonly buffer delta_mie_blk { double delta_mie[]; };
+layout(std430, binding = 4) readonly buffer delta_fog_blk { double delta_fog[]; };
+layout(std430, binding = 5) readonly buffer multi_blk { double multi[]; };
+layout(std430, binding = 6) writeonly buffer out_transmittance_blk { double out_transmittance[]; };
+layout(std430, binding = 7) writeonly buffer out_inscatter_blk { double out_inscatter[]; };
+layout(std430, binding = 8) readonly buffer ozone_blk { double ozone[]; };
+
+void quad_setup(uint idx0, uint idx1, uint idx2, uint idx3, double f0, double f1, double f2, double f3, out uint cbase[16], out double cweight[16])
+{
+    uint corner = 0u;
+    uint pick_a = 0u;
+    uint pick_v = 0u;
+    uint pick_s = 0u;
+    uint pick_n = 0u;
+    for (corner = 0u; corner < 16u; corner++)
+    {
+        pick_a = idx0 + (corner & 1u);
+        pick_v = idx1 + ((corner >> 1u) & 1u);
+        pick_s = idx2 + ((corner >> 2u) & 1u);
+        pick_n = idx3 + ((corner >> 3u) & 1u);
+        cweight[corner] = ((corner & 1u) != 0u ? f0 : 1.0lf - f0) * (((corner >> 1u) & 1u) != 0u ? f1 : 1.0lf - f1) * (((corner >> 2u) & 1u) != 0u ? f2 : 1.0lf - f2) * (((corner >> 3u) & 1u) != 0u ? f3 : 1.0lf - f3);
+        cbase[corner] = (((pick_a * view_cunt + pick_v) * sun_cunt + pick_s) * view_sun_cunt + pick_n) * bin_cunt;
+    }
+}
+
+double inscatter_bin(double altitude, double mu, double mu_s_val, double nu, uint bin)
+{
+    double frac0 = 0.0lf;
+    double frac1 = 0.0lf;
+    double frac2 = 0.0lf;
+    double frac3 = 0.0lf;
+    double corner_r = 0.0lf;
+    double corner_m = 0.0lf;
+    double corner_f = 0.0lf;
+    double corner_multi = 0.0lf;
+    uint qidx0 = 0u;
+    uint qidx1 = 0u;
+    uint qidx2 = 0u;
+    uint qidx3 = 0u;
+    uint cbase[16];
+    double cweight[16];
+    uint corner = 0u;
+    atmosphere_axis(altitude, 0.0lf, thickness, altitude_cunt, qidx0, frac0);
+    atmosphere_axis(mu, 0.0lf - 1.0lf, 2.0lf, view_cunt, qidx1, frac1);
+    atmosphere_axis(mu_s_val, 0.0lf - 1.0lf, 2.0lf, sun_cunt, qidx2, frac2);
+    atmosphere_axis(nu, 0.0lf - 1.0lf, 2.0lf, view_sun_cunt, qidx3, frac3);
+    quad_setup(qidx0, qidx1, qidx2, qidx3, frac0, frac1, frac2, frac3, cbase, cweight);
+    for (corner = 0u; corner < 16u; corner++)
+    {
+        corner_r += cweight[corner] * delta_rayleigh[cbase[corner] + bin];
+        corner_m += cweight[corner] * delta_mie[cbase[corner] + bin];
+        corner_f += cweight[corner] * delta_fog[cbase[corner] + bin];
+        corner_multi += cweight[corner] * multi[cbase[corner] + bin];
+    }
+    return corner_r * atmosphere_rayleigh_phase(nu) + corner_m * atmosphere_mie_phase(mie_anisotropy, nu) + corner_f * atmosphere_mie_phase(fog_anisotropy, nu) + corner_multi;
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= cunt_x || idx_y >= cunt_y || idx_z >= cunt_z) { return; }
+
+    double pos[3];
+    double ray[3];
+    double ray_norm = 0.0lf;
+    double pos_altitude = ref_altitude;
+    double mu = 0.0lf;
+    double nu = 0.0lf;
+    double seg_rayleigh = 0.0lf;
+    double seg_mie = 0.0lf;
+    double seg_fog = 0.0lf;
+    double seg_ozone = 0.0lf;
+    double trans_val = 0.0lf;
+    double inscatter_val = 0.0lf;
+    uint cell = ((idx_z * cunt_y + idx_y) * cunt_x + idx_x) * bin_cunt;
+    uint axis = 0u;
+    uint bin = 0u;
+    pos[0] = orig[0] + double(idx_x) * spacing;
+    pos[1] = orig[1] + double(idx_y) * spacing;
+    pos[2] = orig[2] + double(idx_z) * spacing;
+    for (axis = 0u; axis < 3u; axis++)
+    {
+        ray[axis] = pos[axis] - cam[axis];
+        ray_norm += ray[axis] * ray[axis];
+    }
+    if (ray_norm <= 0.0lf)
+    {
+        for (bin = 0u; bin < bin_cunt; bin++)
+        {
+            out_transmittance[cell + bin] = 1.0lf;
+            out_inscatter[cell + bin] = 0.0lf;
+        }
+        return;
+    }
+
+    ray_norm = sqrt(ray_norm);
+    for (axis = 0u; axis < 3u; axis++)
+    {
+        mu += (ray[axis] / ray_norm) * up[axis];
+        nu += (ray[axis] / ray_norm) * sun[axis];
+        pos_altitude += pos[axis] * up[axis];
+    }
+    if (mu > 1.0lf) { mu = 1.0lf; }
+
+    if (mu < 0.0lf - 1.0lf) { mu = 0.0lf - 1.0lf; }
+
+    if (nu > 1.0lf) { nu = 1.0lf; }
+
+    if (nu < 0.0lf - 1.0lf) { nu = 0.0lf - 1.0lf; }
+
+    if (pos_altitude < 0.0lf) { pos_altitude = 0.0lf; }
+
+    if (pos_altitude > thickness) { pos_altitude = thickness; }
+
+    seg_rayleigh = segment_depth(cam_altitude, pos_altitude, ray_norm, rayleigh_scale_height);
+    seg_mie = segment_depth(cam_altitude, pos_altitude, ray_norm, mie_scale_height);
+    seg_fog = segment_depth(cam_altitude, pos_altitude, ray_norm, fog_scale_height);
+    seg_ozone = ozone_segment_depth(cam_altitude, pos_altitude, ray_norm, ozone_center_altitude, ozone_half_width);
+    for (bin = 0u; bin < bin_cunt; bin++)
+    {
+        trans_val = ldg_exp(0.0lf - (rayleigh[bin] * seg_rayleigh + mie_extinction * seg_mie + fog_extinction * seg_fog + ozone[bin] * seg_ozone));
+        inscatter_val = inscatter_bin(cam_altitude, mu, mu_s, nu, bin) - trans_val * inscatter_bin(pos_altitude, mu, mu_s, nu, bin);
+        if (inscatter_val < 0.0lf) { inscatter_val = 0.0lf; }
+
+        out_transmittance[cell + bin] = trans_val;
+        out_inscatter[cell + bin] = inscatter_val;
+    }
+}
