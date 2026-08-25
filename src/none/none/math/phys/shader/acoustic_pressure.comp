@@ -1,0 +1,65 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer velocity_blk { double velocity[]; };
+layout(std430, binding = 1) buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 2) buffer psi_blk { double psi[]; };
+layout(std430, binding = 3) readonly buffer mtl_blk { uint mtl_packed[]; };
+layout(std430, binding = 4) readonly buffer coeff_blk { double coeff[]; };
+layout(std430, binding = 5) readonly buffer stretch_blk { double stretch[]; };
+layout(std430, binding = 6) readonly buffer param_blk
+{
+    double spacing;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding;
+};
+layout(std430, binding = 7) readonly buffer drive_blk { double drive[]; };
+
+const uint COEFF_STRIDE = 6u;
+const uint COEFF_CA = 3u;
+const uint COEFF_CB = 4u;
+const uint STRETCH_KAPPA_INT = 0u;
+const uint STRETCH_B_INT = 1u;
+const uint STRETCH_C_INT = 2u;
+const uint PSI_PX = 0u;
+const uint PSI_PY = 1u;
+const uint PSI_PZ = 2u;
+
+uint mtl_get(uint cell)
+{
+    uint word = mtl_packed[cell >> 1u];
+    return ((cell & 1u) == 1u) ? (word >> 16u) : (word & 0xFFFFu);
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x < 1u || idx_y < 1u || idx_z < 1u) { return; }
+
+    if (idx_x + 1u >= nx || idx_y + 1u >= ny || idx_z + 1u >= nz) { return; }
+
+    uint cell_cunt = nx * ny * nz;
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    uint stretch_x_base = 0u;
+    uint stretch_y_base = 6u * nx;
+    uint stretch_z_base = 6u * (nx + ny);
+    uint row = mtl_get(center) * COEFF_STRIDE;
+    double diff_val = 0.0;
+    double div_sum = 0.0;
+    diff_val = (velocity[center] - velocity[center - 1u]) / spacing;
+    psi[PSI_PX * cell_cunt + center] = stretch[stretch_x_base + STRETCH_B_INT * nx + idx_x] * psi[PSI_PX * cell_cunt + center] + stretch[stretch_x_base + STRETCH_C_INT * nx + idx_x] * diff_val;
+    div_sum = diff_val / stretch[stretch_x_base + STRETCH_KAPPA_INT * nx + idx_x] + psi[PSI_PX * cell_cunt + center];
+    diff_val = (velocity[cell_cunt + center] - velocity[cell_cunt + center - nx]) / spacing;
+    psi[PSI_PY * cell_cunt + center] = stretch[stretch_y_base + STRETCH_B_INT * ny + idx_y] * psi[PSI_PY * cell_cunt + center] + stretch[stretch_y_base + STRETCH_C_INT * ny + idx_y] * diff_val;
+    div_sum += diff_val / stretch[stretch_y_base + STRETCH_KAPPA_INT * ny + idx_y] + psi[PSI_PY * cell_cunt + center];
+    diff_val = (velocity[2u * cell_cunt + center] - velocity[2u * cell_cunt + center - plane]) / spacing;
+    psi[PSI_PZ * cell_cunt + center] = stretch[stretch_z_base + STRETCH_B_INT * nz + idx_z] * psi[PSI_PZ * cell_cunt + center] + stretch[stretch_z_base + STRETCH_C_INT * nz + idx_z] * diff_val;
+    div_sum += diff_val / stretch[stretch_z_base + STRETCH_KAPPA_INT * nz + idx_z] + psi[PSI_PZ * cell_cunt + center];
+    pressure[center] = coeff[row + COEFF_CA] * pressure[center] + coeff[row + COEFF_CB] * (drive[center] - div_sum);
+}

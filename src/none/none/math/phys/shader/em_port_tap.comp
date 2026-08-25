@@ -1,0 +1,90 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer electric_blk { double electric[]; };
+layout(std430, binding = 1) readonly buffer magnetic_blk { double magnetic[]; };
+layout(std430, binding = 2) buffer batch_blk
+{
+    uint seq;
+    uint pudding_seq;
+    double drive_series[4 * 255];
+    double tap_ring[8 * 255];
+    double port_ring[8 * 2 * 255];
+};
+layout(std430, binding = 3) readonly buffer port_param_blk
+{
+    uint pm_cunt;
+    uint face_stride;
+    uint cell_cunt;
+    uint pudding_hdr;
+    uint base[8];
+    uint stride_a[8];
+    uint stride_b[8];
+    uint grid_a[8];
+    uint grid_b[8];
+    uint axis_a[8];
+    uint axis_b[8];
+    uint pattern_base[8];
+    double face_area[8];
+    double sign_val[8];
+};
+layout(std430, binding = 4) readonly buffer pattern_blk { double pattern[]; };
+
+shared double sh_v[64];
+shared double sh_i[64];
+
+void main()
+{
+    uint pm = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    sh_v[lane] = double(0.0);
+    sh_i[lane] = double(0.0);
+    barrier();
+    if (seq == 0u || pm >= pm_cunt)
+    {
+        return;
+    }
+
+    uint face_cunt = grid_a[pm] * grid_b[pm];
+    double v_sum = double(0.0);
+    double i_sum = double(0.0);
+    uint idx = lane;
+    while (idx < face_cunt)
+    {
+        uint idx_a = idx % grid_a[pm];
+        uint idx_b = idx / grid_a[pm];
+        uint cell = base[pm] + idx_a * stride_a[pm] + idx_b * stride_b[pm];
+        double e_a = electric[axis_a[pm] * cell_cunt + cell];
+        double e_b = electric[axis_b[pm] * cell_cunt + cell];
+        double h_a = magnetic[axis_a[pm] * cell_cunt + cell];
+        double h_b = magnetic[axis_b[pm] * cell_cunt + cell];
+        double patt_e_a = pattern[pattern_base[pm] + 0u * face_stride + idx];
+        double patt_e_b = pattern[pattern_base[pm] + 1u * face_stride + idx];
+        double patt_h_a = pattern[pattern_base[pm] + 2u * face_stride + idx];
+        double patt_h_b = pattern[pattern_base[pm] + 3u * face_stride + idx];
+        v_sum += (e_a * patt_h_b - e_b * patt_h_a) * face_area[pm];
+        i_sum += (patt_e_a * h_b - patt_e_b * h_a) * face_area[pm];
+        idx += 64u;
+    }
+    sh_v[lane] = v_sum;
+    sh_i[lane] = i_sum;
+    barrier();
+    uint span = 32u;
+    while (span > 0u)
+    {
+        if (lane < span)
+        {
+            sh_v[lane] += sh_v[lane + span];
+            sh_i[lane] += sh_i[lane + span];
+        }
+
+        barrier();
+        span = span / 2u;
+    }
+    if (lane == 0u)
+    {
+        port_ring[(seq - 1u) * 16u + pm * 2u] = sh_v[0];
+        port_ring[(seq - 1u) * 16u + pm * 2u + 1u] = sh_i[0] * sign_val[pm];
+    }
+}

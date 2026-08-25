@@ -10,6 +10,7 @@
 #define LDG_ECS_TAXON_CAP_DEFAULT 32
 #define LDG_ECS_TAXON_ID_INVALID 0
 #define LDG_ECS_TAXON_COMP_MASK_WORDS 4
+#define LDG_ECS_TAXON_LINK_WORDS (LDG_ECS_TAXON_MAX / 64)
 
 typedef struct ldg_ecs_taxon_desc
 {
@@ -23,6 +24,10 @@ typedef struct ldg_ecs_taxon
     uint64_t required_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
     uint64_t optional_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
     uint64_t forbidden_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
+    uint64_t own_required_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
+    uint64_t own_optional_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
+    uint64_t own_forbidden_mask[LDG_ECS_TAXON_COMP_MASK_WORDS];
+    uint64_t parent_mask[LDG_ECS_TAXON_LINK_WORDS];
     uint32_t id;
     uint8_t is_reg;
     uint8_t pudding[3];

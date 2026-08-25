@@ -9,7 +9,7 @@
 #define LDG_THREAD_POOL_TASK_QUEUE_CAP 1024
 #define LDG_THREAD_POOL_WAIT_TIMEOUT_MS 10
 
-typedef uint32_t (*ldg_thread_pool_worker_func_t)(void *arg);
+typedef uint32_t (*ldg_thread_pool_worker_func_t)(uint32_t worker_id, void *arg);
 
 typedef struct ldg_thread_pool_task
 {
@@ -22,9 +22,15 @@ typedef enum ldg_thread_pool_worker_state
     LDG_THREAD_POOL_WORKER_IDLE = 0,
     LDG_THREAD_POOL_WORKER_STARTING,
     LDG_THREAD_POOL_WORKER_RUNNING,
-    LDG_THREAD_POOL_WORKER_STOPPING,
     LDG_THREAD_POOL_WORKER_STOPPED
 } ldg_thread_pool_worker_state_t;
+
+typedef enum ldg_thread_pool_affinity
+{
+    LDG_THREAD_POOL_AFFINITY_NONE = 0,
+    LDG_THREAD_POOL_AFFINITY_SPREAD,
+    LDG_THREAD_POOL_AFFINITY_MASK
+} ldg_thread_pool_affinity_t;
 
 typedef struct ldg_thread_pool_worker
 {
@@ -43,11 +49,12 @@ typedef struct ldg_thread_pool
 {
     ldg_thread_pool_worker_t workers[LDG_THREAD_POOL_MAX_WORKERS];
     ldg_mpmc_queue_t *task_queue;
+    uint64_t affinity_mask;
+    uint32_t affinity;
     uint32_t worker_cunt;
     volatile uint8_t is_running;
-    volatile uint8_t submit_mode;
     uint8_t is_init;
-    uint8_t pudding[43];
+    uint8_t pudding[38];
 } LDG_ALIGNED ldg_thread_pool_t;
 
 LDG_EXPORT uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt);
@@ -56,5 +63,6 @@ LDG_EXPORT uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_po
 LDG_EXPORT uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool);
 LDG_EXPORT uint64_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool);
 LDG_EXPORT uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
+LDG_EXPORT uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_affinity_t policy, uint64_t mask);
 
 #endif

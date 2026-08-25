@@ -37,7 +37,9 @@ static uint8_t ecs_sys_conflict_is(const ldg_ecs_sys_desc_t *later, const ldg_ec
         conflict |= earlier->wr_mask[word] & later->rd_mask[word];
     }
 
-    return (uint8_t)(conflict != 0);
+    if (conflict != 0) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
 }
 
 static ldg_sched_job_res_t ecs_sys_job_run(ldg_sched_job_id_t id, void *arg, void *yield_ctx)
@@ -106,7 +108,7 @@ uint32_t ldg_ecs_sched_init(ldg_ecs_ctx_t *ctx)
     backend->job_id = (ldg_sched_job_id_t *)job_id_mem;
     backend->job_cap = cap;
 
-    ret = ldg_sched_conf_default(&sched_conf);
+    ret = ldg_sched_conf_default_get(&sched_conf);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(backend->job_id);
@@ -116,7 +118,7 @@ uint32_t ldg_ecs_sched_init(ldg_ecs_ctx_t *ctx)
     }
 
     sched_conf.worker_cunt = ctx->conf.worker_cunt;
-    sched_conf.enable_tracing = 0;
+    sched_conf.enable_tracing = LDG_TRUTH_FALSE;
 
     ret = ldg_sched_ctx_init(&backend->sched_ctx, &sched_conf);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
@@ -154,11 +156,10 @@ uint32_t ldg_ecs_sched_shutdown(ldg_ecs_ctx_t *ctx)
     return ret;
 }
 
-LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx)
+LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
 {
     ldg_ecs_sched_t *backend = 0x0;
     ldg_sched_ctx_t *sched = 0x0;
-    uint32_t first_err = 0x0;
     uint32_t sys_cunt = 0;
     uint32_t idx = 0;
     uint32_t prior_idx = 0;
@@ -166,7 +167,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx)
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init || !ctx->sched)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE || !ctx->sched)) { return LDG_ERR_NOT_INIT; }
 
     backend = (ldg_ecs_sched_t *)ctx->sched;
     sched = &backend->sched_ctx;
@@ -193,42 +194,30 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx)
             }
         }
 
-        for (idx = 1; idx < sys_cunt; idx++) { for (prior_idx = 0; prior_idx < idx; prior_idx++) { if (ecs_sys_conflict_is(&ctx->sys[idx], &ctx->sys[prior_idx]))
-                {
-                    ret = ldg_sched_ctx_job_dep_add(sched, backend->job_id[idx], backend->job_id[prior_idx]);
-                    if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
-                }
-            } }
+        for (idx = 1; idx < sys_cunt; idx++) { for (prior_idx = 0; prior_idx < idx; prior_idx++) { if (ecs_sys_conflict_is(&ctx->sys[idx], &ctx->sys[prior_idx]) == LDG_TRUTH_TRUE) { if (LDG_UNLIKELY(ldg_sched_ctx_job_dep_add(sched, backend->job_id[idx], backend->job_id[prior_idx]) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_FULL; } } } }
 
-        if (LDG_UNLIKELY(first_err != LDG_ERR_AOK))
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             for (idx = 0; idx < sys_cunt; idx++) { ldg_sched_job_destroy(&sched->job_pool, backend->job_id[idx]); }
 
-            return first_err;
+            return ret;
         }
+
+        for (idx = 0; idx < sys_cunt; idx++) { if (LDG_UNLIKELY(ldg_sched_ctx_job_submit(sched, backend->job_id[idx]) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; } }
+
+        if (LDG_UNLIKELY(ldg_sched_ctx_drain(sched) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_TIMEOUT; }
 
         for (idx = 0; idx < sys_cunt; idx++)
         {
-            ret = ldg_sched_ctx_job_submit(sched, backend->job_id[idx]);
-            if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
-        }
-
-        ret = ldg_sched_ctx_drain(sched);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
-
-        for (idx = 0; idx < sys_cunt; idx++)
-        {
-            if (backend->job[idx].ret != LDG_ERR_AOK && first_err == LDG_ERR_AOK) { first_err = backend->job[idx].ret; }
+            if (backend->job[idx].ret != LDG_ERR_AOK && ret == LDG_ERR_AOK) { ret = backend->job[idx].ret; }
 
             ldg_sched_job_destroy(&sched->job_pool, backend->job_id[idx]);
         }
     }
 
-    ret = ldg_ecs_ctx_worker_cmd_flush(ctx);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
+    if (LDG_UNLIKELY(ldg_ecs_ctx_worker_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
 
-    ret = ldg_ecs_ctx_cmd_flush(ctx);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
+    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
 
-    return first_err;
+    return ret;
 }

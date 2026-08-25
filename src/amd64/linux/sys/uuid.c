@@ -49,7 +49,7 @@ uint32_t ldg_sys_uuid_gen(uint8_t uuid[LDG_UUID_BYTE_SIZE])
 
 uint32_t ldg_sys_uuid_to_str(const uint8_t uuid[LDG_UUID_BYTE_SIZE], char *str, uint64_t str_size)
 {
-    uint32_t i = 0;
+    uint32_t idx = 0;
     uint32_t pos = 0;
     char hex[3] = { 0 };
 
@@ -59,15 +59,15 @@ uint32_t ldg_sys_uuid_to_str(const uint8_t uuid[LDG_UUID_BYTE_SIZE], char *str, 
 
     if (LDG_UNLIKELY(memset(str, 0, (uint64_t)str_size) != str)) { return LDG_ERR_MEM_BAD; }
 
-    for (i = 0; i < LDG_UUID_BYTE_SIZE; i++)
+    for (idx = 0; idx < LDG_UUID_BYTE_SIZE; idx++)
     {
-        if (i == 4 || i == 6 || i == 8 || i == 10)
+        if (idx == 4 || idx == 6 || idx == 8 || idx == 10)
         {
             str[pos] = '-';
             pos++;
         }
 
-        ldg_byte_to_hex(uuid[i], hex);
+        ldg_byte_to_hex(uuid[idx], hex);
         str[pos] = hex[0];
         str[pos + 1] = hex[1];
         pos += 2;

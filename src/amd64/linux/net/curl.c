@@ -8,6 +8,8 @@
 #include <dangling/mem/secure.h>
 #include <dangling/str/str.h>
 #include <dangling/core/macros.h>
+#include <dangling/mem/alloc.h>
+#include <dangling/proto/emiemi.h>
 
 static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, void *user_data)
 {
@@ -38,7 +40,7 @@ static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, voi
 
         if (resp->data)
         {
-            if (LDG_UNLIKELY(ldg_mem_secure_copy(new_data, resp->data, resp->size) != LDG_ERR_AOK)) { free(new_data); return 0; }
+            if (LDG_UNLIKELY(ldg_mem_secure_cpy(new_data, resp->data, resp->size) != LDG_ERR_AOK)) { free(new_data); return 0; }
 
             free(resp->data);
         }
@@ -47,7 +49,7 @@ static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, voi
         resp->cap = new_cap;
     }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_copy(resp->data + resp->size, contents, size_real) != LDG_ERR_AOK)) { return 0; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(resp->data + resp->size, contents, size_real) != LDG_ERR_AOK)) { return 0; }
 
     resp->size = new_len;
     resp->data[resp->size] = LDG_STR_TERM;
@@ -127,23 +129,23 @@ uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, uint64_t cap)
 
 void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
 {
-    uint64_t i = 0;
+    uint64_t idx = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return; }
 
-    for (i = 0; i < ctx->req_cunt; i++)
+    for (idx = 0; idx < ctx->req_cunt; idx++)
     {
-        if (ctx->reqs[i].curl)
+        if (ctx->reqs[idx].curl)
         {
-            curl_multi_remove_handle(ctx->multi, ctx->reqs[i].curl);
-            curl_easy_cleanup(ctx->reqs[i].curl);
+            curl_multi_remove_handle(ctx->multi, ctx->reqs[idx].curl);
+            curl_easy_cleanup(ctx->reqs[idx].curl);
         }
 
-        if (ctx->reqs[i].url) { free(ctx->reqs[i].url); }
+        if (ctx->reqs[idx].url) { free(ctx->reqs[idx].url); }
 
-        if (ctx->reqs[i].post_data) { free(ctx->reqs[i].post_data); }
+        if (ctx->reqs[idx].post_data) { free(ctx->reqs[idx].post_data); }
 
-        ldg_curl_resp_free(&ctx->reqs[i].resp);
+        ldg_curl_resp_free(&ctx->reqs[idx].resp);
     }
 
     if (ctx->reqs) { free(ctx->reqs); }
@@ -174,7 +176,7 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
 
     req->url = (char *)url_tmp;
 
-    ret = ldg_strrbrcpy(req->url, url, url_len);
+    ret = ldg_str_rbrcpy(req->url, url, url_len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
     {
         free(req->url);
@@ -194,7 +196,7 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
 
         req->post_data = (char *)data_tmp;
 
-        ret = ldg_strrbrcpy(req->post_data, post_data, data_len);
+        ret = ldg_str_rbrcpy(req->post_data, post_data, data_len);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
         {
             free(req->url);
@@ -284,7 +286,7 @@ uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
 
 uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
 {
-    uint64_t i = 0;
+    uint64_t idx = 0;
     int64_t total_dl = 0;
     int64_t total_now = 0;
     curl_off_t curl_dl = 0;
@@ -294,20 +296,20 @@ uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
 
     *out = 0.0;
 
-    for (i = 0; i < ctx->req_cunt; i++)
+    for (idx = 0; idx < ctx->req_cunt; idx++)
     {
-        if (ctx->reqs[i].curl)
+        if (ctx->reqs[idx].curl)
         {
-            curl_easy_getinfo(ctx->reqs[i].curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &curl_dl);
-            curl_easy_getinfo(ctx->reqs[i].curl, CURLINFO_SIZE_DOWNLOAD_T, &curl_now);
-            ctx->reqs[i].dl_total = (int64_t)curl_dl;
-            ctx->reqs[i].dl_now = (int64_t)curl_now;
+            curl_easy_getinfo(ctx->reqs[idx].curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &curl_dl);
+            curl_easy_getinfo(ctx->reqs[idx].curl, CURLINFO_SIZE_DOWNLOAD_T, &curl_now);
+            ctx->reqs[idx].dl_total = (int64_t)curl_dl;
+            ctx->reqs[idx].dl_now = (int64_t)curl_now;
         }
 
-        if (ctx->reqs[i].dl_total > 0)
+        if (ctx->reqs[idx].dl_total > 0)
         {
-            total_dl += ctx->reqs[i].dl_total;
-            total_now += ctx->reqs[i].dl_now;
+            total_dl += ctx->reqs[idx].dl_total;
+            total_now += ctx->reqs[idx].dl_now;
         }
     }
 
@@ -316,7 +318,7 @@ uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_hdrs_append(void **list, const char *hdr)
+uint32_t ldg_curl_hdr_append(void **list, const char *hdr)
 {
     struct curl_slist *tmp = 0x0;
 
@@ -330,7 +332,7 @@ uint32_t ldg_curl_hdrs_append(void **list, const char *hdr)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_hdrs_copy(void *src, void **dst)
+uint32_t ldg_curl_hdr_cpy(void *src, void **dst)
 {
     struct curl_slist *node = 0x0;
     struct curl_slist *tmp = 0x0;
@@ -352,7 +354,7 @@ uint32_t ldg_curl_hdrs_copy(void *src, void **dst)
     return LDG_ERR_AOK;
 }
 
-void ldg_curl_hdrs_destroy(void **list)
+void ldg_curl_hdr_destroy(void **list)
 {
     if (LDG_UNLIKELY(!list || !*list)) { return; }
 
@@ -367,14 +369,14 @@ uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
     ctx->curl = curl_easy_init();
     if (LDG_UNLIKELY(!ctx->curl)) { return LDG_ERR_ALLOC_NULL; }
 
-    ctx->is_init = 1;
+    ctx->is_init = LDG_TRUTH_TRUE;
 
     return LDG_ERR_AOK;
 }
 
 void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
 {
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init)) { return; }
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE)) { return; }
 
     if (ctx->curl)
     {
@@ -382,14 +384,14 @@ void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
         ctx->curl = 0x0;
     }
 
-    ctx->is_init = 0;
+    ctx->is_init = LDG_TRUTH_FALSE;
 }
 
 uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     ldg_curl_resp_init(resp);
 
@@ -415,7 +417,7 @@ uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const cha
 {
     CURLcode res = CURLE_OK;
 
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     ldg_curl_resp_init(resp);
 
@@ -440,12 +442,85 @@ uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const cha
     return LDG_ERR_AOK;
 }
 
+uint32_t ldg_curl_easy_raw_post(ldg_curl_easy_ctx_t *ctx, const char *url, const void *data, uint64_t len, void *hdrs, ldg_curl_resp_t *resp)
+{
+    CURLcode res = CURLE_OK;
+
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(!data && len)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    ldg_curl_resp_init(resp);
+
+    curl_easy_reset(ctx->curl);
+    curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
+    curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
+    curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data ? (const char *)data : "");
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
+
+    if (hdrs) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs); }
+
+    res = curl_easy_perform(ctx->curl);
+    if (LDG_UNLIKELY(res != CURLE_OK))
+    {
+        ldg_curl_resp_free(resp);
+        return LDG_ERR_NET_PERFORM;
+    }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_curl_emiemi_post(ldg_curl_easy_ctx_t *ctx, const char *url, const uint8_t *payload, uint32_t payload_len, void *hdrs, ldg_curl_resp_t *resp, ldg_curl_emiemi_res_t *out)
+{
+    uint8_t *frame = 0x0;
+    uint32_t frame_len = 0;
+    uint32_t err = 0;
+    uint32_t post_err = 0;
+
+    if (LDG_UNLIKELY(!ctx || !url || !resp || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(!payload && payload_len)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    out->payload = 0x0;
+    out->payload_len = 0;
+    out->req_checksum = 0;
+    out->resp_checksum = 0;
+
+    if (LDG_UNLIKELY(payload_len > LDG_EMIEMI_MAX_PAYLOAD)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    frame_len = ldg_emiemi_encoded_size_get(payload_len);
+    if (LDG_UNLIKELY(!frame_len)) { return LDG_ERR_OVERFLOW; }
+
+    err = ldg_mem_alloc(frame_len, (void **)&frame);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    err = ldg_emiemi_encode(payload, payload_len, frame, frame_len, &out->req_checksum);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK))
+    {
+        ldg_mem_dealloc(frame);
+        return err;
+    }
+
+    post_err = ldg_curl_easy_raw_post(ctx, url, frame, frame_len, hdrs, resp);
+    ldg_mem_dealloc(frame);
+    frame = 0x0;
+    if (LDG_UNLIKELY(post_err != LDG_ERR_AOK)) { return post_err; }
+
+    if (LDG_UNLIKELY(resp->size > (uint64_t)LDG_EMIEMI_MAX_PAYLOAD + LDG_EMIEMI_OVERHEAD)) { return LDG_ERR_OVERFLOW; }
+
+    err = ldg_emiemi_decode((const ldg_byte_t *)resp->data, (ldg_dword_t)resp->size, &out->payload, &out->payload_len, &out->resp_checksum);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+    return LDG_ERR_AOK;
+}
+
 uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_stream_cb_t cb, void *user_data)
 {
     CURLcode res = CURLE_OK;
     ldg_curl_stream_ctx_t stream_ctx = { 0 };
 
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     stream_ctx.cb = cb;
     stream_ctx.user_data = user_data;
@@ -469,7 +544,7 @@ uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, co
     CURLcode res = CURLE_OK;
     ldg_curl_stream_ctx_t stream_ctx = { 0 };
 
-    if (LDG_UNLIKELY(!ctx || !ctx->is_init || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     stream_ctx.cb = cb;
     stream_ctx.user_data = user_data;

@@ -1,0 +1,169 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer particle_blk { double particle[]; };
+layout(std430, binding = 1) readonly buffer vel_x_blk { double vel_x[]; };
+layout(std430, binding = 2) readonly buffer vel_y_blk { double vel_y[]; };
+layout(std430, binding = 3) readonly buffer vel_z_blk { double vel_z[]; };
+layout(std430, binding = 4) readonly buffer vel_x_old_blk { double vel_x_old[]; };
+layout(std430, binding = 5) readonly buffer vel_y_old_blk { double vel_y_old[]; };
+layout(std430, binding = 6) readonly buffer vel_z_old_blk { double vel_z_old[]; };
+layout(std430, binding = 7) readonly buffer mask_blk { uint mask[]; };
+layout(std430, binding = 8) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_rho;
+    double ball_r;
+    double pudding_b;
+    double pudding_c;
+    double pudding_e;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+layout(std430, binding = 9) readonly buffer ball_blk
+{
+    double ball_x;
+    double ball_y;
+    double ball_z;
+    double ball_vel;
+};
+
+const double FLIP_RATIO = 0.9;
+
+double grid_sample(uint comp, double coord_x, double coord_y, double coord_z, uint from_old)
+{
+    uint dim_x = (comp == 0u) ? (nx + 1u) : nx;
+    uint dim_y = (comp == 1u) ? (ny + 1u) : ny;
+    uint dim_z = (comp == 2u) ? (nz + 1u) : nz;
+    if (coord_x < 0.0) { coord_x = 0.0; }
+
+    if (coord_y < 0.0) { coord_y = 0.0; }
+
+    if (coord_z < 0.0) { coord_z = 0.0; }
+
+    if (coord_x > double(dim_x - 1u) - 1.0e-9) { coord_x = double(dim_x - 1u) - 1.0e-9; }
+
+    if (coord_y > double(dim_y - 1u) - 1.0e-9) { coord_y = double(dim_y - 1u) - 1.0e-9; }
+
+    if (coord_z > double(dim_z - 1u) - 1.0e-9) { coord_z = double(dim_z - 1u) - 1.0e-9; }
+
+    uint base_x = uint(coord_x);
+    uint base_y = uint(coord_y);
+    uint base_z = uint(coord_z);
+    double frac_x = coord_x - double(base_x);
+    double frac_y = coord_y - double(base_y);
+    double frac_z = coord_z - double(base_z);
+    double acc = 0.0;
+    for (uint corner_z = 0u; corner_z < 2u; corner_z++)
+    {
+        for (uint corner_y = 0u; corner_y < 2u; corner_y++)
+        {
+            for (uint corner_x = 0u; corner_x < 2u; corner_x++)
+            {
+                uint slot = (base_z + corner_z) * dim_x * dim_y + (base_y + corner_y) * dim_x + (base_x + corner_x);
+                double weight = ((corner_x == 1u) ? frac_x : (1.0 - frac_x)) * ((corner_y == 1u) ? frac_y : (1.0 - frac_y)) * ((corner_z == 1u) ? frac_z : (1.0 - frac_z));
+                double val = 0.0;
+                if (from_old == 1u)
+                {
+                    val = (comp == 0u) ? vel_x_old[slot] : ((comp == 1u) ? vel_y_old[slot] : vel_z_old[slot]);
+                }
+                else
+                {
+                    val = (comp == 0u) ? vel_x[slot] : ((comp == 1u) ? vel_y[slot] : vel_z[slot]);
+                }
+
+                acc += weight * val;
+            }
+        }
+    }
+    return acc;
+}
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= particle_cunt) { return; }
+
+    double inv_spacing = 1.0 / spacing;
+    double vel_limit = 0.45 * spacing / dt;
+    double pos_x = particle[idx * 6u];
+    double pos_y = particle[idx * 6u + 1u];
+    double pos_z = particle[idx * 6u + 2u];
+    double new_x = grid_sample(0u, pos_x * inv_spacing, pos_y * inv_spacing - 0.5, pos_z * inv_spacing - 0.5, 0u);
+    double new_y = grid_sample(1u, pos_x * inv_spacing - 0.5, pos_y * inv_spacing, pos_z * inv_spacing - 0.5, 0u);
+    double new_z = grid_sample(2u, pos_x * inv_spacing - 0.5, pos_y * inv_spacing - 0.5, pos_z * inv_spacing, 0u);
+    double old_x = grid_sample(0u, pos_x * inv_spacing, pos_y * inv_spacing - 0.5, pos_z * inv_spacing - 0.5, 1u);
+    double old_y = grid_sample(1u, pos_x * inv_spacing - 0.5, pos_y * inv_spacing, pos_z * inv_spacing - 0.5, 1u);
+    double old_z = grid_sample(2u, pos_x * inv_spacing - 0.5, pos_y * inv_spacing - 0.5, pos_z * inv_spacing, 1u);
+    double par_x = FLIP_RATIO * (particle[idx * 6u + 3u] + new_x - old_x) + (1.0 - FLIP_RATIO) * new_x;
+    double par_y = FLIP_RATIO * (particle[idx * 6u + 4u] + new_y - old_y) + (1.0 - FLIP_RATIO) * new_y;
+    double par_z = FLIP_RATIO * (particle[idx * 6u + 5u] + new_z - old_z) + (1.0 - FLIP_RATIO) * new_z;
+    par_x = clamp(par_x, 0.0 - vel_limit, vel_limit);
+    par_y = clamp(par_y, 0.0 - vel_limit, vel_limit);
+    par_z = clamp(par_z, 0.0 - vel_limit, vel_limit);
+    double mid_x = pos_x + 0.5 * dt * new_x;
+    double mid_y = pos_y + 0.5 * dt * new_y;
+    double mid_z = pos_z + 0.5 * dt * new_z;
+    double mid_vel_x = grid_sample(0u, mid_x * inv_spacing, mid_y * inv_spacing - 0.5, mid_z * inv_spacing - 0.5, 0u);
+    double mid_vel_y = grid_sample(1u, mid_x * inv_spacing - 0.5, mid_y * inv_spacing, mid_z * inv_spacing - 0.5, 0u);
+    double mid_vel_z = grid_sample(2u, mid_x * inv_spacing - 0.5, mid_y * inv_spacing - 0.5, mid_z * inv_spacing, 0u);
+    double next_x = pos_x + dt * mid_vel_x;
+    double next_y = pos_y + dt * mid_vel_y;
+    double next_z = pos_z + dt * mid_vel_z;
+    double lo_bound = 1.001 * spacing;
+    next_x = clamp(next_x, lo_bound, (double(nx) - 1.001) * spacing);
+    next_y = clamp(next_y, lo_bound, (double(ny) - 1.001) * spacing);
+    next_z = clamp(next_z, lo_bound, (double(nz) - 1.001) * spacing);
+    uint cell_x = uint(next_x * inv_spacing);
+    uint cell_y = uint(next_y * inv_spacing);
+    uint cell_z = uint(next_z * inv_spacing);
+    uint cell = (cell_z * ny + cell_y) * nx + cell_x;
+    if (mask[cell] == 1u)
+    {
+        next_x = pos_x;
+        next_y = pos_y;
+        next_z = pos_z;
+        par_x = 0.0;
+        par_y = 0.0;
+        par_z = 0.0;
+    }
+
+    if (ball_on == 1u)
+    {
+        double delta_x = next_x - ball_x;
+        double delta_y = next_y - ball_y;
+        double delta_z = next_z - ball_z;
+        double dist_sq = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+        double shell = ball_r + spacing;
+        if (dist_sq < shell * shell)
+        {
+            double dist = sqrt(max(dist_sq, 1.0e-12));
+            next_x = ball_x + delta_x / dist * shell;
+            next_y = ball_y + delta_y / dist * shell;
+            next_z = ball_z + delta_z / dist * shell;
+            next_x = clamp(next_x, lo_bound, (double(nx) - 1.001) * spacing);
+            next_y = clamp(next_y, lo_bound, (double(ny) - 1.001) * spacing);
+            next_z = clamp(next_z, lo_bound, (double(nz) - 1.001) * spacing);
+            par_z += ball_vel;
+            par_z = clamp(par_z, 0.0 - vel_limit, vel_limit);
+        }
+    }
+
+    particle[idx * 6u] = next_x;
+    particle[idx * 6u + 1u] = next_y;
+    particle[idx * 6u + 2u] = next_z;
+    particle[idx * 6u + 3u] = par_x;
+    particle[idx * 6u + 4u] = par_y;
+    particle[idx * 6u + 5u] = par_z;
+}

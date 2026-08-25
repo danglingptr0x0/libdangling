@@ -9,6 +9,7 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
+#include <dangling/mem/cpy.h>
 
 // errno
 static uint32_t ldg_io_errno_translate(void)
@@ -53,27 +54,27 @@ static uint32_t ldg_io_flags_translate(uint32_t ldg_flags, int32_t *posix_flags)
     if (LDG_UNLIKELY(!posix_flags)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     access = ldg_flags & 0x03;
-    if (access == LDG_IO_RDONLY) { pf = O_RDONLY; }
-    else if (access == LDG_IO_WRONLY) { pf = O_WRONLY; }
-    else if (access == LDG_IO_RDWR) { pf = O_RDWR; }
+    if (access == LDG_IO_RD_ONLY) { pf = O_RDONLY; }
+    else if (access == LDG_IO_WR_ONLY) { pf = O_WRONLY; }
+    else if (access == LDG_IO_RD_WR) { pf = O_RDWR; }
     else { return LDG_ERR_FUNC_ARG_INVALID; }
 
     if (ldg_flags & LDG_IO_CREATE) { pf |= O_CREAT; }
 
-    if (ldg_flags & LDG_IO_TRUNC) { pf |= O_TRUNC; }
+    if (ldg_flags & LDG_IO_TRUNCATE) { pf |= O_TRUNC; }
 
     if (ldg_flags & LDG_IO_APPEND) { pf |= O_APPEND; }
 
-    if (ldg_flags & LDG_IO_EXCL) { pf |= O_EXCL; }
+    if (ldg_flags & LDG_IO_EXCLUSIVE) { pf |= O_EXCL; }
 
     *posix_flags = pf;
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_open(const char *path, uint32_t flags, uint32_t mode, ldg_io_file_t **out)
+uint32_t ldg_io_file_open(const char *path, uint32_t flags, uint32_t access, ldg_io_file_t **out)
 {
-    ldg_io_file_t *f = 0x0;
+    ldg_io_file_t *file = 0x0;
     int32_t posix_flags = 0;
     int32_t fd = 0;
     uint32_t ret = 0;
@@ -85,52 +86,52 @@ uint32_t ldg_io_file_open(const char *path, uint32_t flags, uint32_t mode, ldg_i
     ret = ldg_io_flags_translate(flags, &posix_flags);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&f);
+    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
-    if (LDG_UNLIKELY(memset(f, 0, sizeof(struct ldg_io_file)) != f))
+    if (LDG_UNLIKELY(memset(file, 0, sizeof(struct ldg_io_file)) != file))
     {
-        ldg_mem_dealloc(f);
+        ldg_mem_dealloc(file);
         return LDG_ERR_MEM_BAD;
     }
 
-    fd = (int32_t)open(path, (int)posix_flags, (mode_t)mode);
+    fd = (int32_t)open(path, (int)posix_flags, (mode_t)access);
     if (LDG_UNLIKELY(fd < 0))
     {
         ret = ldg_io_errno_translate();
-        ldg_mem_dealloc(f);
+        ldg_mem_dealloc(file);
         return ret;
     }
 
-    f->fd = fd;
-    *out = f;
+    file->handle = fd;
+    *out = file;
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_close(ldg_io_file_t *f)
+uint32_t ldg_io_file_close(ldg_io_file_t *file)
 {
     int32_t ret = 0;
 
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = (int32_t)close((int)f->fd);
-    ldg_mem_dealloc(f);
+    ret = (int32_t)close((int)file->handle);
+    ldg_mem_dealloc(file);
 
     if (LDG_UNLIKELY(ret < 0)) { return LDG_ERR_IO_CLOSE; }
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_rd(ldg_io_file_t *f, void *buff, uint64_t size, uint64_t *bytes_rd)
+uint32_t ldg_io_file_rd(ldg_io_file_t *file, void *buff, uint64_t size, uint64_t *bytes_rd)
 {
     int64_t res = 0;
 
-    if (LDG_UNLIKELY(!f || !buff || !bytes_rd)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file || !buff || !bytes_rd)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *bytes_rd = 0;
 
-    res = (int64_t)read((int)f->fd, buff, (uint64_t)size);
+    res = (int64_t)read((int)file->handle, buff, (uint64_t)size);
     if (LDG_UNLIKELY(res < 0)) { return ldg_io_errno_translate(); }
 
     *bytes_rd = (uint64_t)res;
@@ -138,15 +139,15 @@ uint32_t ldg_io_file_rd(ldg_io_file_t *f, void *buff, uint64_t size, uint64_t *b
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_wr(ldg_io_file_t *f, const void *buff, uint64_t size, uint64_t *bytes_wr)
+uint32_t ldg_io_file_wr(ldg_io_file_t *file, const void *buff, uint64_t size, uint64_t *bytes_wr)
 {
     int64_t res = 0;
 
-    if (LDG_UNLIKELY(!f || !buff || !bytes_wr)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file || !buff || !bytes_wr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *bytes_wr = 0;
 
-    res = (int64_t)write((int)f->fd, buff, (uint64_t)size);
+    res = (int64_t)write((int)file->handle, buff, (uint64_t)size);
     if (LDG_UNLIKELY(res < 0)) { return ldg_io_errno_translate(); }
 
     *bytes_wr = (uint64_t)res;
@@ -154,34 +155,34 @@ uint32_t ldg_io_file_wr(ldg_io_file_t *f, const void *buff, uint64_t size, uint6
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_seek(ldg_io_file_t *f, uint64_t offset, uint32_t whence)
+uint32_t ldg_io_file_seek(ldg_io_file_t *file, uint64_t offset, uint32_t whence)
 {
     int32_t posix_whence = 0;
     int64_t res = 0;
 
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(whence > LDG_IO_SEEK_END)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (whence == LDG_IO_SEEK_SET) { posix_whence = SEEK_SET; }
-    else if (whence == LDG_IO_SEEK_CUR) { posix_whence = SEEK_CUR; }
+    if (whence == LDG_IO_SEEK_START) { posix_whence = SEEK_SET; }
+    else if (whence == LDG_IO_SEEK_CURRENT) { posix_whence = SEEK_CUR; }
     else { posix_whence = SEEK_END; }
 
-    res = (int64_t)lseek((int)f->fd, (off_t)offset, (int)posix_whence);
+    res = (int64_t)lseek((int)file->handle, (off_t)offset, (int)posix_whence);
     if (LDG_UNLIKELY(res < 0)) { return LDG_ERR_IO_SEEK; }
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_pos_get(ldg_io_file_t *f, uint64_t *pos)
+uint32_t ldg_io_file_pos_get(ldg_io_file_t *file, uint64_t *pos)
 {
     int64_t res = 0;
 
-    if (LDG_UNLIKELY(!f || !pos)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file || !pos)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *pos = 0;
 
-    res = (int64_t)lseek((int)f->fd, 0, SEEK_CUR);
+    res = (int64_t)lseek((int)file->handle, 0, SEEK_CUR);
     if (LDG_UNLIKELY(res < 0)) { return LDG_ERR_IO_SEEK; }
 
     *pos = (uint64_t)res;
@@ -189,78 +190,78 @@ uint32_t ldg_io_file_pos_get(ldg_io_file_t *f, uint64_t *pos)
     return LDG_ERR_AOK;
 }
 
-static void ldg_io_stat_populate(ldg_io_stat_t *st, const struct stat *sb)
+static void ldg_io_info_populate(ldg_io_info_t *out, const struct stat *sb)
 {
-    st->size = (uint64_t)sb->st_size;
-    st->mtime_ns = (uint64_t)sb->st_mtim.tv_sec * LDG_NS_PER_SEC + (uint64_t)sb->st_mtim.tv_nsec;
-    st->mode = (uint32_t)sb->st_mode;
-    st->is_dir = S_ISDIR(sb->st_mode) ? 1 : 0;
-    st->is_file = S_ISREG(sb->st_mode) ? 1 : 0;
-    st->is_link = S_ISLNK(sb->st_mode) ? 1 : 0;
+    out->size = (uint64_t)sb->st_size;
+    out->modified_ns = (uint64_t)sb->st_mtim.tv_sec * LDG_NS_PER_SEC + (uint64_t)sb->st_mtim.tv_nsec;
+    out->access = (uint32_t)sb->st_mode;
+    out->is_dir = S_ISDIR(sb->st_mode) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    out->is_file = S_ISREG(sb->st_mode) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    out->is_link = S_ISLNK(sb->st_mode) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
 }
 
-uint32_t ldg_io_file_stat(const char *path, ldg_io_stat_t *st)
+uint32_t ldg_io_path_info_get(const char *path, ldg_io_info_t *out)
 {
     struct stat sb = LDG_STRUCT_ZERO_INIT;
 
-    if (LDG_UNLIKELY(!path || !st)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!path || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(memset(st, 0, sizeof(ldg_io_stat_t)) != st)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(out, (uint64_t)sizeof(ldg_io_info_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     if (LDG_UNLIKELY(lstat(path, &sb) < 0)) { return ldg_io_errno_translate(); }
 
-    ldg_io_stat_populate(st, &sb);
+    ldg_io_info_populate(out, &sb);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_fstat(ldg_io_file_t *f, ldg_io_stat_t *st)
+uint32_t ldg_io_file_info_get(ldg_io_file_t *handle, ldg_io_info_t *out)
 {
     struct stat sb = LDG_STRUCT_ZERO_INIT;
 
-    if (LDG_UNLIKELY(!f || !st)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!handle || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(memset(st, 0, sizeof(ldg_io_stat_t)) != st)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(out, (uint64_t)sizeof(ldg_io_info_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
-    if (LDG_UNLIKELY(fstat((int)f->fd, &sb) < 0)) { return ldg_io_errno_translate(); }
+    if (LDG_UNLIKELY(fstat((int32_t)handle->handle, &sb) < 0)) { return ldg_io_errno_translate(); }
 
-    ldg_io_stat_populate(st, &sb);
-
-    return LDG_ERR_AOK;
-}
-
-uint32_t ldg_io_file_sync(ldg_io_file_t *f)
-{
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
-
-    if (LDG_UNLIKELY(fsync((int)f->fd) < 0)) { return LDG_ERR_IO_FLUSH; }
+    ldg_io_info_populate(out, &sb);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_truncate(ldg_io_file_t *f, uint64_t size)
+uint32_t ldg_io_file_commit(ldg_io_file_t *file)
 {
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(ftruncate((int)f->fd, (off_t)size) < 0)) { return ldg_io_errno_translate(); }
+    if (LDG_UNLIKELY(fsync((int)file->handle) < 0)) { return LDG_ERR_IO_FLUSH; }
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_lock(ldg_io_file_t *f)
+uint32_t ldg_io_file_truncate(ldg_io_file_t *file, uint64_t size)
 {
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(flock((int)f->fd, LOCK_EX) < 0)) { return LDG_ERR_IO_PERM; }
+    if (LDG_UNLIKELY(ftruncate((int)file->handle, (off_t)size) < 0)) { return ldg_io_errno_translate(); }
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_file_unlock(ldg_io_file_t *f)
+uint32_t ldg_io_file_lock(ldg_io_file_t *file)
 {
-    if (LDG_UNLIKELY(!f)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(flock((int)f->fd, LOCK_UN) < 0)) { return ldg_io_errno_translate(); }
+    if (LDG_UNLIKELY(flock((int)file->handle, LOCK_EX) < 0)) { return LDG_ERR_IO_PERM; }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_io_file_unlock(ldg_io_file_t *file)
+{
+    if (LDG_UNLIKELY(!file)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(flock((int)file->handle, LOCK_UN) < 0)) { return ldg_io_errno_translate(); }
 
     return LDG_ERR_AOK;
 }
@@ -313,8 +314,8 @@ uint32_t ldg_io_pipe_create(ldg_io_file_t **rd, ldg_io_file_t **wr)
         return LDG_ERR_MEM_BAD;
     }
 
-    rd_file->fd = pipefd[0];
-    wr_file->fd = pipefd[1];
+    rd_file->handle = pipefd[0];
+    wr_file->handle = pipefd[1];
     *rd = rd_file;
     *wr = wr_file;
 
@@ -323,7 +324,7 @@ uint32_t ldg_io_pipe_create(ldg_io_file_t **rd, ldg_io_file_t **wr)
 
 uint32_t ldg_io_file_dup(ldg_io_file_t *src, ldg_io_file_t **out)
 {
-    ldg_io_file_t *f = 0x0;
+    ldg_io_file_t *file = 0x0;
     int32_t new_fd = 0;
     uint32_t ret = 0;
 
@@ -331,25 +332,25 @@ uint32_t ldg_io_file_dup(ldg_io_file_t *src, ldg_io_file_t **out)
 
     *out = 0x0;
 
-    new_fd = (int32_t)dup((int)src->fd);
+    new_fd = (int32_t)dup((int)src->handle);
     if (LDG_UNLIKELY(new_fd < 0)) { return ldg_io_errno_translate(); }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&f);
+    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         close((int)new_fd);
         return LDG_ERR_ALLOC_NULL;
     }
 
-    if (LDG_UNLIKELY(memset(f, 0, sizeof(struct ldg_io_file)) != f))
+    if (LDG_UNLIKELY(memset(file, 0, sizeof(struct ldg_io_file)) != file))
     {
         close((int)new_fd);
-        ldg_mem_dealloc(f);
+        ldg_mem_dealloc(file);
         return LDG_ERR_MEM_BAD;
     }
 
-    f->fd = new_fd;
-    *out = f;
+    file->handle = new_fd;
+    *out = file;
 
     return LDG_ERR_AOK;
 }

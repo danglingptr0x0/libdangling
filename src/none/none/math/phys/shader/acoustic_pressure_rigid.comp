@@ -1,0 +1,47 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer velocity_blk { double velocity[]; };
+layout(std430, binding = 1) buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 2) readonly buffer mtl_blk { uint mtl_packed[]; };
+layout(std430, binding = 3) readonly buffer coeff_blk { double coeff[]; };
+layout(std430, binding = 4) readonly buffer param_blk
+{
+    double spacing;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding;
+};
+layout(std430, binding = 5) readonly buffer drive_blk { double drive[]; };
+
+const uint COEFF_STRIDE = 6u;
+const uint COEFF_CA = 3u;
+const uint COEFF_CB = 4u;
+
+uint mtl_get(uint cell)
+{
+    uint word = mtl_packed[cell >> 1u];
+    return ((cell & 1u) == 1u) ? (word >> 16u) : (word & 0xFFFFu);
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x < 1u || idx_y < 1u || idx_z < 1u) { return; }
+
+    if (idx_x + 1u >= nx || idx_y + 1u >= ny || idx_z + 1u >= nz) { return; }
+
+    uint cell_cunt = nx * ny * nz;
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    uint row = mtl_get(center) * COEFF_STRIDE;
+    double div_sum = 0.0;
+    div_sum = (velocity[center] - velocity[center - 1u]) / spacing;
+    div_sum += (velocity[cell_cunt + center] - velocity[cell_cunt + center - nx]) / spacing;
+    div_sum += (velocity[2u * cell_cunt + center] - velocity[2u * cell_cunt + center - plane]) / spacing;
+    pressure[center] = coeff[row + COEFF_CA] * pressure[center] + coeff[row + COEFF_CB] * (drive[center] - div_sum);
+}

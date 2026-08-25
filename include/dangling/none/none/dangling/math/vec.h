@@ -10,91 +10,91 @@ static inline uint32_t ldg_math_vec_zero(double *vec, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { vec[idx] = 0.0; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_set(double *vec, double val, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { vec[idx] = val; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_cpy(double *dst, const double *src, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!dst || !src)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!dst || !src)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { dst[idx] = src[idx]; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_scale(double *vec, double scalar, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { vec[idx] *= scalar; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_axpy(double *dst, const double *src, double alpha, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!dst || !src)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!dst || !src)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { dst[idx] += alpha * src[idx]; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_sub(double *out, const double *lhs, const double *rhs, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!out || !lhs || !rhs)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out || !lhs || !rhs)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { out[idx] = lhs[idx] - rhs[idx]; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_mul_elem(double *out, const double *lhs, const double *rhs, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!out || !lhs || !rhs)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out || !lhs || !rhs)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { out[idx] = lhs[idx] * rhs[idx]; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_dot_get(const double *lhs, const double *rhs, uint64_t len, double *out)
@@ -102,18 +102,18 @@ static inline uint32_t ldg_math_vec_dot_get(const double *lhs, const double *rhs
     uint64_t idx = 0;
     double acc = 0.0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0.0;
-    if (LDG_UNLIKELY(!lhs || !rhs)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!lhs || !rhs)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { acc += lhs[idx] * rhs[idx]; }
 
     *out = acc;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_norm1_get(const double *vec, uint64_t len, double *out)
@@ -121,18 +121,18 @@ static inline uint32_t ldg_math_vec_norm1_get(const double *vec, uint64_t len, d
     uint64_t idx = 0;
     double acc = 0.0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0.0;
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++) { acc += __builtin_fabs(vec[idx]); }
 
     *out = acc;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_norm2_get(const double *vec, uint64_t len, double *out)
@@ -143,12 +143,12 @@ static inline uint32_t ldg_math_vec_norm2_get(const double *vec, uint64_t len, d
     double abs_val = 0.0;
     double ratio = 0.0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0.0;
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     sum_sq = 1.0;
 
@@ -173,7 +173,7 @@ static inline uint32_t ldg_math_vec_norm2_get(const double *vec, uint64_t len, d
 
     *out = scale * __builtin_sqrt(sum_sq);
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 static inline uint32_t ldg_math_vec_norm_inf_get(const double *vec, uint64_t len, double *out)
@@ -182,12 +182,12 @@ static inline uint32_t ldg_math_vec_norm_inf_get(const double *vec, uint64_t len
     double max_abs = 0.0;
     double abs_val = 0.0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0.0;
-    if (LDG_UNLIKELY(!vec)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!vec)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(len == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (idx = 0; idx < len; idx++)
     {
@@ -197,7 +197,7 @@ static inline uint32_t ldg_math_vec_norm_inf_get(const double *vec, uint64_t len
 
     *out = max_abs;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 #endif

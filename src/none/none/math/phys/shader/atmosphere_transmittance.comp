@@ -1,0 +1,84 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere_common.glsl"
+
+#define ATMOSPHERE_TRANSMITTANCE_STEP_CUNT 64
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer param_blk
+{
+    double planet_radius;
+    double thickness;
+    double rayleigh_scale_height;
+    double mie_scale_height;
+    double mie_scatter;
+    double mie_absorb;
+    double mie_anisotropy;
+    double fog_scale_height;
+    double fog_scatter;
+    double fog_absorb;
+    double fog_anisotropy;
+    double ozone_center_altitude;
+    double ozone_half_width;
+    uint bin_cunt;
+    uint order_cunt;
+    uint altitude_cunt;
+    uint view_cunt;
+    uint sun_cunt;
+    uint view_sun_cunt;
+    uint pud;
+};
+layout(std430, binding = 1) readonly buffer rayleigh_blk { double rayleigh[]; };
+layout(std430, binding = 2) writeonly buffer transmittance_blk { double transmittance[]; };
+layout(std430, binding = 3) readonly buffer ozone_blk { double ozone[]; };
+
+void main()
+{
+    uint idx_a = gl_GlobalInvocationID.x;
+    uint idx_v = gl_GlobalInvocationID.y;
+    if (idx_a >= altitude_cunt || idx_v >= view_cunt) { return; }
+
+    double altitude = thickness * double(idx_a) / (double(altitude_cunt) - 1.0lf);
+    double radius = planet_radius + altitude;
+    double mu = 0.0lf - 1.0lf + 2.0lf * double(idx_v) / (double(view_cunt) - 1.0lf);
+    double mie_extinction = mie_scatter + mie_absorb;
+    double fog_extinction = fog_scatter + fog_absorb;
+    uint ground_hit = 0u;
+    double ray_len = atmosphere_ray_len(planet_radius, thickness, radius, mu, ground_hit);
+    double step = ray_len / double(ATMOSPHERE_TRANSMITTANCE_STEP_CUNT);
+    double depth_rayleigh = 0.0lf;
+    double depth_mie = 0.0lf;
+    double depth_fog = 0.0lf;
+    double depth_ozone = 0.0lf;
+    double dist = 0.0lf;
+    double dist_next = 0.0lf;
+    double radius_dist = 0.0lf;
+    double radius_next = 0.0lf;
+    double altitude_dist = 0.0lf;
+    double altitude_next = 0.0lf;
+    double altitude_prev = altitude;
+    uint step_idx = 0u;
+    uint bin = 0u;
+    uint base = 0u;
+    for (step_idx = 0u; step_idx < ATMOSPHERE_TRANSMITTANCE_STEP_CUNT; step_idx++)
+    {
+        dist = (double(step_idx) + 0.5lf) * step;
+        dist_next = (double(step_idx) + 1.0lf) * step;
+        radius_dist = sqrt(radius * radius + dist * dist + 2.0lf * radius * dist * mu);
+        altitude_dist = radius_dist - planet_radius;
+        radius_next = sqrt(radius * radius + dist_next * dist_next + 2.0lf * radius * dist_next * mu);
+        altitude_next = radius_next - planet_radius;
+        depth_rayleigh += atmosphere_density(altitude_dist, rayleigh_scale_height) * step;
+        depth_mie += atmosphere_density(altitude_dist, mie_scale_height) * step;
+        depth_fog += segment_depth(altitude_prev, altitude_dist, step * 0.5lf, fog_scale_height) + segment_depth(altitude_dist, altitude_next, step * 0.5lf, fog_scale_height);
+        depth_ozone += ozone_segment_depth(altitude_prev, altitude_dist, step * 0.5lf, ozone_center_altitude, ozone_half_width) + ozone_segment_depth(altitude_dist, altitude_next, step * 0.5lf, ozone_center_altitude, ozone_half_width);
+        altitude_prev = altitude_next;
+    }
+    base = (idx_a * view_cunt + idx_v) * bin_cunt;
+    for (bin = 0u; bin < bin_cunt; bin++)
+    {
+        transmittance[base + bin] = ldg_exp(0.0lf - (rayleigh[bin] * depth_rayleigh + mie_extinction * depth_mie + fog_extinction * depth_fog + ozone[bin] * depth_ozone));
+    }
+}

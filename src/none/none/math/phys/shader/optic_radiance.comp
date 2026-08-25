@@ -1,0 +1,84 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer radiance_in_blk { double radiance_in[]; };
+layout(std430, binding = 1) writeonly buffer radiance_out_blk { double radiance_out[]; };
+layout(std430, binding = 2) readonly buffer flux_blk { double flux[]; };
+layout(std430, binding = 3) readonly buffer emission_blk { double emission[]; };
+layout(std430, binding = 4) readonly buffer alpha_blk { double alpha_cell[]; };
+layout(std430, binding = 5) readonly buffer scatter_blk { double scatter_cell[]; };
+layout(std430, binding = 6) readonly buffer ordinate_blk { double ordinate[]; };
+layout(std430, binding = 7) readonly buffer param_blk
+{
+    double spacing;
+    double tol;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint ord_cunt;
+};
+layout(std430, binding = 8) buffer flag_blk { uint flag; };
+
+const double SOLID_ANGLE_FULL = 12.56637061435917295385;
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint plane = nx * ny;
+    uint cell_cunt = nx * ny * nz;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    double src_val = emission[center] + scatter_cell[center] * flux[center] / SOLID_ANGLE_FULL;
+    double sink = alpha_cell[center] + scatter_cell[center];
+    uint ord_idx = 0u;
+    for (ord_idx = 0u; ord_idx < ord_cunt; ord_idx++)
+    {
+        double dir_x = ordinate[ord_idx * 4u];
+        double dir_y = ordinate[ord_idx * 4u + 1u];
+        double dir_z = ordinate[ord_idx * 4u + 2u];
+        double abs_x = abs(dir_x) / spacing;
+        double abs_y = abs(dir_y) / spacing;
+        double abs_z = abs(dir_z) / spacing;
+        double numer = src_val;
+        double denom = sink;
+        uint slab = ord_idx * cell_cunt;
+        if (abs_x > 0.0)
+        {
+            denom += abs_x;
+            if (dir_x > 0.0 && idx_x > 0u) { numer += abs_x * radiance_in[slab + center - 1u]; }
+
+            if (dir_x < 0.0 && idx_x + 1u < nx) { numer += abs_x * radiance_in[slab + center + 1u]; }
+        }
+
+        if (abs_y > 0.0)
+        {
+            denom += abs_y;
+            if (dir_y > 0.0 && idx_y > 0u) { numer += abs_y * radiance_in[slab + center - nx]; }
+
+            if (dir_y < 0.0 && idx_y + 1u < ny) { numer += abs_y * radiance_in[slab + center + nx]; }
+        }
+
+        if (abs_z > 0.0)
+        {
+            denom += abs_z;
+            if (dir_z > 0.0 && idx_z > 0u) { numer += abs_z * radiance_in[slab + center - plane]; }
+
+            if (dir_z < 0.0 && idx_z + 1u < nz) { numer += abs_z * radiance_in[slab + center + plane]; }
+        }
+
+        if (denom <= 0.0)
+        {
+            radiance_out[slab + center] = radiance_in[slab + center];
+            continue;
+        }
+
+        double candidate = numer / denom;
+        if (abs(radiance_in[slab + center] - candidate) > tol) { atomicOr(flag, 1u); }
+
+        radiance_out[slab + center] = candidate;
+    }
+}

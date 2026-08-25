@@ -65,7 +65,7 @@ typedef struct ldg_ecs_ctx
     uint8_t pudding[31];
 } LDG_ALIGNED ldg_ecs_ctx_t;
 
-LDG_EXPORT uint32_t ldg_ecs_conf_default(ldg_ecs_conf_t *conf);
+LDG_EXPORT uint32_t ldg_ecs_conf_default_get(ldg_ecs_conf_t *conf);
 LDG_EXPORT uint32_t ldg_ecs_ctx_init(ldg_ecs_ctx_t *ctx, const ldg_ecs_conf_t *conf);
 LDG_EXPORT uint32_t ldg_ecs_ctx_shutdown(ldg_ecs_ctx_t *ctx);
 
@@ -73,6 +73,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_comp_reg(ldg_ecs_ctx_t *ctx, uint32_t comp_id, c
 LDG_EXPORT uint32_t ldg_ecs_ctx_taxon_reg(ldg_ecs_ctx_t *ctx, uint32_t taxon_id, const ldg_ecs_taxon_desc_t *desc);
 LDG_EXPORT uint32_t ldg_ecs_ctx_inst_reg(ldg_ecs_ctx_t *ctx, uint32_t taxon_id, ldg_ecs_logic_cb_t logic, uint64_t *out);
 LDG_EXPORT uint32_t ldg_ecs_ctx_taxon_inst_reg(ldg_ecs_ctx_t *ctx, uint32_t taxon_id, const ldg_ecs_taxon_desc_t *desc, ldg_ecs_logic_cb_t logic, uint64_t *out);
+LDG_EXPORT uint32_t ldg_ecs_ctx_subtaxon_add(ldg_ecs_ctx_t *ctx, uint32_t parent_id, uint32_t child_id);
 
 LDG_EXPORT uint32_t ldg_ecs_ctx_comp_add(ldg_ecs_ctx_t *ctx, uint64_t entity, uint32_t comp_id, const void *src);
 LDG_EXPORT uint32_t ldg_ecs_ctx_comp_remove(ldg_ecs_ctx_t *ctx, uint64_t entity, uint32_t comp_id);
@@ -88,7 +89,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_entity_destroy(ldg_ecs_ctx_t *ctx, uint64_t enti
 LDG_EXPORT uint32_t ldg_ecs_ctx_sys_reg(ldg_ecs_ctx_t *ctx, const ldg_ecs_sys_desc_t *desc);
 LDG_EXPORT uint32_t ldg_ecs_ctx_tick(ldg_ecs_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_seq_run(ldg_ecs_ctx_t *ctx);
-LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx);
+LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_ecs_sched_init(ldg_ecs_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_ecs_sched_shutdown(ldg_ecs_ctx_t *ctx);
 

@@ -9,6 +9,7 @@
 
 #include <dangling/mem/mem.h>
 #include <dangling/mem/alloc.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/mem/secure.h>
 
 #include <dangling/str/str.h>
@@ -28,7 +29,8 @@
 #include <dangling/sys/uuid.h>
 #include <dangling/sys/tty.h>
 #include <dangling/sys/info.h>
+#include <dangling/sys/progress.h>
 
-#include <dangling/arch/misc/misc.h>
+#include <dangling/arch/MISC/MISC.h>
 
 #endif

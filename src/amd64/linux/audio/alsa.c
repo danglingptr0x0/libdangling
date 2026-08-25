@@ -25,7 +25,7 @@ typedef struct ldg_audio_ctx
 } ldg_audio_ctx_t;
 
 // singleton audio backend; file-scope static required for ALSA state
-static ldg_audio_ctx_t g_audio_ctx = { 0 };
+static ldg_audio_ctx_t g_audio_ctx = { .is_init = LDG_TRUTH_FALSE };
 
 static uint32_t audio_mixer_open(int32_t card_idx)
 {
@@ -100,7 +100,7 @@ uint32_t ldg_audio_init(void)
     int32_t card_idx = 0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(g_audio_ctx.is_init)) { return LDG_ERR_AOK; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init == LDG_TRUTH_TRUE)) { return LDG_ERR_AOK; }
 
     if (LDG_UNLIKELY(memset(&g_audio_ctx, 0, sizeof(ldg_audio_ctx_t)) != &g_audio_ctx)) { return LDG_ERR_MEM_BAD; }
 
@@ -111,14 +111,14 @@ uint32_t ldg_audio_init(void)
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     g_audio_ctx.card_idx = card_idx;
-    g_audio_ctx.is_init = 1;
+    g_audio_ctx.is_init = LDG_TRUTH_TRUE;
 
     return LDG_ERR_AOK;
 }
 
 void ldg_audio_shutdown(void)
 {
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return; }
 
     if (g_audio_ctx.mixer)
     {
@@ -127,7 +127,7 @@ void ldg_audio_shutdown(void)
     }
 
     g_audio_ctx.master_elem = 0x0;
-    g_audio_ctx.is_init = 0;
+    g_audio_ctx.is_init = LDG_TRUTH_FALSE;
 }
 
 uint32_t ldg_audio_master_vol_get(double *vol)
@@ -138,7 +138,7 @@ uint32_t ldg_audio_master_vol_get(double *vol)
 
     if (LDG_UNLIKELY(!vol)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     if (LDG_UNLIKELY(!g_audio_ctx.master_elem)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -162,7 +162,7 @@ uint32_t ldg_audio_master_vol_set(double vol)
     int64_t val = 0;
     int32_t ret = 0;
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     if (LDG_UNLIKELY(!g_audio_ctx.master_elem)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -195,7 +195,7 @@ uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted)
 
     if (LDG_UNLIKELY(!muted)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     if (LDG_UNLIKELY(!g_audio_ctx.master_elem)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -225,7 +225,7 @@ uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted)
 
     if (stream_id != 0) { return LDG_ERR_AUDIO_NOT_AVAILABLE; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     if (LDG_UNLIKELY(!g_audio_ctx.master_elem)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
 
@@ -277,7 +277,7 @@ uint32_t ldg_audio_self_vol_set(__attribute__((unused)) double vol)
 
 uint32_t ldg_audio_sync(void)
 {
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     return LDG_ERR_AOK;
 }
@@ -286,7 +286,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 {
     int32_t card = ALSA_CARD_FIRST;
     uint32_t n = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
     ldg_audio_sink_t *arr = 0x0;
     snd_ctl_t *ctl = 0x0;
     snd_ctl_card_info_t *info = 0x0;
@@ -294,7 +294,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 
     if (LDG_UNLIKELY(!sinks || !cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
 
@@ -313,7 +313,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
     if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_sink_t)) != arr)) { ldg_mem_dealloc(arr); return LDG_ERR_MEM_BAD; }
 
     card = ALSA_CARD_FIRST;
-    while (snd_card_next(&card) >= 0 && card >= 0 && i < n)
+    while (snd_card_next(&card) >= 0 && card >= 0 && idx < n)
     {
         if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", card) < 0)) { continue; }
 
@@ -321,15 +321,15 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
         {
             if (snd_ctl_card_info(ctl, info) >= 0)
             {
-                arr[i].id = (uint32_t)card;
-                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+                arr[idx].id = (uint32_t)card;
+                if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[idx].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
 
-                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+                if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[idx].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
 
-                arr[i].vol = 0.0;
-                arr[i].muted = 0;
-                arr[i].is_default = (card == g_audio_ctx.card_idx) ? 1 : 0;
-                i++;
+                arr[idx].vol = 0.0;
+                arr[idx].muted = 0;
+                arr[idx].is_default = (card == g_audio_ctx.card_idx) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+                idx++;
             }
 
             snd_ctl_close(ctl);
@@ -337,7 +337,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
     }
 
     *sinks = arr;
-    *cunt = i;
+    *cunt = idx;
 
     return LDG_ERR_AOK;
 }
@@ -353,7 +353,7 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
 {
     int32_t card = ALSA_CARD_FIRST;
     uint32_t n = 0;
-    uint32_t i = 0;
+    uint32_t idx = 0;
     ldg_audio_src_t *arr = 0x0;
     snd_ctl_t *ctl = 0x0;
     snd_ctl_card_info_t *info = 0x0;
@@ -361,7 +361,7 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
 
     if (LDG_UNLIKELY(!srcs || !cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
 
@@ -380,7 +380,7 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
     if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_src_t)) != arr)) { ldg_mem_dealloc(arr); return LDG_ERR_MEM_BAD; }
 
     card = ALSA_CARD_FIRST;
-    while (snd_card_next(&card) >= 0 && card >= 0 && i < n)
+    while (snd_card_next(&card) >= 0 && card >= 0 && idx < n)
     {
         if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", card) < 0)) { continue; }
 
@@ -388,15 +388,15 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
         {
             if (snd_ctl_card_info(ctl, info) >= 0)
             {
-                arr[i].id = (uint32_t)card;
-                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+                arr[idx].id = (uint32_t)card;
+                if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[idx].name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
 
-                if (LDG_UNLIKELY(ldg_strrbrcpy(arr[i].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
+                if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[idx].desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); continue; }
 
-                arr[i].vol = 0.0;
-                arr[i].muted = 0;
-                arr[i].is_default = (card == g_audio_ctx.card_idx) ? 1 : 0;
-                i++;
+                arr[idx].vol = 0.0;
+                arr[idx].muted = 0;
+                arr[idx].is_default = (card == g_audio_ctx.card_idx) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+                idx++;
             }
 
             snd_ctl_close(ctl);
@@ -404,7 +404,7 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
     }
 
     *srcs = arr;
-    *cunt = i;
+    *cunt = idx;
 
     return LDG_ERR_AOK;
 }
@@ -424,7 +424,7 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
 
     if (LDG_UNLIKELY(!sink)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
     if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx) < 0)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
@@ -440,11 +440,11 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
     if (LDG_UNLIKELY(memset(sink, 0, sizeof(ldg_audio_sink_t)) != sink)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
     sink->id = (uint32_t)g_audio_ctx.card_idx;
-    if (LDG_UNLIKELY(ldg_strrbrcpy(sink->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_str_rbrcpy(sink->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
-    if (LDG_UNLIKELY(ldg_strrbrcpy(sink->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_str_rbrcpy(sink->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
-    sink->is_default = 1;
+    sink->is_default = LDG_TRUTH_TRUE;
 
     if (LDG_UNLIKELY(ldg_audio_master_vol_get(&sink->vol) != LDG_ERR_AOK)) { sink->vol = 0.0; }
 
@@ -463,7 +463,7 @@ uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src)
 
     if (LDG_UNLIKELY(!src)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!g_audio_ctx.is_init)) { return LDG_ERR_AUDIO_NOT_INIT; }
+    if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
     snd_ctl_card_info_alloca(&info);
     if (LDG_UNLIKELY(snprintf(card_name, sizeof(card_name), "hw:%d", g_audio_ctx.card_idx) < 0)) { return LDG_ERR_AUDIO_NO_DEFAULT; }
@@ -479,11 +479,11 @@ uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src)
     if (LDG_UNLIKELY(memset(src, 0, sizeof(ldg_audio_src_t)) != src)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
     src->id = (uint32_t)g_audio_ctx.card_idx;
-    if (LDG_UNLIKELY(ldg_strrbrcpy(src->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_str_rbrcpy(src->name, snd_ctl_card_info_get_id(info), LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
-    if (LDG_UNLIKELY(ldg_strrbrcpy(src->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_str_rbrcpy(src->desc, snd_ctl_card_info_get_name(info), LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { snd_ctl_close(ctl); return LDG_ERR_MEM_BAD; }
 
-    src->is_default = 1;
+    src->is_default = LDG_TRUTH_TRUE;
 
     snd_ctl_close(ctl);
 
@@ -498,6 +498,31 @@ uint32_t ldg_audio_duck(__attribute__((unused)) double factor, __attribute__((un
 uint32_t ldg_audio_unduck(void)
 {
     return LDG_ERR_AUDIO_NOT_AVAILABLE;
+}
+
+uint32_t ldg_audio_sink_pcm_open(__attribute__((unused)) uint32_t rate, __attribute__((unused)) uint16_t channel_cunt, __attribute__((unused)) uint16_t bit_depth)
+{
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_audio_sink_pcm_close(void)
+{
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_audio_sink_pcm_pause_set(__attribute__((unused)) uint8_t paused)
+{
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_audio_sink_pcm_vol_set(__attribute__((unused)) double vol)
+{
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_audio_sink_pcm_src_set(__attribute__((unused)) ldg_audio_pcm_pull_cb_t cb, __attribute__((unused)) void *user)
+{
+    return LDG_ERR_UNSUPPORTED;
 }
 
 #endif

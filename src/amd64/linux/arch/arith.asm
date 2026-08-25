@@ -1,9 +1,26 @@
 %include "dangling/core/err.inc"
 
+%macro ARGS_LD 0
+    mov r9, rdx
+    mov r10, rdi
+    mov r11, rsi
+%endmacro
+
+%macro ARGS_LD4 0
+    mov r10, rdi
+    mov r11, rsi
+    mov r9, rdx
+    mov r8, rcx
+%endmacro
+
+%macro ARGS_LD_D1 0
+    mov r10, rdi
+%endmacro
+
 section .text
 
-global ldg_arith_32_add
-ldg_arith_32_add:
+global ldg_arith_uint32_add
+ldg_arith_uint32_add:
     test rdx, rdx
     jz .null
     mov dword [rdx], 0
@@ -20,8 +37,8 @@ ldg_arith_32_add:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_sub
-ldg_arith_32_sub:
+global ldg_arith_uint32_sub
+ldg_arith_uint32_sub:
     test rdx, rdx
     jz .null
     mov dword [rdx], 0
@@ -38,8 +55,8 @@ ldg_arith_32_sub:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_mul
-ldg_arith_32_mul:
+global ldg_arith_uint32_mul
+ldg_arith_uint32_mul:
     test rdx, rdx
     jz .null
     mov r8, rdx
@@ -57,8 +74,8 @@ ldg_arith_32_mul:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_32_div
-ldg_arith_32_div:
+global ldg_arith_uint32_div
+ldg_arith_uint32_div:
     test rdx, rdx
     jz .null
     mov r8, rdx
@@ -78,8 +95,8 @@ ldg_arith_32_div:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_64_add
-ldg_arith_64_add:
+global ldg_arith_uint64_add
+ldg_arith_uint64_add:
     test rdx, rdx
     jz .null
     mov qword [rdx], 0
@@ -96,8 +113,8 @@ ldg_arith_64_add:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_64_sub
-ldg_arith_64_sub:
+global ldg_arith_uint64_sub
+ldg_arith_uint64_sub:
     test rdx, rdx
     jz .null
     mov qword [rdx], 0
@@ -114,8 +131,8 @@ ldg_arith_64_sub:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_64_mul
-ldg_arith_64_mul:
+global ldg_arith_uint64_mul
+ldg_arith_uint64_mul:
     test rdx, rdx
     jz .null
     mov r8, rdx
@@ -133,8 +150,8 @@ ldg_arith_64_mul:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
 
-global ldg_arith_64_div
-ldg_arith_64_div:
+global ldg_arith_uint64_div
+ldg_arith_uint64_div:
     test rdx, rdx
     jz .null
     mov r8, rdx
@@ -153,3 +170,5 @@ ldg_arith_64_div:
 .null:
     mov eax, LDG_ERR_FUNC_ARG_NULL
     ret
+
+%include "arith_uint128_256.inc"

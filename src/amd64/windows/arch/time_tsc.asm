@@ -6,55 +6,48 @@ section .bss
 
 section .text
 
-global ldg_tsc_sample
-ldg_tsc_sample:
-    rdtscp
-    shl     rdx, 32
-    or      rax, rdx
+global ldg_time_tsc_sample_get
+ldg_time_tsc_sample_get:
+    mov r8, rcx
 
-    test    rcx, rcx
-    jz      .done
-    mov     [rcx], ecx
+    rdtscp
+    shl rdx, 32
+    or rax, rdx
+
+    test r8, r8
+    jz .done
+    mov [r8], ecx
 
 .done:
     ret
 
-global ldg_tsc_serialize
-ldg_tsc_serialize:
-    push    rbx
-    xor     eax, eax
+global ldg_time_tsc_serialize
+ldg_time_tsc_serialize:
+    push rbx
+    xor eax, eax
     cpuid
-    pop     rbx
+    pop rbx
     ret
 
-global ldg_tsc_serialized_sample
-ldg_tsc_serialized_sample:
-    push    rbx
-    push    rcx
-
-    xor     eax, eax
-    cpuid
-
-    rdtscp
-    shl     rdx, 32
-    or      rax, rdx
-    mov     r8, rax
-    mov     r9d, ecx
+global ldg_time_tsc_serialized_sample_get
+ldg_time_tsc_serialized_sample_get:
+    mov r8, rcx
 
     lfence
+    rdtscp
+    shl rdx, 32
+    or rax, rdx
+    lfence
 
-    pop     rcx
-    test    rcx, rcx
-    jz      .skip_store
-    mov     [rcx], r9d
+    test r8, r8
+    jz .skip_store
+    mov [r8], ecx
 
 .skip_store:
-    mov     rax, r8
-    pop     rbx
     ret
 
-global ldg_tsc_delta
-ldg_tsc_delta:
-    mov     rax, rdx
-    sub     rax, rcx
+global ldg_time_tsc_delta_get
+ldg_time_tsc_delta_get:
+    mov rax, rdx
+    sub rax, rcx
     ret

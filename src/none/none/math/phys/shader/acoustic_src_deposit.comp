@@ -1,0 +1,33 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer batch_blk
+{
+    uint seq;
+    uint pudding_seq;
+    double drive_series[4 * 255];
+    double tap_ring[8 * 255];
+};
+layout(std430, binding = 1) buffer drive_blk { double drive[]; };
+layout(std430, binding = 2) readonly buffer footprint_cell_blk { uint footprint_cell[]; };
+layout(std430, binding = 3) readonly buffer footprint_weight_blk { double footprint_weight[]; };
+layout(std430, binding = 4) readonly buffer footprint_param_blk
+{
+    uint footprint_cunt;
+    uint pud0;
+    uint pud1;
+    uint pud2;
+};
+
+void main()
+{
+    uint entry = gl_GlobalInvocationID.x;
+    if (entry >= footprint_cunt) { return; }
+
+    double acc = 0.0lf;
+    uint src = 0u;
+    for (src = 0u; src < 4u; src++) { acc += footprint_weight[entry * 4u + src] * drive_series[src * 255u + seq]; }
+
+    drive[footprint_cell[entry]] = acc;
+}

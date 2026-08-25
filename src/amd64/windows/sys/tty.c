@@ -5,15 +5,11 @@
 #include <dangling/sys/tty.h>
 #include <dangling/core/err.h>
 
-uint32_t ldg_sys_tty_stdout_is(uint8_t *is_tty)
+uint8_t ldg_sys_tty_stdout_is(void)
 {
-    if (LDG_UNLIKELY(!is_tty)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (_isatty(_fileno(stdout)) != 0) { return LDG_TRUTH_TRUE; }
 
-    *is_tty = 0;
-
-    *is_tty = (_isatty(_fileno(stdout)) != 0);
-
-    return LDG_ERR_AOK;
+    return LDG_TRUTH_FALSE;
 }
 
 uint32_t ldg_sys_tty_width_get(uint32_t *cols)

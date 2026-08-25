@@ -1,0 +1,84 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) buffer magnetic_blk { double magnetic[]; };
+layout(std430, binding = 1) readonly buffer electric_blk { double electric[]; };
+layout(std430, binding = 2) readonly buffer param_blk
+{
+    double inv_spacing;
+    double coeff_ca;
+    double coeff_cb;
+    double coeff_db;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pml_depth;
+};
+layout(std430, binding = 3) buffer psi_blk { double psi[]; };
+layout(std430, binding = 4) readonly buffer stretch_blk { double stretch[]; };
+
+const uint STRETCH_KAPPA_HALF = 3u;
+const uint STRETCH_B_HALF = 4u;
+const uint STRETCH_C_HALF = 5u;
+const uint STRETCH_STRIDE = 6u;
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    if (idx_x >= pml_depth && idx_x + pml_depth + 1u < nx && idx_y >= pml_depth && idx_y + pml_depth + 1u < ny && idx_z >= pml_depth && idx_z + pml_depth + 1u < nz) { return; }
+
+    uint cell_cunt = nx * ny * nz;
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    uint stretch_x_off = 0u;
+    uint stretch_y_off = STRETCH_STRIDE * nx;
+    uint stretch_z_off = STRETCH_STRIDE * (nx + ny);
+    double diff_a = 0.0;
+    double diff_b = 0.0;
+    double term_a = 0.0;
+    double term_b = 0.0;
+    double psi_val = 0.0;
+    if (idx_y + 1u < ny && idx_z + 1u < nz)
+    {
+        diff_a = (electric[2u * cell_cunt + center + nx] - electric[2u * cell_cunt + center]) * inv_spacing;
+        psi_val = stretch[stretch_y_off + STRETCH_B_HALF * ny + idx_y] * psi[6u * cell_cunt + center] + stretch[stretch_y_off + STRETCH_C_HALF * ny + idx_y] * diff_a;
+        psi[6u * cell_cunt + center] = psi_val;
+        term_a = diff_a / stretch[stretch_y_off + STRETCH_KAPPA_HALF * ny + idx_y] + psi_val;
+        diff_b = (electric[cell_cunt + center + plane] - electric[cell_cunt + center]) * inv_spacing;
+        psi_val = stretch[stretch_z_off + STRETCH_B_HALF * nz + idx_z] * psi[7u * cell_cunt + center] + stretch[stretch_z_off + STRETCH_C_HALF * nz + idx_z] * diff_b;
+        psi[7u * cell_cunt + center] = psi_val;
+        term_b = diff_b / stretch[stretch_z_off + STRETCH_KAPPA_HALF * nz + idx_z] + psi_val;
+        magnetic[center] -= coeff_db * (term_a - term_b);
+    }
+
+    if (idx_x + 1u < nx && idx_z + 1u < nz)
+    {
+        diff_a = (electric[center + plane] - electric[center]) * inv_spacing;
+        psi_val = stretch[stretch_z_off + STRETCH_B_HALF * nz + idx_z] * psi[8u * cell_cunt + center] + stretch[stretch_z_off + STRETCH_C_HALF * nz + idx_z] * diff_a;
+        psi[8u * cell_cunt + center] = psi_val;
+        term_a = diff_a / stretch[stretch_z_off + STRETCH_KAPPA_HALF * nz + idx_z] + psi_val;
+        diff_b = (electric[2u * cell_cunt + center + 1u] - electric[2u * cell_cunt + center]) * inv_spacing;
+        psi_val = stretch[stretch_x_off + STRETCH_B_HALF * nx + idx_x] * psi[9u * cell_cunt + center] + stretch[stretch_x_off + STRETCH_C_HALF * nx + idx_x] * diff_b;
+        psi[9u * cell_cunt + center] = psi_val;
+        term_b = diff_b / stretch[stretch_x_off + STRETCH_KAPPA_HALF * nx + idx_x] + psi_val;
+        magnetic[cell_cunt + center] -= coeff_db * (term_a - term_b);
+    }
+
+    if (idx_x + 1u < nx && idx_y + 1u < ny)
+    {
+        diff_a = (electric[cell_cunt + center + 1u] - electric[cell_cunt + center]) * inv_spacing;
+        psi_val = stretch[stretch_x_off + STRETCH_B_HALF * nx + idx_x] * psi[10u * cell_cunt + center] + stretch[stretch_x_off + STRETCH_C_HALF * nx + idx_x] * diff_a;
+        psi[10u * cell_cunt + center] = psi_val;
+        term_a = diff_a / stretch[stretch_x_off + STRETCH_KAPPA_HALF * nx + idx_x] + psi_val;
+        diff_b = (electric[center + nx] - electric[center]) * inv_spacing;
+        psi_val = stretch[stretch_y_off + STRETCH_B_HALF * ny + idx_y] * psi[11u * cell_cunt + center] + stretch[stretch_y_off + STRETCH_C_HALF * ny + idx_y] * diff_b;
+        psi[11u * cell_cunt + center] = psi_val;
+        term_b = diff_b / stretch[stretch_y_off + STRETCH_KAPPA_HALF * ny + idx_y] + psi_val;
+        magnetic[2u * cell_cunt + center] -= coeff_db * (term_a - term_b);
+    }
+}

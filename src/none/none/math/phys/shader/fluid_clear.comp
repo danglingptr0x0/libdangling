@@ -1,0 +1,36 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) writeonly buffer bin_cunt_blk { uint bin_cunt[]; };
+layout(std430, binding = 1) writeonly buffer submerged_blk { uint submerged; };
+layout(std430, binding = 2) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_rho;
+    double ball_r;
+    double pudding_b;
+    double pudding_c;
+    double pudding_e;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+    uint cell_cunt = nx * ny * nz;
+    if (idx < cell_cunt) { bin_cunt[idx] = 0u; }
+
+    if (idx == 0u) { submerged = 0u; }
+}

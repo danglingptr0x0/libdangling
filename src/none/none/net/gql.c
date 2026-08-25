@@ -2,6 +2,7 @@
 
 #include <dangling/net/gql.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
 
@@ -13,7 +14,7 @@ uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
 
     if (LDG_UNLIKELY(!ctx || !endpoint_url)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_gql_ctx_t)) != ctx)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_gql_ctx_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     url_len = (uint64_t)strlen(endpoint_url) + LDG_STR_TERM_SIZE;
 
@@ -22,7 +23,7 @@ uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
 
     ctx->endpoint_url = (char *)url_tmp;
 
-    ret = ldg_strrbrcpy(ctx->endpoint_url, endpoint_url, url_len);
+    ret = ldg_str_rbrcpy(ctx->endpoint_url, endpoint_url, url_len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
     {
         ldg_mem_dealloc(ctx->endpoint_url);
@@ -49,7 +50,7 @@ void ldg_gql_ctx_destroy(ldg_gql_ctx_t *ctx)
 
     if (ctx->endpoint_url) { ldg_mem_dealloc(ctx->endpoint_url); }
 
-    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_gql_ctx_t)) != ctx)) { return; }
+    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_gql_ctx_t)) != LDG_ERR_AOK)) { return; }
 }
 
 uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *hdrs, ldg_curl_resp_t *resp)
@@ -59,22 +60,22 @@ uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *hdrs, ldg_curl
 
     if (LDG_UNLIKELY(!ctx || !body || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = ldg_curl_hdrs_append(&gql_hdrs, "Content-Type: application/json");
+    ret = ldg_curl_hdr_append(&gql_hdrs, "Content-Type: application/json");
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (hdrs)
     {
-        ret = ldg_curl_hdrs_copy(hdrs, &gql_hdrs);
+        ret = ldg_curl_hdr_cpy(hdrs, &gql_hdrs);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
-            ldg_curl_hdrs_destroy(&gql_hdrs);
+            ldg_curl_hdr_destroy(&gql_hdrs);
             return ret;
         }
     }
 
     ret = ldg_curl_easy_post(&ctx->curl_ctx, ctx->endpoint_url, body, gql_hdrs, resp);
 
-    ldg_curl_hdrs_destroy(&gql_hdrs);
+    ldg_curl_hdr_destroy(&gql_hdrs);
 
     return ret;
 }

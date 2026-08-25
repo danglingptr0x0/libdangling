@@ -1,8 +1,8 @@
-#include <string.h>
 
 #include <dangling/math/sparse.h>
 #include <dangling/mem/alloc.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/core/macros.h>
 
 static void sparse_destroy_internal(ldg_math_sparse_t *mat)
@@ -122,24 +122,24 @@ LDG_EXPORT uint32_t ldg_math_sparse_create(uint64_t rows, uint64_t cols, uint64_
     void *tmp = 0x0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out = 0x0;
 
-    if (LDG_UNLIKELY(rows == 0 || cols == 0 || max_nnz == 0)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(rows == 0 || cols == 0 || max_nnz == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(rows > UINT64_MAX / (uint64_t)sizeof(uint64_t) - 1)) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(rows > UINT64_MAX / (uint64_t)sizeof(uint64_t) - 1)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(max_nnz > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_MATH_ARG_INVALID; }
+    if (LDG_UNLIKELY(max_nnz > UINT64_MAX / (uint64_t)sizeof(double))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     ret = ldg_mem_alloc((uint64_t)sizeof(ldg_math_sparse_t), &tmp);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_MATH_ALLOC; }
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     mat = (ldg_math_sparse_t *)tmp;
-    if (LDG_UNLIKELY(memset(mat, 0, sizeof(ldg_math_sparse_t)) != mat))
+    if (LDG_UNLIKELY(ldg_mem_zero(mat, sizeof(ldg_math_sparse_t)) != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(mat);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     mat->rows = rows;
@@ -151,7 +151,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_create(uint64_t rows, uint64_t cols, uint64_
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         sparse_destroy_internal(mat);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     mat->coo_row = (uint64_t *)tmp;
@@ -161,7 +161,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_create(uint64_t rows, uint64_t cols, uint64_
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         sparse_destroy_internal(mat);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     mat->col_idx = (uint64_t *)tmp;
@@ -171,7 +171,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_create(uint64_t rows, uint64_t cols, uint64_
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         sparse_destroy_internal(mat);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     mat->vals = (double *)tmp;
@@ -181,26 +181,26 @@ LDG_EXPORT uint32_t ldg_math_sparse_create(uint64_t rows, uint64_t cols, uint64_
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         sparse_destroy_internal(mat);
-        return LDG_MATH_ALLOC;
+        return LDG_ERR_ALLOC_NULL;
     }
 
     mat->row_ptr = (uint64_t *)tmp;
 
     *out = mat;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_destroy(ldg_math_sparse_t **mat)
 {
-    if (LDG_UNLIKELY(!mat)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!*mat)) { return LDG_MATH_OK; }
+    if (LDG_UNLIKELY(!*mat)) { return LDG_ERR_AOK; }
 
     sparse_destroy_internal(*mat);
     *mat = 0x0;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_entry_add(ldg_math_sparse_t *mat, uint64_t row, uint64_t col, double val)
@@ -210,20 +210,20 @@ LDG_EXPORT uint32_t ldg_math_sparse_entry_add(ldg_math_sparse_t *mat, uint64_t r
     uint64_t mid = 0;
     uint64_t found = 0;
 
-    if (LDG_UNLIKELY(!mat)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(row >= mat->rows || col >= mat->cols)) { return LDG_MATH_BOUNDS; }
+    if (LDG_UNLIKELY(row >= mat->rows || col >= mat->cols)) { return LDG_ERR_BOUNDS; }
 
     if (!mat->finalized)
     {
-        if (LDG_UNLIKELY(mat->coo_cunt >= mat->max_nnz)) { return LDG_MATH_BOUNDS; }
+        if (LDG_UNLIKELY(mat->coo_cunt >= mat->max_nnz)) { return LDG_ERR_BOUNDS; }
 
         mat->coo_row[mat->coo_cunt] = row;
         mat->col_idx[mat->coo_cunt] = col;
         mat->vals[mat->coo_cunt] = val;
         mat->coo_cunt++;
 
-        return LDG_MATH_OK;
+        return LDG_ERR_AOK;
     }
 
     start = mat->row_ptr[row];
@@ -243,11 +243,11 @@ LDG_EXPORT uint32_t ldg_math_sparse_entry_add(ldg_math_sparse_t *mat, uint64_t r
         else { end = mid; }
     }
 
-    if (LDG_UNLIKELY(found == UINT64_MAX)) { return LDG_MATH_NOT_FOUND; }
+    if (LDG_UNLIKELY(found == UINT64_MAX)) { return LDG_ERR_NOT_FOUND; }
 
     mat->vals[found] += val;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_finalize(ldg_math_sparse_t *mat)
@@ -256,9 +256,9 @@ LDG_EXPORT uint32_t ldg_math_sparse_finalize(ldg_math_sparse_t *mat)
     uint64_t wr_idx = 0;
     uint64_t row = 0;
 
-    if (LDG_UNLIKELY(!mat)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(mat->finalized)) { return LDG_MATH_STATE; }
+    if (LDG_UNLIKELY(mat->finalized)) { return LDG_ERR_MATH_STATE; }
 
     sparse_heap_sort(mat->coo_row, mat->col_idx, mat->vals, mat->coo_cunt);
 
@@ -280,20 +280,62 @@ LDG_EXPORT uint32_t ldg_math_sparse_finalize(ldg_math_sparse_t *mat)
 
     mat->finalized = 1;
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_val_rst(ldg_math_sparse_t *mat)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!mat)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_MATH_STATE; }
+    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_ERR_MATH_STATE; }
 
     for (idx = 0; idx < mat->nnz; idx++) { mat->vals[idx] = 0.0; }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
+}
+
+LDG_EXPORT uint32_t ldg_math_sparse_elem_idx_get(const ldg_math_sparse_t *mat, uint64_t row, uint64_t col, uint64_t *out)
+{
+    uint64_t start = 0;
+    uint64_t end = 0;
+    uint64_t mid = 0;
+    uint64_t next = 0;
+
+    if (LDG_UNLIKELY(!mat || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = UINT64_MAX;
+
+    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_ERR_MATH_STATE; }
+
+    if (LDG_UNLIKELY(row >= mat->rows || col >= mat->cols)) { return LDG_ERR_BOUNDS; }
+
+    next = row;
+    next++;
+
+    start = mat->row_ptr[row];
+    end = mat->row_ptr[next];
+
+    while (start < end)
+    {
+        mid = start + (end - start) / 2;
+
+        if (mat->col_idx[mid] == col)
+        {
+            *out = mid;
+            return LDG_ERR_AOK;
+        }
+
+        if (mat->col_idx[mid] < col)
+        {
+            start = mid;
+            start++;
+        }
+        else { end = mid; }
+    }
+
+    return LDG_ERR_NOT_FOUND;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_mv(const ldg_math_sparse_t *mat, const double *vec, double *out)
@@ -303,9 +345,9 @@ LDG_EXPORT uint32_t ldg_math_sparse_mv(const ldg_math_sparse_t *mat, const doubl
     uint64_t end = 0;
     double acc = 0.0;
 
-    if (LDG_UNLIKELY(!mat || !vec || !out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat || !vec || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_MATH_STATE; }
+    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_ERR_MATH_STATE; }
 
     for (row = 0; row < mat->rows; row++)
     {
@@ -315,7 +357,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_mv(const ldg_math_sparse_t *mat, const doubl
         out[row] = acc;
     }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint32_t ldg_math_sparse_diag_get(const ldg_math_sparse_t *mat, double *out)
@@ -324,11 +366,11 @@ LDG_EXPORT uint32_t ldg_math_sparse_diag_get(const ldg_math_sparse_t *mat, doubl
     uint64_t nz = 0;
     uint64_t end = 0;
 
-    if (LDG_UNLIKELY(!out)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!mat)) { return LDG_MATH_ARG_NULL; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_MATH_STATE; }
+    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_ERR_MATH_STATE; }
 
     for (row = 0; row < mat->rows; row++)
     {
@@ -342,7 +384,7 @@ LDG_EXPORT uint32_t ldg_math_sparse_diag_get(const ldg_math_sparse_t *mat, doubl
         }
     }
 
-    return LDG_MATH_OK;
+    return LDG_ERR_AOK;
 }
 
 LDG_EXPORT uint8_t ldg_math_sparse_symmetric_is(const ldg_math_sparse_t *mat, double tol)
@@ -355,11 +397,11 @@ LDG_EXPORT uint8_t ldg_math_sparse_symmetric_is(const ldg_math_sparse_t *mat, do
     double aji = 0.0;
     double diff = 0.0;
 
-    if (LDG_UNLIKELY(!mat)) { return 0; }
+    if (LDG_UNLIKELY(!mat)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!mat->finalized)) { return 0; }
+    if (LDG_UNLIKELY(!mat->finalized)) { return LDG_ERR_NOT_INIT; }
 
-    if (LDG_UNLIKELY(mat->rows != mat->cols)) { return 0; }
+    if (mat->rows != mat->cols) { return LDG_TRUTH_FALSE; }
 
     for (row = 0; row < mat->rows; row++)
     {
@@ -369,14 +411,14 @@ LDG_EXPORT uint8_t ldg_math_sparse_symmetric_is(const ldg_math_sparse_t *mat, do
             col = mat->col_idx[nz];
             aij = mat->vals[nz];
             aji = 0.0;
-            if (!sparse_find(mat, col, row, &aji)) { return 0; }
+            if (!sparse_find(mat, col, row, &aji)) { return LDG_TRUTH_FALSE; }
 
             diff = __builtin_fabs(aij - aji);
-            if (diff > tol) { return 0; }
+            if (diff > tol) { return LDG_TRUTH_FALSE; }
         }
     }
 
-    return 1;
+    return LDG_TRUTH_TRUE;
 }
 
 LDG_EXPORT uint64_t ldg_math_sparse_nnz_get(const ldg_math_sparse_t *mat)

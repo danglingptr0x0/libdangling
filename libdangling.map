@@ -22,15 +22,106 @@ DANGLING_1.0 {
         ldg_mem_valid_is;
         ldg_mem_size_get;
 
+        /* mem/frame */
+        ldg_mem_frame_init;
+        ldg_mem_frame_shutdown;
+        ldg_mem_frame_alloc;
+        ldg_mem_frame_dealloc;
+        ldg_mem_frame_run_cunt_get;
+        ldg_mem_frame_free_cunt_get;
+        ldg_mem_frame_total_cunt_get;
+
+        /* time/cal */
+        ldg_time_leap_year_is;
+        ldg_time_month_day_cunt_get;
+        ldg_time_cal_get;
+        ldg_time_epoch_sec_get;
+        ldg_time_cal_fmt;
+
+        /* math/rand */
+        ldg_math_rand_seed_set;
+        ldg_math_rand_next_get;
+        ldg_math_rand_bounded_get;
+        ldg_math_rand_unit_get;
+
+        /* sort */
+        ldg_sort_run;
+        ldg_sort_binary_find;
+        ldg_sort_ordered_is;
+
+        /* str/ops */
+        ldg_str_uint_parse;
+        ldg_str_int64_parse;
+        ldg_str_len_get;
+        ldg_str_alloc_cpy;
+        ldg_str_concatenate;
+        ldg_str_char_find;
+        ldg_str_char_last_find;
+        ldg_str_substring_find;
+        ldg_str_cmp;
+        ldg_str_case_cmp;
+        ldg_str_tok_get;
+
+        /* str/fmt */
+        ldg_str_fmt;
+        ldg_str_variable_fmt;
+
+        /* io/console */
+        ldg_io_console_byte_wr;
+        ldg_io_console_wr;
+        ldg_io_console_byte_rd;
+        ldg_io_console_rd_ready_is;
+        ldg_io_console_line_rd;
+
+        /* time/cycle */
+        ldg_time_cycle_get;
+        ldg_time_ns_delay;
+
+        /* math/scalar */
+        ldg_math_nan_is;
+        ldg_math_inf_is;
+        ldg_math_finite_is;
+        ldg_math_abs_get;
+        ldg_math_floor_get;
+        ldg_math_ceil_get;
+        ldg_math_trunc_get;
+        ldg_math_min_get;
+        ldg_math_max_get;
+        ldg_math_sqrt_get;
+        ldg_math_pwr2_scale_get;
+        ldg_math_next_toward_get;
+        ldg_math_hypotenuse_get;
+        ldg_math_exp_get;
+        ldg_math_log_get;
+        ldg_math_pwr_get;
+        ldg_math_sin_get;
+        ldg_math_cos_get;
+        ldg_math_arctan_get;
+        ldg_math_arctan2_get;
+        ldg_math_arcsin_get;
+        ldg_math_arccos_get;
+        ldg_math_tan_get;
+        ldg_math_log10_get;
+        ldg_math_remainder_get;
+        ldg_math_fraction_split;
+        ldg_math_whole_split;
+        ldg_math_int64_abs_get;
+
+        /* mem/cpy */
+        ldg_mem_cpy;
+        ldg_mem_mov;
+        ldg_mem_zero;
+        ldg_mem_fill;
+        ldg_mem_cmp;
+
         /* mem/secure */
         ldg_mem_secure_zero;
-        ldg_mem_secure_copy;
+        ldg_mem_secure_cpy;
         ldg_mem_secure_cmp;
         ldg_mem_secure_cmov;
-        ldg_mem_secure_neq_is;
 
         /* str */
-        ldg_strrbrcpy;
+        ldg_str_rbrcpy;
         ldg_byte_to_hex;
         ldg_dword_to_hex;
         ldg_str_to_dec;
@@ -40,8 +131,8 @@ DANGLING_1.0 {
         ldg_hex_str_is;
 
         /* fmt */
-        ldg_fmt_cfg_get;
-        ldg_fmt_cfg_path_get;
+        ldg_fmt_conf_get;
+        ldg_fmt_conf_path_get;
 
         /* parse */
         ldg_parse_tokenize;
@@ -54,9 +145,9 @@ DANGLING_1.0 {
         ldg_io_file_wr;
         ldg_io_file_seek;
         ldg_io_file_pos_get;
-        ldg_io_file_stat;
-        ldg_io_file_fstat;
-        ldg_io_file_sync;
+        ldg_io_path_info_get;
+        ldg_io_file_info_get;
+        ldg_io_file_commit;
         ldg_io_file_truncate;
         ldg_io_file_lock;
         ldg_io_file_unlock;
@@ -69,25 +160,25 @@ DANGLING_1.0 {
         ldg_io_dir_open;
         ldg_io_dir_rd;
         ldg_io_dir_close;
-        ldg_io_dirent_name_get;
-        ldg_io_dirent_dir_is;
+        ldg_io_entry_name_get;
+        ldg_io_entry_dir_is;
 
         /* io/path */
         ldg_io_path_rename;
-        ldg_io_path_unlink;
-        ldg_io_path_mode_set;
+        ldg_io_path_destroy;
+        ldg_io_path_access_set;
         ldg_io_path_exists_is;
-        ldg_io_symlink_create;
-        ldg_io_symlink_rd;
+        ldg_io_link_create;
+        ldg_io_link_rd;
         ldg_io_path_sep_get;
         ldg_io_path_join;
-        ldg_io_path_basename_get;
-        ldg_io_path_dirname_get;
+        ldg_io_path_leaf_get;
+        ldg_io_path_parent_get;
         ldg_io_path_ext_get;
         ldg_io_path_absolute_is;
         ldg_io_path_normalize;
-        ldg_io_path_home_get;
-        ldg_io_path_tmp_get;
+        ldg_io_path_user_get;
+        ldg_io_path_work_get;
         ldg_io_path_resolve;
         ldg_io_path_expand;
 
@@ -95,6 +186,10 @@ DANGLING_1.0 {
         ldg_sys_hostname_get;
         ldg_sys_cpu_cunt_get;
         ldg_sys_page_size_get;
+        ldg_sys_mem_total_get;
+        ldg_sys_mem_avail_get;
+        ldg_sys_cpu_cache_width_get;
+        ldg_sys_cpu_class_get;
         ldg_sys_env_get;
         ldg_sys_pid_get;
         ldg_sys_tty_stdout_is;
@@ -160,6 +255,7 @@ DANGLING_1.0 {
         ldg_thread_pool_stop;
         ldg_thread_pool_worker_cunt_get;
         ldg_thread_pool_submit;
+        ldg_thread_pool_affinity_set;
 
         /* thread/yield */
         ldg_thread_yield;
@@ -217,6 +313,8 @@ DANGLING_1.0 {
         ldg_emiru_hdr_validate;
         ldg_emiru_decode;
         ldg_emiru_encode;
+        ldg_emiru_img_width_get;
+        ldg_emiru_ld;
 
         /* proto/emiemi */
         ldg_emiemi_hdr_recv;
@@ -225,7 +323,6 @@ DANGLING_1.0 {
         ldg_emiemi_send;
         ldg_emiemi_encode;
         ldg_emiemi_decode;
-        ldg_emiemi_fnv1a;
 
         /* arch/amd64 */
         ldg_cpuid;
@@ -236,12 +333,12 @@ DANGLING_1.0 {
         ldg_cpuid_max_ext_leaf_get;
         ldg_cpu_core_id_get;
         ldg_cpu_relax;
-        ldg_tsc_calibrate;
-        ldg_tsc_to_sec;
-        ldg_tsc_sample;
-        ldg_tsc_serialize;
-        ldg_tsc_serialized_sample;
-        ldg_tsc_delta;
+        ldg_time_tsc_calibrate;
+        ldg_time_tsc_to_sec_convert;
+        ldg_time_tsc_sample_get;
+        ldg_time_tsc_serialize;
+        ldg_time_tsc_serialized_sample_get;
+        ldg_time_tsc_delta_get;
         ldg_syscall0;
         ldg_syscall1;
         ldg_syscall2;
@@ -252,6 +349,9 @@ DANGLING_1.0 {
 
         /* arch/misc (data) */
         LDG_MISC_MNEMONICS;
+        LDG_MISC_LD_MNEMONICS;
+        LDG_MISC_ST_MNEMONICS;
+        LDG_MISC_COND_MNEMONICS;
 
         /* gpu */
         ldg_gpu_dev_list;
@@ -315,25 +415,15 @@ DANGLING_2.0 {
 
 DANGLING_3.0 {
     global:
-        ldg_curl_hdrs_append;
-        ldg_curl_hdrs_copy;
-        ldg_curl_hdrs_destroy;
+        ldg_curl_hdr_append;
+        ldg_curl_hdr_cpy;
+        ldg_curl_hdr_destroy;
         ldg_gpu_swapchain_img_acquire;
         ldg_gpu_frame_vert_buff_bind;
 } DANGLING_2.0;
 
 DANGLING_4.0 {
     global:
-        /* core/arith */
-        ldg_arith_32_add;
-        ldg_arith_32_sub;
-        ldg_arith_32_mul;
-        ldg_arith_32_div;
-        ldg_arith_64_add;
-        ldg_arith_64_sub;
-        ldg_arith_64_mul;
-        ldg_arith_64_div;
-
         /* str/hash */
         ldg_hash_fnv1a_32_compute;
         ldg_hash_fnv1a_64_compute;
@@ -346,12 +436,14 @@ DANGLING_4.0 {
         ldg_math_sparse_entry_add;
         ldg_math_sparse_finalize;
         ldg_math_sparse_val_rst;
+        ldg_math_sparse_elem_idx_get;
         ldg_math_sparse_mv;
         ldg_math_sparse_diag_get;
         ldg_math_sparse_symmetric_is;
         ldg_math_sparse_nnz_get;
         ldg_math_sparse_rows_get;
         ldg_math_sparse_cols_get;
+        ldg_math_root_brent_compute;
         ldg_math_krylov_ctx_create;
         ldg_math_krylov_ctx_destroy;
         ldg_math_krylov_precond_build;
@@ -380,27 +472,6 @@ DANGLING_4.0 {
         ldg_time_timer_wheel_tick;
         ldg_time_timer_remaining_get;
         ldg_time_timer_cunt_get;
-
-        /* sched/svm */
-        ldg_sched_svm_init;
-        ldg_sched_svm_shutdown;
-        ldg_sched_svm_predict;
-        ldg_sched_svm_observe;
-        ldg_sched_svm_weights_rst;
-
-        /* sched/bayes */
-        ldg_sched_bayes_init;
-        ldg_sched_bayes_shutdown;
-        ldg_sched_bayes_observe;
-        ldg_sched_bayes_proj;
-        ldg_sched_bayes_proj_k;
-        ldg_sched_bayes_mean_get;
-        ldg_sched_bayes_var_get;
-        ldg_sched_bayes_sigma_get;
-        ldg_sched_bayes_obs_cunt_get;
-        ldg_sched_bayes_risk_k_set;
-        ldg_sched_bayes_class_rst;
-        ldg_sched_bayes_rst;
 
         /* sched/trace */
         ldg_sched_trace_init;
@@ -459,7 +530,6 @@ DANGLING_4.0 {
         ldg_sched_job_ready_collect;
 
         /* sched/core */
-        ldg_sched_conf_default;
         ldg_sched_ctx_init;
         ldg_sched_ctx_shutdown;
         ldg_sched_ctx_spin;
@@ -481,9 +551,6 @@ DANGLING_4.0 {
         ldg_sched_ctx_job_deadline_set;
         ldg_sched_ctx_est_strat_set;
         ldg_sched_ctx_est_strat_get;
-        ldg_sched_ctx_bayes_risk_k_set;
-        ldg_sched_ctx_bayes_observe;
-        ldg_sched_ctx_bayes_proj;
         ldg_sched_ctx_trace_push;
         ldg_sched_ctx_dt_get;
         ldg_sched_ctx_time_get;
@@ -529,7 +596,6 @@ DANGLING_4.0 {
         ldg_ecs_cmd_buff_cunt_get;
 
         /* ecs/ctx */
-        ldg_ecs_conf_default;
         ldg_ecs_ctx_init;
         ldg_ecs_ctx_shutdown;
         ldg_ecs_ctx_comp_reg;
@@ -548,7 +614,7 @@ DANGLING_4.0 {
         ldg_ecs_ctx_sys_reg;
         ldg_ecs_ctx_tick;
         ldg_ecs_ctx_sys_all_seq_run;
-        ldg_ecs_ctx_sys_all_sched_run;
+        ldg_ecs_ctx_sys_sched_all_run;
         ldg_ecs_sched_init;
         ldg_ecs_sched_shutdown;
         ldg_ecs_ctx_cmd_flush;
@@ -558,3 +624,885 @@ DANGLING_4.0 {
         ldg_ecs_ctx_query_begin;
         ldg_ecs_ctx_query_next;
 } DANGLING_3.0;
+
+DANGLING_5.0 {
+    global:
+        /* mem/secure */
+        ldg_mem_secure_eq_is;
+
+        /* compress/deflate */
+        ldg_compress_deflate;
+        ldg_compress_deflate_ctx_create;
+        ldg_compress_deflate_ctx_destroy;
+        ldg_compress_deflate_ctx_pool_size_get;
+
+        /* proto/emiemi */
+        ldg_emiemi_fnv1a_compute;
+        ldg_emiemi_archive_member_add;
+        ldg_emiemi_archive_member_get;
+
+        /* math/nurbs */
+        ldg_math_nurbs_span_find;
+        ldg_math_nurbs_basis_eval;
+        ldg_math_nurbs_curve_point_eval;
+        ldg_math_nurbs_curve_derivative_eval;
+        ldg_math_nurbs_surface_point_eval;
+        ldg_math_nurbs_surface_derivative_eval;
+        ldg_math_nurbs_curve_point_invert;
+        ldg_math_nurbs_surface_point_invert;
+
+        /* math/triangulate */
+        ldg_math_polygon_triangulate;
+        ldg_math_delaunay_triangulate;
+
+        /* math/predicate */
+        ldg_math_2d_orient;
+        ldg_math_2d_incircle;
+        ldg_math_3d_orient;
+        ldg_math_3d_insphere;
+        ldg_math_3d_orient_perturb;
+        ldg_math_3d_insphere_perturb;
+
+        /* math/tetrahedralize */
+        ldg_math_delaunay_tetrahedralize;
+        ldg_math_delaunay_refine;
+
+        /* math/cdt */
+        ldg_math_cdt_tetrahedralize;
+        ldg_math_cdt_build;
+        ldg_math_cdt_segment_flip_recover;
+
+        /* math/phys */
+        ldg_math_phys_conf_default_get;
+        ldg_math_phys_init;
+        ldg_math_phys_shutdown;
+        ldg_math_phys_particle_get;
+        ldg_math_phys_aggregate_reg;
+        ldg_math_phys_region_add;
+        ldg_math_phys_region_accel_set;
+        ldg_math_phys_pacing_set;
+        ldg_math_phys_time_get;
+        ldg_math_phys_body_create;
+        ldg_math_phys_body_destroy;
+        ldg_math_phys_body_cunt_get;
+        ldg_math_phys_conserved_get;
+        ldg_math_phys_constraint_add;
+        ldg_math_phys_constraint_remove;
+        ldg_math_phys_collider_add;
+        ldg_math_phys_collider_remove;
+        ldg_math_phys_sweep_cast;
+        ldg_math_phys_step;
+        ldg_math_phys_advance;
+        ldg_math_phys_body_sample_get;
+        ldg_math_phys_body_bulk_sample_get;
+        ldg_math_phys_src_add;
+        ldg_math_phys_field_sample_get;
+        ldg_math_phys_body_split;
+        ldg_math_phys_body_merge;
+        ldg_math_phys_region_couple_set;
+        ldg_math_phys_region_policy_set;
+        ldg_math_phys_tier_pin_set;
+
+        ldg_math_phys_body_region_set;
+        ldg_math_phys_body_dissolve;
+        ldg_math_phys_body_condense;
+
+        /* math/phys EM field kind */
+        ldg_math_phys_mtl_reg;
+        ldg_math_phys_mtl_fill;
+        ldg_math_phys_sheet_reg;
+        ldg_math_phys_sheet_fill;
+        ldg_math_phys_current_add;
+        ldg_math_phys_plane_wave_set;
+        ldg_math_phys_plane_wave_drive;
+        ldg_math_phys_field_em_sample_get;
+        ldg_math_phys_field_em_slice_get;
+        ldg_math_phys_field_em_vol_get;
+
+        /* gpu compute batching */
+        ldg_gpu_batch_dispatch;
+        ldg_gpu_batch_async_dispatch;
+
+        /* math/phys acoustic field kind */
+        ldg_math_phys_acoustic_mtl_reg;
+        ldg_math_phys_acoustic_mtl_fill;
+        ldg_math_phys_wall_reg;
+        ldg_math_phys_wall_fill;
+        ldg_math_phys_field_acoustic_sample_get;
+        ldg_math_phys_field_acoustic_slice_get;
+
+        /* math/phys water kind */
+        ldg_math_phys_water_solid_fill;
+        ldg_math_phys_water_fill;
+        ldg_math_phys_water_step_advance;
+        ldg_math_phys_water_sample_get;
+        ldg_math_phys_water_conserved_get;
+        ldg_math_phys_water_fraction_get;
+        ldg_math_phys_water_optic_set;
+        ldg_math_phys_water_optic_get;
+        ldg_math_phys_water_caustic_get;
+        ldg_math_phys_region_grid_get;
+
+        /* math/phys thermo kind */
+        ldg_math_phys_thermo_mtl_reg;
+        ldg_math_phys_thermo_fill;
+        ldg_math_phys_thermo_step_advance;
+        ldg_math_phys_thermo_pwr_fill;
+        ldg_math_phys_thermo_sample_get;
+        ldg_math_phys_thermo_vol_get;
+        ldg_math_phys_thermo_slice_get;
+        ldg_math_phys_thermo_conserved_get;
+
+        /* math/phys em optical evaluators */
+        ldg_math_phys_optic_lambda_set;
+        ldg_math_phys_optic_mtl_set;
+        ldg_math_phys_optic_src_add;
+        ldg_math_phys_optic_solve;
+        ldg_math_phys_optic_conserved_get;
+        ldg_math_phys_optic_flux_sample_get;
+        ldg_math_phys_optic_flux_get;
+
+        /* math/phys atmosphere evaluator */
+        ldg_math_phys_atmosphere_set;
+        ldg_math_phys_atmosphere_solve;
+        ldg_math_phys_atmosphere_transmittance_get;
+        ldg_math_phys_atmosphere_radiance_get;
+        ldg_math_phys_atmosphere_irradiance_get;
+        ldg_math_phys_atmosphere_extinction_get;
+        ldg_math_phys_atmosphere_medium_get;
+        ldg_math_phys_atmosphere_vol_get;
+
+        /* compute interface */
+        ldg_compute_create;
+        ldg_compute_destroy;
+        ldg_compute_dev_get;
+
+        /* math/phys compute bridge */
+        ldg_math_phys_em_drive_add;
+        ldg_math_phys_em_drive_sig_add;
+        ldg_math_phys_em_drive_series_set;
+        ldg_math_phys_em_conductor_fill;
+        ldg_math_phys_em_capacitance_solve;
+        ldg_math_phys_em_induct_solve;
+        ldg_math_phys_em_rlgc_solve;
+        ldg_math_phys_em_port_add;
+        ldg_math_phys_em_port_grid_get;
+        ldg_math_phys_em_port_mode_analytic_set;
+        ldg_math_phys_em_port_mode_fem_set;
+        ldg_math_phys_em_port_mode_pattern_set;
+        ldg_math_phys_em_port_tap_get;
+
+        /* math/phys/sig */
+        ldg_math_phys_sig_sine_init;
+        ldg_math_phys_sig_gauss_pulse_init;
+        ldg_math_phys_sig_gauss_derivative_init;
+        ldg_math_phys_sig_ricker_init;
+        ldg_math_phys_sig_prbs_init;
+        ldg_math_phys_sig_multitone_init;
+        ldg_math_phys_sig_chirp_init;
+        ldg_math_phys_sig_sampled_init;
+        ldg_math_phys_sig_sample_get;
+        ldg_math_phys_compute_set;
+        ldg_math_phys_compute_clear;
+        ldg_math_phys_compute_region_arm;
+        ldg_math_phys_compute_burst_advance;
+        ldg_math_phys_compute_burst_begin;
+        ldg_math_phys_compute_burst_poll;
+        ldg_math_phys_compute_burst_await;
+        ldg_math_phys_compute_sync;
+        ldg_math_phys_compute_pack_set;
+        ldg_math_phys_compute_pack_get;
+
+        /* math/phys acoustic sources */
+        ldg_math_phys_acoustic_monopole_add;
+        ldg_math_phys_acoustic_monopole_series_set;
+
+        /* math/phys doppler solvers */
+        ldg_math_phys_doppler_acoustic_freq_get;
+        ldg_math_phys_doppler_em_freq_get;
+
+        /* sched+ecs conf_default rename (verb-last, 5.0 break) */
+        ldg_sched_conf_default_get;
+        ldg_ecs_conf_default_get;
+
+        /* math/quaternion */
+        ldg_math_quaternion_ident_compute;
+        ldg_math_quaternion_from_axis_angle_compute;
+        ldg_math_quaternion_to_axis_angle_compute;
+        ldg_math_quaternion_mul_compute;
+        ldg_math_quaternion_conjugate;
+        ldg_math_quaternion_invert;
+        ldg_math_quaternion_normalize;
+        ldg_math_quaternion_dot_get;
+        ldg_math_quaternion_norm_get;
+        ldg_math_quaternion_vec3_rot;
+        ldg_math_quaternion_to_mat3_compute;
+        ldg_math_quaternion_from_mat3_compute;
+        ldg_math_quaternion_slerp_compute;
+        ldg_math_quaternion_nlerp_compute;
+        ldg_math_quaternion_integrate;
+        ldg_math_quaternion_from_euler_compute;
+        ldg_math_quaternion_to_euler_compute;
+        ldg_math_quaternion_from_two_vec3_compute;
+        ldg_math_quaternion_exp_compute;
+        ldg_math_quaternion_log_compute;
+        ldg_math_quaternion_squad_compute;
+
+        /* math/complex */
+        ldg_math_complex_add;
+        ldg_math_complex_sub;
+        ldg_math_complex_mul;
+        ldg_math_complex_div;
+        ldg_math_complex_scale;
+        ldg_math_complex_conjugate;
+        ldg_math_complex_abs_get;
+        ldg_math_complex_arg_get;
+        ldg_math_complex_exp_compute;
+        ldg_math_complex_from_polar_compute;
+
+        /* math/fft */
+        ldg_math_fft_ctx_create;
+        ldg_math_fft_ctx_destroy;
+        ldg_math_fft_forward_compute;
+        ldg_math_fft_inverse_compute;
+        ldg_math_fft_real_forward_compute;
+        ldg_math_fft_real_inverse_compute;
+
+        /* math/lu */
+        ldg_math_lu_ctx_create;
+        ldg_math_lu_ctx_destroy;
+        ldg_math_lu_factor_compute;
+        ldg_math_lu_solve_compute;
+        ldg_math_lu_invert_compute;
+        ldg_math_lu_det_get;
+        ldg_math_sparse_lu_ctx_create;
+        ldg_math_sparse_lu_ctx_destroy;
+        ldg_math_sparse_lu_factor_compute;
+        ldg_math_sparse_lu_refactor_compute;
+        ldg_math_sparse_lu_solve_compute;
+        ldg_math_sparse_lu_growth_get;
+        ldg_math_sparse_lu_pool_size_get;
+        ldg_math_sparse_lu_factor_nnz_get;
+
+        /* math/cholesky */
+        ldg_math_cholesky_ctx_create;
+        ldg_math_cholesky_ctx_destroy;
+        ldg_math_cholesky_factor_compute;
+        ldg_math_cholesky_solve_compute;
+
+        /* math/eigen */
+        ldg_math_eigen_ctx_create;
+        ldg_math_eigen_ctx_destroy;
+        ldg_math_eigen_hermitian_compute;
+        ldg_math_eigen_generalized_compute;
+        ldg_math_eigen_lanczos_ctx_create;
+        ldg_math_eigen_lanczos_ctx_destroy;
+        ldg_math_eigen_lanczos_compute;
+        ldg_math_eigen_pencil_ctx_create;
+        ldg_math_eigen_pencil_ctx_destroy;
+        ldg_math_eigen_pencil_shift_invert_compute;
+        ldg_math_eigen_schur_ctx_create;
+        ldg_math_eigen_schur_ctx_destroy;
+        ldg_math_eigen_schur_compute;
+        ldg_math_eigen_schur_vec_compute;
+
+        /* ecs/ctx */
+        ldg_ecs_ctx_subtaxon_add;
+
+        /* io/path */
+        ldg_io_path_prog_get;
+        ldg_io_path_conf_get;
+        ldg_io_path_data_get;
+        ldg_io_path_cache_get;
+        ldg_io_path_state_get;
+
+        /* core/arith (128/256) */
+        ldg_arith_uint128_add;
+        ldg_arith_uint128_sub;
+        ldg_arith_uint128_mul;
+        ldg_arith_uint128_div;
+        ldg_arith_uint256_add;
+        ldg_arith_uint256_sub;
+        ldg_arith_uint256_mul;
+        ldg_arith_uint256_div;
+        ldg_arith_uint128_cmp;
+        ldg_arith_uint256_cmp;
+        ldg_arith_uint128_to_uint256_mul;
+        ldg_arith_uint128_div_compute;
+        ldg_arith_uint256_div_compute;
+        ldg_arith_uint128_shl;
+        ldg_arith_uint128_shr;
+        ldg_arith_uint256_shl;
+        ldg_arith_uint256_shr;
+        ldg_arith_uint128_to_double_convert;
+        ldg_arith_double_to_uint128_convert;
+
+        /* core/arith (32/64, renamed from bare-width in 5.0) */
+        ldg_arith_uint32_add;
+        ldg_arith_uint32_sub;
+        ldg_arith_uint32_mul;
+        ldg_arith_uint32_div;
+        ldg_arith_uint64_add;
+        ldg_arith_uint64_sub;
+        ldg_arith_uint64_mul;
+        ldg_arith_uint64_div;
+
+        /* sys/progress */
+        ldg_sys_progress_conf_default_get;
+        ldg_sys_progress_init;
+        ldg_sys_progress_rst;
+        ldg_sys_progress_advance;
+        ldg_sys_progress_cur_set;
+        ldg_sys_progress_total_set;
+        ldg_sys_progress_finish;
+        ldg_sys_progress_render;
+        ldg_sys_progress_rate_get;
+        ldg_sys_progress_eta_get;
+        ldg_sys_progress_pct_get;
+        ldg_sys_progress_cur_get;
+        ldg_sys_progress_done_is;
+
+        /* math/stat */
+        ldg_math_stat_welford_init;
+        ldg_math_stat_welford_observe;
+        ldg_math_stat_welford_mean_get;
+        ldg_math_stat_welford_var_get;
+        ldg_math_stat_welford_sigma_get;
+        ldg_math_stat_welford_skew_get;
+        ldg_math_stat_welford_kurt_get;
+        ldg_math_stat_welford_min_get;
+        ldg_math_stat_welford_max_get;
+        ldg_math_stat_welford_cunt_get;
+        ldg_math_stat_welford_rst;
+
+        /* math/stat/descriptive */
+        ldg_math_stat_mean_get;
+        ldg_math_stat_var_get;
+        ldg_math_stat_sigma_get;
+        ldg_math_stat_min_get;
+        ldg_math_stat_max_get;
+        ldg_math_stat_median_get;
+        ldg_math_stat_quantile_get;
+        ldg_math_stat_skew_get;
+        ldg_math_stat_kurt_get;
+        ldg_math_stat_cov_get;
+        ldg_math_stat_corr_get;
+
+        /* math/stat/hist */
+        ldg_math_stat_hist_init;
+        ldg_math_stat_hist_observe;
+        ldg_math_stat_hist_bkt_get;
+        ldg_math_stat_hist_rst;
+
+        /* math/stat/bayes */
+        ldg_math_stat_bayes_init;
+        ldg_math_stat_bayes_shutdown;
+        ldg_math_stat_bayes_observe;
+        ldg_math_stat_bayes_proj;
+        ldg_math_stat_bayes_proj_k;
+        ldg_math_stat_bayes_mean_get;
+        ldg_math_stat_bayes_var_get;
+        ldg_math_stat_bayes_sigma_get;
+        ldg_math_stat_bayes_obs_cunt_get;
+        ldg_math_stat_bayes_risk_k_set;
+        ldg_math_stat_bayes_kind_rst;
+        ldg_math_stat_bayes_rst;
+
+        /* math/stat/svm */
+        ldg_math_stat_svm_init;
+        ldg_math_stat_svm_shutdown;
+        ldg_math_stat_svm_predict;
+        ldg_math_stat_svm_observe;
+        ldg_math_stat_svm_weights_rst;
+
+        /* math/stat/rl */
+        ldg_math_stat_rl_bandit_init;
+        ldg_math_stat_rl_bandit_sel;
+        ldg_math_stat_rl_bandit_observe;
+        ldg_math_stat_rl_bandit_arm_mean_get;
+        ldg_math_stat_rl_bandit_arm_pull_get;
+        ldg_math_stat_rl_bandit_rst;
+
+        /* math/stat/td */
+        ldg_math_stat_td_init;
+        ldg_math_stat_td_shutdown;
+        ldg_math_stat_td_action_sel;
+        ldg_math_stat_td_observe;
+        ldg_math_stat_td_q_get;
+        ldg_math_stat_td_action_best_get;
+        ldg_math_stat_td_q_max_get;
+        ldg_math_stat_td_alpha_set;
+        ldg_math_stat_td_epsilon_set;
+        ldg_math_stat_td_lambda_set;
+        ldg_math_stat_td_rst;
+
+        /* math/stat/tile */
+        ldg_math_stat_tile_init;
+        ldg_math_stat_tile_feature_compute;
+
+        /* math/stat/vfa */
+        ldg_math_stat_vfa_init;
+        ldg_math_stat_vfa_shutdown;
+        ldg_math_stat_vfa_action_sel;
+        ldg_math_stat_vfa_observe;
+        ldg_math_stat_vfa_q_get;
+        ldg_math_stat_vfa_action_best_get;
+        ldg_math_stat_vfa_q_max_get;
+        ldg_math_stat_vfa_rst;
+
+        /* net generic */
+        ldg_net_player_cunt_get;
+        ldg_net_player_steam_id_get;
+
+        /* net/curl emiemi */
+        ldg_curl_easy_raw_post;
+        ldg_curl_emiemi_post;
+
+        /* net/steamworks core */
+        ldg_net_steamworks_restart_needed_is;
+        ldg_net_steamworks_init;
+        ldg_net_steamworks_shutdown;
+        ldg_net_steamworks_hub_init;
+        ldg_net_steamworks_tick;
+        ldg_net_steamworks_srv_start;
+        ldg_net_steamworks_srv_p2p_start;
+        ldg_net_steamworks_srv_stop;
+        ldg_net_steamworks_client_conn;
+        ldg_net_steamworks_client_p2p_conn;
+        ldg_net_steamworks_client_dc;
+        ldg_net_steamworks_poll;
+        ldg_net_steamworks_bcast;
+        ldg_net_steamworks_send;
+        ldg_net_steamworks_client_kick;
+        ldg_net_steamworks_local_id_get;
+        ldg_net_steamworks_client_cunt_get;
+        ldg_net_steamworks_client_steam_id_get;
+        ldg_net_steamworks_rate_init;
+        ldg_net_steamworks_rate_ready_is;
+        ldg_net_steamworks_rate_update;
+        ldg_net_steamworks_status_get;
+        ldg_net_steamworks_local_steam_id_get;
+        ldg_net_steamworks_local_name_get;
+        ldg_net_steamworks_joinable_set;
+        ldg_net_steamworks_launch_conn_get;
+        ldg_net_steamworks_presence_set;
+        ldg_net_steamworks_presence_clear;
+        ldg_net_steamworks_presence_campaign_set;
+        ldg_net_steamworks_presence_practice_set;
+        ldg_net_steamworks_presence_menu_set;
+        ldg_net_steamworks_player_name_get;
+        ldg_net_steamworks_stat_int_get;
+        ldg_net_steamworks_stat_int_set;
+        ldg_net_steamworks_stat_st;
+        ldg_net_steamworks_stat_avgrate_update;
+        ldg_net_steamworks_achievement_get;
+        ldg_net_steamworks_achievement_set;
+        ldg_net_steamworks_achievement_clear;
+        ldg_net_steamworks_achievement_progress_indicate;
+        ldg_net_steamworks_avatar_get;
+        ldg_net_steamworks_user_info_req;
+        ldg_net_steamworks_friend_msg_listen_set;
+        ldg_net_steamworks_friend_msg_init;
+        ldg_net_steamworks_friend_msg_cb_handle;
+        ldg_net_steamworks_friend_msg_get;
+        ldg_net_steamworks_friend_msg_drop_cunt_get;
+        ldg_net_steamworks_friend_msg_reply;
+        ldg_net_steamworks_friend_name_get;
+        ldg_net_steamworks_persona_rev_get;
+        ldg_net_steamworks_join_init;
+        ldg_net_steamworks_join_cb_handle;
+        ldg_net_steamworks_join_state_get;
+        ldg_net_steamworks_join_lobby_get;
+        ldg_net_steamworks_join_connect_get;
+        ldg_net_steamworks_join_friend_steam_id_get;
+        ldg_audio_play_open;
+        ldg_audio_play_list_open;
+        ldg_audio_play_close;
+        ldg_audio_play_start;
+        ldg_audio_play_pause;
+        ldg_audio_play_stop;
+        ldg_audio_play_next;
+        ldg_audio_play_prev;
+        ldg_audio_play_track_set;
+        ldg_audio_play_loop_set;
+        ldg_audio_play_vol_set;
+        ldg_audio_play_vol_get;
+        ldg_audio_play_status_get;
+        ldg_audio_play_mem_open;
+        ldg_audio_wav_wrap;
+        ldg_audio_wav_unwrap;
+        ldg_audio_play_fmt_get;
+        ldg_audio_play_frames_pull;
+        ldg_audio_sink_pcm_open;
+        ldg_audio_sink_pcm_close;
+        ldg_audio_sink_pcm_pause_set;
+        ldg_audio_sink_pcm_vol_set;
+        ldg_audio_sink_pcm_src_set;
+        ldg_sys_notify;
+        ldg_sys_notify_close;
+        ldg_sys_notify_icon_set;
+        ldg_sys_notify_tray_icon_set;
+        ldg_sys_notify_tip_set;
+        ldg_sys_focus_is;
+        ldg_sys_window_flash_conf_default_get;
+        ldg_sys_window_flash;
+        ldg_sys_window_flash_stop;
+        ldg_sys_proc_spawn;
+        ldg_sys_proc_stdin_wr;
+        ldg_sys_proc_stdout_rd;
+        ldg_sys_proc_stderr_rd;
+        ldg_sys_proc_exit_code_get;
+        ldg_sys_proc_kill;
+        ldg_sys_proc_close;
+        ldg_sys_proc_alive_is;
+        ldg_sys_proc_self_priority_set;
+        ldg_sys_proc_self_priority_get;
+        ldg_sys_proc_self_affinity_set;
+        ldg_sys_proc_self_affinity_get;
+        ldg_sys_proc_list;
+        ldg_sys_proc_name_running_is;
+        ldg_term_conf_default_get;
+        ldg_term_pool_size_get;
+        ldg_term_create;
+        ldg_term_destroy;
+        ldg_term_rst;
+        ldg_term_ch_put;
+        ldg_term_line_feed;
+        ldg_term_carriage_ret;
+        ldg_term_backspace;
+        ldg_term_tab_advance;
+        ldg_term_scroll_up;
+        ldg_term_scroll_down;
+        ldg_term_cursor_set;
+        ldg_term_cursor_get;
+        ldg_term_cursor_col_mov;
+        ldg_term_cursor_row_mov;
+        ldg_term_cursor_save;
+        ldg_term_cursor_restore;
+        ldg_term_cursor_visible_set;
+        ldg_term_cursor_visible_is;
+        ldg_term_margin_side_set;
+        ldg_term_margin_side_en;
+        ldg_term_palette_set;
+        ldg_term_palette_get;
+        ldg_term_palette_rst;
+        ldg_term_role_color_set;
+        ldg_term_role_color_get;
+        ldg_term_link_open;
+        ldg_term_link_close;
+        ldg_term_link_uri_get;
+        ldg_term_cwd_set;
+        ldg_term_cwd_get;
+        ldg_term_mark_set;
+        ldg_term_mark_get;
+        ldg_term_sync_set;
+        ldg_term_sync_is;
+        ldg_term_resize_encode;
+        ldg_term_charset_set;
+        ldg_term_charset_shift;
+        ldg_term_tab_set;
+        ldg_term_tab_clear;
+        ldg_term_tab_back;
+        ldg_term_tab_advance_cunt;
+        ldg_term_insert_mode_set;
+        ldg_term_newline_mode_set;
+        ldg_term_reverse_set;
+        ldg_term_reverse_is;
+        ldg_term_line_attr_set;
+        ldg_term_line_attr_get;
+        ldg_term_align_fill;
+        ldg_term_soft_rst;
+        ldg_term_img_st;
+        ldg_term_img_drop;
+        ldg_term_img_get;
+        ldg_term_img_pixel_get;
+        ldg_term_placement_add;
+        ldg_term_placement_cunt_get;
+        ldg_term_placement_get;
+        ldg_term_placement_clear;
+        ldg_term_orig_set;
+        ldg_term_orig_is;
+        ldg_term_autowrap_set;
+        ldg_term_autowrap_is;
+        ldg_term_attr_set;
+        ldg_term_attr_clear;
+        ldg_term_attr_rst;
+        ldg_term_fg_set;
+        ldg_term_bg_set;
+        ldg_term_display_erase;
+        ldg_term_line_erase;
+        ldg_term_line_insert;
+        ldg_term_line_delete;
+        ldg_term_ch_delete;
+        ldg_term_margin_set;
+        ldg_term_margin_rst;
+        ldg_term_alt_enter;
+        ldg_term_alt_exit;
+        ldg_term_alt_active_is;
+        ldg_term_cell_get;
+        ldg_term_row_get;
+        ldg_term_scrollback_row_get;
+        ldg_term_scrollback_cunt_get;
+        ldg_term_dirty_get;
+        ldg_term_dirty_clear;
+        ldg_term_ch_insert;
+        ldg_term_ch_erase;
+        ldg_term_resize;
+        ldg_term_vt_init;
+        ldg_term_vt_rst;
+        ldg_term_vt_feed;
+        ldg_term_vt_title_get;
+        ldg_term_vt_clipboard_get;
+        ldg_term_clipboard_encode;
+        ldg_str_base64_encode;
+        ldg_str_base64_decode;
+        ldg_sys_clipboard_set;
+        ldg_sys_clipboard_get;
+        ldg_term_vt_reply_drain;
+        ldg_term_vt_mode_get;
+        ldg_term_vt_cursor_shape_get;
+        ldg_term_vt_unhandled_get;
+        ldg_term_key_encode;
+        ldg_term_mouse_encode;
+        ldg_term_paste_encode;
+        ldg_term_focus_encode;
+        ldg_io_pty_conf_default_get;
+        ldg_io_pty_open;
+        ldg_io_pty_rd;
+        ldg_io_pty_wr;
+        ldg_io_pty_resize;
+        ldg_io_pty_exit_code_get;
+        ldg_io_pty_close;
+        ldg_io_pty_alive_is;
+        ldg_io_midi_in_port_list;
+        ldg_io_midi_out_port_list;
+        ldg_io_midi_in_open;
+        ldg_io_midi_in_poll;
+        ldg_io_midi_in_close;
+        ldg_io_midi_out_open;
+        ldg_io_midi_out_send;
+        ldg_io_midi_out_close;
+        ldg_io_serial_conf_default_get;
+        ldg_io_serial_port_list;
+        ldg_io_serial_open;
+        ldg_io_serial_conf_set;
+        ldg_io_serial_rd;
+        ldg_io_serial_wr;
+        ldg_io_serial_flush;
+        ldg_io_serial_close;
+        ldg_io_serial_dtr_set;
+        ldg_io_serial_rts_set;
+        ldg_io_serial_cts_is;
+        ldg_io_serial_dsr_is;
+        ldg_sys_url_open;
+        ldg_sys_url_scheme_reg;
+        ldg_sys_secret_set;
+        ldg_sys_secret_get;
+        ldg_sys_media_info_get;
+        ldg_sys_media_play;
+        ldg_sys_media_pause;
+        ldg_sys_media_next_skip;
+        ldg_sys_media_prev_skip;
+
+        /* hw/sensor */
+        ldg_hw_sensor_init;
+        ldg_hw_sensor_shutdown;
+        ldg_hw_sensor_sample_get;
+        ldg_hw_sensor_group_set;
+        ldg_hw_sensor_group_get;
+        ldg_hw_sensor_group_avail_get;
+        ldg_hw_sensor_sampler_start;
+        ldg_hw_sensor_sampler_stop;
+        ldg_hw_sensor_drain;
+        ldg_hw_sensor_latest_get;
+        ldg_hw_sensor_sampling_is;
+
+        ldg_net_steamworks_persona_state_get;
+        ldg_net_steamworks_friend_persona_state_get;
+        ldg_net_steamworks_friend_rel_get;
+        ldg_net_steamworks_friend_cunt_get;
+        ldg_net_steamworks_friend_list_get;
+        ldg_net_steamworks_friend_has;
+        ldg_net_steamworks_friend_level_get;
+        ldg_net_steamworks_friend_game_get;
+        ldg_net_steamworks_friend_name_history_get;
+        ldg_net_steamworks_player_nickname_get;
+        ldg_net_steamworks_friends_group_cunt_get;
+        ldg_net_steamworks_friends_group_list_get;
+        ldg_net_steamworks_friends_group_name_get;
+        ldg_net_steamworks_friends_group_member_list_get;
+        ldg_net_steamworks_friend_avatar_get;
+        ldg_net_steamworks_friend_presence_get;
+        ldg_net_steamworks_friend_presence_key_cunt_get;
+        ldg_net_steamworks_friend_presence_key_get;
+        ldg_net_steamworks_friend_presence_req;
+        ldg_net_steamworks_friend_game_invite;
+        ldg_net_steamworks_coplay_friend_list_get;
+        ldg_net_steamworks_coplay_time_get;
+        ldg_net_steamworks_coplay_game_get;
+        ldg_net_steamworks_unread_chat_cunt_get;
+        ldg_net_steamworks_voice_speaking_set;
+        ldg_net_steamworks_played_with_set;
+        ldg_net_steamworks_overlay_activate;
+        ldg_net_steamworks_overlay_user_activate;
+        ldg_net_steamworks_overlay_web_page_activate;
+        ldg_net_steamworks_overlay_store_activate;
+        ldg_net_steamworks_overlay_lobby_invite_activate;
+        ldg_net_steamworks_overlay_remote_play_invite_activate;
+        ldg_net_steamworks_overlay_connect_invite_activate;
+        ldg_net_steamworks_overlay_protocol_reg;
+        ldg_net_steamworks_profile_item_has;
+        ldg_net_steamworks_profile_prop_str_get;
+        ldg_net_steamworks_profile_prop_uint_get;
+        ldg_net_steamworks_friend_call_init;
+        ldg_net_steamworks_friend_call_handle;
+        ldg_net_steamworks_follower_cunt_req;
+        ldg_net_steamworks_follower_cunt_state_get;
+        ldg_net_steamworks_follower_cunt_res_get;
+        ldg_net_steamworks_following_req;
+        ldg_net_steamworks_following_state_get;
+        ldg_net_steamworks_following_res_get;
+        ldg_net_steamworks_following_list_req;
+        ldg_net_steamworks_following_list_state_get;
+        ldg_net_steamworks_following_list_res_get;
+        ldg_net_steamworks_profile_items_req;
+        ldg_net_steamworks_profile_items_state_get;
+        ldg_net_steamworks_profile_items_res_get;
+        ldg_net_steamworks_app_id_get;
+        ldg_net_steamworks_dlc_install;
+        ldg_net_steamworks_dlc_installed_is;
+        ldg_net_steamworks_dlc_progress_get;
+        ldg_net_steamworks_app_dir_get;
+        ldg_net_steamworks_music_en_is;
+        ldg_net_steamworks_music_playing_is;
+        ldg_net_steamworks_music_status_get;
+        ldg_net_steamworks_music_play;
+        ldg_net_steamworks_music_pause;
+        ldg_net_steamworks_music_next_play;
+        ldg_net_steamworks_music_prev_play;
+        ldg_net_steamworks_music_vol_set;
+        ldg_net_steamworks_music_vol_get;
+        ldg_net_steamworks_timeline_mode_set;
+        ldg_net_steamworks_timeline_tooltip_set;
+        ldg_net_steamworks_timeline_tooltip_clear;
+        ldg_net_steamworks_timeline_event_add;
+        ldg_net_steamworks_timeline_phase_start;
+        ldg_net_steamworks_timeline_phase_end;
+
+        /* net/steamworks lobby */
+        ldg_net_steamworks_lobby_init;
+        ldg_net_steamworks_lobby_shutdown;
+        ldg_net_steamworks_lobby_create;
+        ldg_net_steamworks_lobby_list_req;
+        ldg_net_steamworks_lobby_join;
+        ldg_net_steamworks_lobby_leave;
+        ldg_net_steamworks_lobby_rdy_set;
+        ldg_net_steamworks_lobby_team_set;
+        ldg_net_steamworks_lobby_game_start;
+        ldg_net_steamworks_lobby_call_handle;
+        ldg_net_steamworks_lobby_cb_handle;
+        ldg_net_steamworks_lobby_member_refresh;
+        ldg_net_steamworks_lobby_host_steam_id_get;
+
+        /* net/steamworks lboard */
+        ldg_net_steamworks_lboard_init;
+        ldg_net_steamworks_lboard_shutdown;
+        ldg_net_steamworks_lboard_find;
+        ldg_net_steamworks_lboard_download;
+        ldg_net_steamworks_lboard_upload;
+        ldg_net_steamworks_lboard_state_get;
+        ldg_net_steamworks_lboard_entry_cunt_get;
+        ldg_net_steamworks_lboard_entry_get;
+        ldg_net_steamworks_lboard_call_handle;
+
+        /* net/steamworks econ */
+        ldg_net_steamworks_econ_init;
+        ldg_net_steamworks_econ_shutdown;
+        ldg_net_steamworks_econ_market_ck;
+        ldg_net_steamworks_econ_state_get;
+        ldg_net_steamworks_econ_market_allowed_is;
+        ldg_net_steamworks_econ_blk_reason_get;
+        ldg_net_steamworks_econ_trade;
+        ldg_net_steamworks_econ_call_handle;
+
+        /* net/steamworks inventory */
+        ldg_net_steamworks_inventory_init;
+        ldg_net_steamworks_inventory_shutdown;
+        ldg_net_steamworks_inventory_def_ld;
+        ldg_net_steamworks_inventory_all_get;
+        ldg_net_steamworks_inventory_item_by_id_get;
+        ldg_net_steamworks_inventory_status_get;
+        ldg_net_steamworks_inventory_item_cunt_get;
+        ldg_net_steamworks_inventory_item_get;
+        ldg_net_steamworks_inventory_item_consume;
+        ldg_net_steamworks_inventory_item_drop;
+        ldg_net_steamworks_inventory_item_generate;
+        ldg_net_steamworks_inventory_item_xchg;
+        ldg_net_steamworks_inventory_promo_grant;
+        ldg_net_steamworks_inventory_def_prop_get;
+        ldg_net_steamworks_inventory_res_destroy;
+        ldg_net_steamworks_inventory_poll;
+
+        /* net/steamworks cloud */
+        ldg_net_steamworks_cloud_init;
+        ldg_net_steamworks_cloud_shutdown;
+        ldg_net_steamworks_cloud_en_get;
+        ldg_net_steamworks_cloud_quota_get;
+        ldg_net_steamworks_cloud_file_enumerate;
+        ldg_net_steamworks_cloud_file_exists_is;
+        ldg_net_steamworks_cloud_file_size_get;
+        ldg_net_steamworks_cloud_file_timestamp_get;
+        ldg_net_steamworks_cloud_file_wr;
+        ldg_net_steamworks_cloud_file_rd;
+        ldg_net_steamworks_cloud_file_delete;
+        ldg_net_steamworks_cloud_file_forget;
+        ldg_net_steamworks_cloud_sync_pform_set;
+
+        /* net/steamworks wshop */
+        ldg_net_steamworks_wshop_init;
+        ldg_net_steamworks_wshop_shutdown;
+        ldg_net_steamworks_wshop_refresh;
+        ldg_net_steamworks_wshop_item_cunt_get;
+        ldg_net_steamworks_wshop_item_get;
+        ldg_net_steamworks_wshop_item_download;
+        ldg_net_steamworks_wshop_poll;
+        ldg_net_steamworks_wshop_upload_init;
+        ldg_net_steamworks_wshop_upload_start;
+        ldg_net_steamworks_wshop_upload_update;
+        ldg_net_steamworks_wshop_call_handle;
+        ldg_net_steamworks_wshop_upload_state_get;
+        ldg_net_steamworks_wshop_playtime_start;
+        ldg_net_steamworks_wshop_playtime_stop;
+        ldg_net_steamworks_wshop_playtime_all_stop;
+
+        /* net/steamworks srv browser */
+        ldg_net_steamworks_srv_browser_init;
+        ldg_net_steamworks_srv_browser_shutdown;
+        ldg_net_steamworks_srv_browser_lan_refresh;
+        ldg_net_steamworks_srv_browser_internet_refresh;
+        ldg_net_steamworks_srv_browser_cancel;
+        ldg_net_steamworks_srv_browser_poll;
+        ldg_net_steamworks_srv_browser_cunt_get;
+        ldg_net_steamworks_srv_browser_entry_get;
+
+        /* net/steamworks tkt */
+        ldg_net_steamworks_tkt_init;
+        ldg_net_steamworks_tkt_shutdown;
+        ldg_net_steamworks_tkt_req;
+        ldg_net_steamworks_tkt_call_handle;
+        ldg_net_steamworks_tkt_enc_get;
+        ldg_net_steamworks_tkt_state_get;
+        ldg_net_steamworks_tkt_web_req;
+        ldg_net_steamworks_tkt_cb_handle;
+        ldg_net_steamworks_tkt_web_get;
+        ldg_net_steamworks_tkt_web_cancel;
+        ldg_net_steamworks_tkt_web_state_get;
+
+        /* net/steamworks srv */
+        ldg_net_steamworks_srv_init;
+        ldg_net_steamworks_srv_steam_id_get;
+        ldg_net_steamworks_srv_auth_begin;
+        ldg_net_steamworks_srv_auth_end;
+        ldg_net_steamworks_srv_tkt_dec;
+        ldg_net_steamworks_srv_cb_handle;
+} DANGLING_4.0;

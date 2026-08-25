@@ -13,6 +13,8 @@
 #define LDG_WORD_BYTES 4
 #define LDG_WORD_MASK (LDG_WORD_BYTES - 1)
 
-#define LDG_IS_POW2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
+#define LDG_BIT(pos) (1U << (pos))
+
+#define LDG_IS_POW2(val) ((val) != 0 && ((val) & ((val) - 1)) == 0)
 
 #endif

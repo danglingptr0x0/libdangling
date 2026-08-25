@@ -1,0 +1,60 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer submerged_blk { uint submerged; };
+layout(std430, binding = 1) buffer ball_blk
+{
+    double ball_x;
+    double ball_y;
+    double ball_z;
+    double ball_vel;
+};
+layout(std430, binding = 2) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_rho;
+    double ball_r;
+    double pudding_b;
+    double pudding_c;
+    double pudding_e;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+
+const double BALL_PI = 3.14159265358979323846;
+
+void main()
+{
+    if (gl_GlobalInvocationID.x != 0u || ball_on != 1u) { return; }
+
+    double ball_vol = (4.0 / 3.0) * BALL_PI * ball_r * ball_r * ball_r;
+    double ball_mass = ball_rho * ball_vol;
+    double sub_vol = double(submerged) * spacing * spacing * spacing;
+    if (sub_vol > ball_vol) { sub_vol = ball_vol; }
+
+    double accel = gravity * (1.0 - density * sub_vol / ball_mass) - 3.0 * ball_vel * (sub_vol / ball_vol);
+    ball_vel += accel * dt;
+    ball_z += ball_vel * dt;
+    if (ball_z < spacing + ball_r)
+    {
+        ball_z = spacing + ball_r;
+        ball_vel = 0.0;
+    }
+
+    if (ball_z > (double(nz) - 1.0) * spacing - ball_r)
+    {
+        ball_z = (double(nz) - 1.0) * spacing - ball_r;
+        ball_vel = 0.0;
+    }
+}

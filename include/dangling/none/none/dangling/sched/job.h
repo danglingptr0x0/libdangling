@@ -16,7 +16,24 @@
 #define LDG_SCHED_PLOT_WEIGHT_CRIT_DEFAULT 0.4
 #define LDG_SCHED_PLOT_WEIGHT_REMAINING_DEFAULT 0.3
 #define LDG_SCHED_PLOT_WEIGHT_DEADLINE_DEFAULT 0.3
-#define LDG_SCHED_PRIO_DEADLINE_NONE 1.0e300
+#define LDG_SCHED_PRIO_DEADLINE_NONE 1.0e30
+#define LDG_SCHED_JOB_LOCK_SPIN_MAX 65536
+#define LDG_SCHED_JOB_CAS_RETRY_MAX 256
+#define LDG_SCHED_LOCK_FREE 0
+#define LDG_SCHED_LOCK_HELD 1
+#define LDG_SCHED_JOB_ID_BASE 1
+#define LDG_SCHED_STEP 1
+
+#define LDG_SCHED_PLOT_CRIT_UNVISITED 0
+#define LDG_SCHED_PLOT_CRIT_ACTIVE 1
+#define LDG_SCHED_PLOT_CRIT_SETTLED 2
+
+#define LDG_SCHED_PLOT_VISIT_OVERHEAD 2
+#define LDG_SCHED_PLOT_VISIT_MAX ((uint64_t)LDG_SCHED_JOB_MAX * (LDG_SCHED_DEP_MAX + LDG_SCHED_PLOT_VISIT_OVERHEAD))
+
+#define LDG_SCHED_PLOT_ROOT_NODE LDG_SCHED_JOB_MAX
+#define LDG_SCHED_PLOT_ROOT_CUNT 1
+#define LDG_SCHED_PLOT_NODE_CUNT (LDG_SCHED_PLOT_ROOT_NODE + LDG_SCHED_PLOT_ROOT_CUNT)
 
 typedef uint32_t ldg_sched_job_id_t;
 
@@ -81,14 +98,17 @@ typedef struct ldg_sched_job_pool
 {
     ldg_sched_job_t jobs[LDG_SCHED_JOB_MAX];
     uint32_t free_list[LDG_SCHED_JOB_MAX];
-    uint64_t plot_order[LDG_SCHED_JOB_MAX + 1];
-    uint8_t plot_dep_remaining[LDG_SCHED_JOB_MAX];
-    uint8_t plot_crit_busy[LDG_SCHED_JOB_MAX];
+    uint64_t plot_order[LDG_SCHED_PLOT_NODE_CUNT];
+    double plot_crit[LDG_SCHED_JOB_MAX];
+    uint32_t plot_stack[LDG_SCHED_JOB_MAX];
+    uint8_t plot_crit_state[LDG_SCHED_JOB_MAX];
+    uint8_t plot_crit_cursor[LDG_SCHED_JOB_MAX];
     volatile uint64_t free_hd;
     double frame_deadline;
     double plot_weight_crit;
     double plot_weight_remaining;
     double plot_weight_deadline;
+    double plot_total_remaining;
     ldg_sched_prio_cb_t prio_cb;
     volatile uint32_t lock;
     uint32_t job_cunt;

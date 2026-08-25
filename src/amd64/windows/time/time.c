@@ -1,8 +1,36 @@
 #include <dangling/time/time.h>
+#include <dangling/arch/amd64/syscall.h>
 #include <dangling/core/err.h>
 
 #include <time.h>
 #include <windows.h>
+
+#define LDG_TIME_CYCLE_HI_SHIFT 32
+
+uint64_t ldg_time_cycle_get(void)
+{
+    uint32_t lo = 0;
+    uint32_t hi = 0;
+
+    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+
+    return ((uint64_t)hi << LDG_TIME_CYCLE_HI_SHIFT) | (uint64_t)lo;
+}
+
+uint32_t ldg_time_ns_delay(uint64_t duration)
+{
+    uint64_t millis = 0;
+
+    if (duration == 0) { return LDG_ERR_AOK; }
+
+    millis = duration / LDG_NS_PER_MS;
+
+    if (millis == 0) { millis = LDG_STR_TERM_SIZE; }
+
+    Sleep((DWORD)millis);
+
+    return LDG_ERR_AOK;
+}
 
 uint64_t ldg_time_epoch_ms_get(void)
 {

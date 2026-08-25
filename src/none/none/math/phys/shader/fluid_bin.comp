@@ -1,0 +1,48 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer particle_blk { double particle[]; };
+layout(std430, binding = 1) buffer bin_cunt_blk { uint bin_cunt[]; };
+layout(std430, binding = 2) writeonly buffer bin_slot_blk { uint bin_slot[]; };
+layout(std430, binding = 3) readonly buffer param_blk
+{
+    double dt;
+    double spacing;
+    double density;
+    double gravity;
+    double tol;
+    double ball_x;
+    double ball_y;
+    double ball_z;
+    double ball_r;
+    double ball_vel;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint bin_cap;
+    uint particle_cunt;
+    uint ball_on;
+    uint sub_cunt;
+    uint pudding_a;
+};
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= particle_cunt) { return; }
+
+    double inv_spacing = 1.0 / spacing;
+    uint cell_x = uint(particle[idx * 6u] * inv_spacing);
+    uint cell_y = uint(particle[idx * 6u + 1u] * inv_spacing);
+    uint cell_z = uint(particle[idx * 6u + 2u] * inv_spacing);
+    if (cell_x >= nx) { cell_x = nx - 1u; }
+
+    if (cell_y >= ny) { cell_y = ny - 1u; }
+
+    if (cell_z >= nz) { cell_z = nz - 1u; }
+
+    uint cell = (cell_z * ny + cell_y) * nx + cell_x;
+    uint slot = atomicAdd(bin_cunt[cell], 1u);
+    if (slot < bin_cap) { bin_slot[cell * bin_cap + slot] = idx; }
+}

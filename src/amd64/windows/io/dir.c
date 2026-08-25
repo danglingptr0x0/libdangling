@@ -12,6 +12,8 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
 
+#define LDG_IO_DIR_ACCESS_MAX 0777
+
 static uint32_t ldg_io_dir_errno_translate(void)
 {
     switch (errno)
@@ -32,11 +34,11 @@ static uint32_t ldg_io_dir_errno_translate(void)
     }
 }
 
-uint32_t ldg_io_dir_create(const char *path, uint32_t mode)
+uint32_t ldg_io_dir_create(const char *path, uint32_t access)
 {
     if (LDG_UNLIKELY(!path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (mode == 0) { mode = 0755; }
+    if (LDG_UNLIKELY(access > LDG_IO_DIR_ACCESS_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     if (LDG_UNLIKELY(_mkdir(path) < 0)) { return ldg_io_dir_errno_translate(); }
 
@@ -54,8 +56,8 @@ uint32_t ldg_io_dir_destroy(const char *path)
 
 uint32_t ldg_io_dir_open(const char *path, ldg_io_dir_t **out)
 {
-    ldg_io_dir_t *d = 0x0;
-    DIR *dir = 0x0;
+    ldg_io_dir_t *dir = 0x0;
+    DIR *native_dir = 0x0;
     uint64_t path_len = 0;
     uint32_t ret = 0;
 
@@ -63,163 +65,136 @@ uint32_t ldg_io_dir_open(const char *path, ldg_io_dir_t **out)
 
     *out = 0x0;
 
-    path_len = (uint64_t)strnlen(path, LDG_IO_DIR_PATH_MAX);
-    if (LDG_UNLIKELY(path_len >= LDG_IO_DIR_PATH_MAX - 1)) { return LDG_ERR_OVERFLOW; }
+    path_len = (uint64_t)strnlen(path, LDG_IO_PATH_MAX);
+    if (LDG_UNLIKELY(path_len >= LDG_IO_PATH_MAX - 1)) { return LDG_ERR_OVERFLOW; }
 
-    dir = opendir(path);
-    if (LDG_UNLIKELY(!dir)) { return ldg_io_dir_errno_translate(); }
+    native_dir = opendir(path);
+    if (LDG_UNLIKELY(!native_dir)) { return ldg_io_dir_errno_translate(); }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_dir), (void **)&d);
+    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_dir), (void **)&dir);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        closedir(dir);
+        closedir(native_dir);
         return LDG_ERR_ALLOC_NULL;
     }
 
-    if (LDG_UNLIKELY(memset(d, 0, sizeof(struct ldg_io_dir)) != d))
+    if (LDG_UNLIKELY(memset(dir, 0, sizeof(struct ldg_io_dir)) != dir))
     {
-        closedir(dir);
-        ldg_mem_dealloc(d);
+        closedir(native_dir);
+        ldg_mem_dealloc(dir);
         return LDG_ERR_MEM_BAD;
     }
 
-    d->handle = (void *)dir;
+    dir->handle = (void *)native_dir;
 
-    ret = ldg_strrbrcpy(d->path, path, LDG_IO_DIR_PATH_MAX);
+    ret = ldg_mem_alloc((uint64_t)LDG_IO_DIR_FULL_PATH_MAX, (void **)&dir->full_path);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        closedir(native_dir);
+        ldg_mem_dealloc(dir);
+        return LDG_ERR_ALLOC_NULL;
+    }
+
+    ret = ldg_str_rbrcpy(dir->path, path, LDG_IO_PATH_MAX);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
     {
-        closedir(dir);
-        ldg_mem_dealloc(d);
+        closedir(native_dir);
+        ldg_mem_dealloc(dir->full_path);
+        ldg_mem_dealloc(dir);
         return ret;
     }
 
-    d->path_len = path_len;
+    dir->path_len = path_len;
 
-    if (d->path_len > 0 && d->path[d->path_len - 1] != '/' && d->path[d->path_len - 1] != '\\')
+    if (dir->path_len > 0 && dir->path[dir->path_len - 1] != '/' && dir->path[dir->path_len - 1] != '\\')
     {
-        d->path[d->path_len] = '/';
-        d->path_len++;
-        d->path[d->path_len] = LDG_STR_TERM;
+        dir->path[dir->path_len] = '/';
+        dir->path_len++;
+        dir->path[dir->path_len] = LDG_STR_TERM;
     }
 
-    *out = d;
+    *out = dir;
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_dir_rd(ldg_io_dir_t *d, ldg_io_dirent_t **out)
+uint32_t ldg_io_dir_rd(ldg_io_dir_t *dir, ldg_io_entry_t *out)
 {
-    DIR *dir = 0x0;
-    struct dirent *entry = 0x0;
-    ldg_io_dirent_t *e = 0x0;
-    ldg_mem_pool_t *scratch = 0x0;
-    char *full_path = 0x0;
-    uint64_t full_path_size = LDG_IO_DIR_PATH_MAX + 256;
+    DIR *native_dir = 0x0;
+    struct dirent *native_entry = 0x0;
     uint64_t name_len = 0;
     uint32_t ret = 0;
     DWORD attrs = 0;
 
-    if (LDG_UNLIKELY(!d || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!dir || !out || !dir->full_path)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *out = 0x0;
+    if (LDG_UNLIKELY(memset(out, LDG_STR_TERM, sizeof(ldg_io_entry_t)) != out)) { return LDG_ERR_MEM_BAD; }
 
-    dir = (DIR *)d->handle;
+    native_dir = (DIR *)dir->handle;
     errno = 0;
-    entry = readdir(dir);
+    native_entry = readdir(native_dir);
 
-    if (!entry)
+    if (!native_entry)
     {
         if (errno != 0) { return ldg_io_dir_errno_translate(); }
 
         return LDG_ERR_EOF;
     }
 
-    ret = ldg_mem_pool_create(0, full_path_size, &scratch);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    ret = ldg_str_rbrcpy(out->name, native_entry->d_name, LDG_IO_ENTRY_NAME_MAX);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP)) { return ret; }
 
-    ret = ldg_mem_pool_alloc(scratch, full_path_size, (void **)&full_path);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return ret; }
-
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_dirent), (void **)&e);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_ALLOC_NULL; }
-
-    if (LDG_UNLIKELY(memset(e, 0, sizeof(struct ldg_io_dirent)) != e))
+    name_len = (uint64_t)strnlen(native_entry->d_name, LDG_IO_ENTRY_NAME_MAX);
+    if (dir->path_len + name_len < LDG_IO_DIR_FULL_PATH_MAX)
     {
-        ldg_mem_dealloc(e);
-        ldg_mem_pool_destroy(&scratch);
-        return LDG_ERR_MEM_BAD;
+        if (LDG_UNLIKELY(ldg_mem_secure_cpy(dir->full_path, dir->path, (uint64_t)dir->path_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+        if (LDG_UNLIKELY(ldg_mem_secure_cpy(dir->full_path + dir->path_len, native_entry->d_name, (uint64_t)name_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+        dir->full_path[dir->path_len + name_len] = LDG_STR_TERM;
+
+        attrs = GetFileAttributesA(dir->full_path);
+        if (attrs != INVALID_FILE_ATTRIBUTES) { out->is_dir = (attrs & FILE_ATTRIBUTE_DIRECTORY) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; }
     }
-
-    ret = ldg_strrbrcpy(e->name, entry->d_name, 256);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_STR_OVERLAP))
-    {
-        ldg_mem_dealloc(e);
-        ldg_mem_pool_destroy(&scratch);
-        return ret;
-    }
-
-    name_len = (uint64_t)strnlen(entry->d_name, 256);
-    if (d->path_len + name_len < full_path_size)
-    {
-        if (LDG_UNLIKELY(ldg_mem_secure_copy(full_path, d->path, (uint64_t)d->path_len) != LDG_ERR_AOK))
-        {
-            ldg_mem_dealloc(e);
-            ldg_mem_pool_destroy(&scratch);
-            return LDG_ERR_MEM_BAD;
-        }
-
-        if (LDG_UNLIKELY(ldg_mem_secure_copy(full_path + d->path_len, entry->d_name, (uint64_t)name_len) != LDG_ERR_AOK))
-        {
-            ldg_mem_dealloc(e);
-            ldg_mem_pool_destroy(&scratch);
-            return LDG_ERR_MEM_BAD;
-        }
-
-        full_path[d->path_len + name_len] = LDG_STR_TERM;
-
-        attrs = GetFileAttributesA(full_path);
-        if (attrs != INVALID_FILE_ATTRIBUTES) { e->is_dir = (attrs & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0; }
-    }
-
-    *out = e;
-    ldg_mem_pool_destroy(&scratch);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_dir_close(ldg_io_dir_t *d)
+uint32_t ldg_io_dir_close(ldg_io_dir_t *dir)
 {
-    DIR *dir = 0x0;
+    DIR *native_dir = 0x0;
 
-    if (LDG_UNLIKELY(!d)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!dir)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    dir = (DIR *)d->handle;
+    native_dir = (DIR *)dir->handle;
 
-    if (LDG_UNLIKELY(closedir(dir) < 0))
+    if (dir->full_path) { ldg_mem_dealloc(dir->full_path); }
+
+    if (LDG_UNLIKELY(closedir(native_dir) < 0))
     {
-        ldg_mem_dealloc(d);
+        ldg_mem_dealloc(dir);
         return LDG_ERR_IO_CLOSE;
     }
 
-    ldg_mem_dealloc(d);
+    ldg_mem_dealloc(dir);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_dirent_name_get(ldg_io_dirent_t *e, const char **name)
+uint32_t ldg_io_entry_name_get(ldg_io_entry_t *entry, const char **name)
 {
-    if (LDG_UNLIKELY(!e || !name)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!entry || !name)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *name = e->name;
+    *name = entry->name;
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_io_dirent_dir_is(ldg_io_dirent_t *e, uint8_t *is_dir)
+uint8_t ldg_io_entry_dir_is(ldg_io_entry_t *entry)
 {
-    if (LDG_UNLIKELY(!e || !is_dir)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!entry)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *is_dir = e->is_dir;
+    if (entry->is_dir == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
 
-    return LDG_ERR_AOK;
+    return LDG_TRUTH_FALSE;
 }

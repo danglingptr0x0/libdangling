@@ -18,16 +18,15 @@ uint32_t ldg_ecs_sched_shutdown(ldg_ecs_ctx_t *ctx)
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx)
+LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
 {
-    uint32_t first_err = 0x0;
     uint32_t sys_cunt = 0;
     uint32_t idx = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     sys_cunt = ctx->sys_cunt;
 
@@ -35,15 +34,12 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_sched_run(ldg_ecs_ctx_t *ctx)
     {
         if (ctx->sys[idx].func == 0x0) { continue; }
 
-        ret = ctx->sys[idx].func(ctx);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
+        if (LDG_UNLIKELY(ctx->sys[idx].func(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; }
     }
 
-    ret = ldg_ecs_ctx_worker_cmd_flush(ctx);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
+    if (LDG_UNLIKELY(ldg_ecs_ctx_worker_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
 
-    ret = ldg_ecs_ctx_cmd_flush(ctx);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK) && first_err == LDG_ERR_AOK) { first_err = ret; }
+    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
 
-    return first_err;
+    return ret;
 }

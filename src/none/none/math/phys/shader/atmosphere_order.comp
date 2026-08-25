@@ -1,0 +1,168 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "atmosphere_common.glsl"
+
+#define ATMOSPHERE_SCATTER_STEP_CUNT 32
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer param_blk
+{
+    double planet_radius;
+    double thickness;
+    double rayleigh_scale_height;
+    double mie_scale_height;
+    double mie_scatter;
+    double mie_absorb;
+    double mie_anisotropy;
+    double fog_scale_height;
+    double fog_scatter;
+    double fog_absorb;
+    double fog_anisotropy;
+    double ozone_center_altitude;
+    double ozone_half_width;
+    uint bin_cunt;
+    uint order_cunt;
+    uint altitude_cunt;
+    uint view_cunt;
+    uint sun_cunt;
+    uint view_sun_cunt;
+    uint pud;
+};
+layout(std430, binding = 1) readonly buffer rayleigh_blk { double rayleigh[]; };
+layout(std430, binding = 2) readonly buffer gather_blk { double gather[]; };
+layout(std430, binding = 3) buffer delta_radiance_blk { double delta_radiance[]; };
+layout(std430, binding = 4) readonly buffer ozone_blk { double ozone[]; };
+
+void quad_setup(uint idx0, uint idx1, uint idx2, uint idx3, double f0, double f1, double f2, double f3, out uint cbase[16], out double cweight[16])
+{
+    uint corner = 0u;
+    uint pick_a = 0u;
+    uint pick_v = 0u;
+    uint pick_s = 0u;
+    uint pick_n = 0u;
+    for (corner = 0u; corner < 16u; corner++)
+    {
+        pick_a = idx0 + (corner & 1u);
+        pick_v = idx1 + ((corner >> 1u) & 1u);
+        pick_s = idx2 + ((corner >> 2u) & 1u);
+        pick_n = idx3 + ((corner >> 3u) & 1u);
+        cweight[corner] = ((corner & 1u) != 0u ? f0 : 1.0lf - f0) * (((corner >> 1u) & 1u) != 0u ? f1 : 1.0lf - f1) * (((corner >> 2u) & 1u) != 0u ? f2 : 1.0lf - f2) * (((corner >> 3u) & 1u) != 0u ? f3 : 1.0lf - f3);
+        cbase[corner] = (((pick_a * view_cunt + pick_v) * sun_cunt + pick_s) * view_sun_cunt + pick_n) * bin_cunt;
+    }
+}
+
+double quad_corner_gather(uint cbase[16], double cweight[16], uint bin)
+{
+    double val = 0.0lf;
+    uint corner = 0u;
+    for (corner = 0u; corner < 16u; corner++) { val += cweight[corner] * gather[cbase[corner] + bin]; }
+
+    return val;
+}
+
+void main()
+{
+    uint idx_a = gl_GlobalInvocationID.x;
+    uint idx_v = gl_GlobalInvocationID.y;
+    uint packed = gl_GlobalInvocationID.z;
+    if (idx_a >= altitude_cunt || idx_v >= view_cunt) { return; }
+
+    uint idx_s = packed / view_sun_cunt;
+    uint idx_n = packed % view_sun_cunt;
+    if (idx_s >= sun_cunt) { return; }
+
+    double altitude = thickness * double(idx_a) / (double(altitude_cunt) - 1.0lf);
+    double radius = planet_radius + altitude;
+    double mu = 0.0lf - 1.0lf + 2.0lf * double(idx_v) / (double(view_cunt) - 1.0lf);
+    double mu_s = 0.0lf - 1.0lf + 2.0lf * double(idx_s) / (double(sun_cunt) - 1.0lf);
+    double nu = 0.0lf - 1.0lf + 2.0lf * double(idx_n) / (double(view_sun_cunt) - 1.0lf);
+    double mie_extinction = mie_scatter + mie_absorb;
+    double fog_extinction = fog_scatter + fog_absorb;
+    uint ground_hit = 0u;
+    double ray_len = atmosphere_ray_len(planet_radius, thickness, radius, mu, ground_hit);
+    double step = ray_len / double(ATMOSPHERE_SCATTER_STEP_CUNT);
+    double depth_rayleigh = 0.0lf;
+    double depth_mie = 0.0lf;
+    double depth_fog = 0.0lf;
+    double depth_ozone = 0.0lf;
+    double depth_rayleigh_mid = 0.0lf;
+    double depth_mie_mid = 0.0lf;
+    double depth_fog_mid = 0.0lf;
+    double depth_ozone_mid = 0.0lf;
+    double dist = 0.0lf;
+    double dist_next = 0.0lf;
+    double radius_dist = 0.0lf;
+    double radius_next = 0.0lf;
+    double altitude_dist = 0.0lf;
+    double altitude_next = 0.0lf;
+    double altitude_prev = altitude;
+    double density_rayleigh = 0.0lf;
+    double density_mie = 0.0lf;
+    double fog_seg_lo = 0.0lf;
+    double fog_seg_hi = 0.0lf;
+    double ozone_seg_lo = 0.0lf;
+    double ozone_seg_hi = 0.0lf;
+    double mu_dist = 0.0lf;
+    double mu_s_dist = 0.0lf;
+    double view_transmittance = 0.0lf;
+    double frac0 = 0.0lf;
+    double frac1 = 0.0lf;
+    double frac2 = 0.0lf;
+    double frac3 = 0.0lf;
+    uint qidx0 = 0u;
+    uint qidx1 = 0u;
+    uint qidx2 = 0u;
+    uint qidx3 = 0u;
+    uint cbase[16];
+    double cweight[16];
+    uint step_idx = 0u;
+    uint bin = 0u;
+    uint base = (((idx_a * view_cunt + idx_v) * sun_cunt + idx_s) * view_sun_cunt + idx_n) * bin_cunt;
+    for (bin = 0u; bin < bin_cunt; bin++) { delta_radiance[base + bin] = 0.0lf; }
+    for (step_idx = 0u; step_idx < ATMOSPHERE_SCATTER_STEP_CUNT; step_idx++)
+    {
+        dist = (double(step_idx) + 0.5lf) * step;
+        dist_next = (double(step_idx) + 1.0lf) * step;
+        radius_dist = sqrt(radius * radius + dist * dist + 2.0lf * radius * dist * mu);
+        altitude_dist = radius_dist - planet_radius;
+        radius_next = sqrt(radius * radius + dist_next * dist_next + 2.0lf * radius * dist_next * mu);
+        altitude_next = radius_next - planet_radius;
+        density_rayleigh = atmosphere_density(altitude_dist, rayleigh_scale_height);
+        density_mie = atmosphere_density(altitude_dist, mie_scale_height);
+        fog_seg_lo = segment_depth(altitude_prev, altitude_dist, step * 0.5lf, fog_scale_height);
+        fog_seg_hi = segment_depth(altitude_dist, altitude_next, step * 0.5lf, fog_scale_height);
+        ozone_seg_lo = ozone_segment_depth(altitude_prev, altitude_dist, step * 0.5lf, ozone_center_altitude, ozone_half_width);
+        ozone_seg_hi = ozone_segment_depth(altitude_dist, altitude_next, step * 0.5lf, ozone_center_altitude, ozone_half_width);
+        depth_rayleigh_mid = depth_rayleigh + density_rayleigh * step * 0.5lf;
+        depth_mie_mid = depth_mie + density_mie * step * 0.5lf;
+        depth_fog_mid = depth_fog + fog_seg_lo;
+        depth_ozone_mid = depth_ozone + ozone_seg_lo;
+        depth_rayleigh += density_rayleigh * step;
+        depth_mie += density_mie * step;
+        depth_fog += fog_seg_lo + fog_seg_hi;
+        depth_ozone += ozone_seg_lo + ozone_seg_hi;
+        altitude_prev = altitude_next;
+        mu_dist = (radius * mu + dist) / radius_dist;
+        if (mu_dist > 1.0lf) { mu_dist = 1.0lf; }
+
+        if (mu_dist < 0.0lf - 1.0lf) { mu_dist = 0.0lf - 1.0lf; }
+
+        mu_s_dist = (radius * mu_s + dist * nu) / radius_dist;
+        if (mu_s_dist > 1.0lf) { mu_s_dist = 1.0lf; }
+
+        if (mu_s_dist < 0.0lf - 1.0lf) { mu_s_dist = 0.0lf - 1.0lf; }
+
+        atmosphere_axis(altitude_dist, 0.0lf, thickness, altitude_cunt, qidx0, frac0);
+        atmosphere_axis(mu_dist, 0.0lf - 1.0lf, 2.0lf, view_cunt, qidx1, frac1);
+        atmosphere_axis(mu_s_dist, 0.0lf - 1.0lf, 2.0lf, sun_cunt, qidx2, frac2);
+        atmosphere_axis(nu, 0.0lf - 1.0lf, 2.0lf, view_sun_cunt, qidx3, frac3);
+        quad_setup(qidx0, qidx1, qidx2, qidx3, frac0, frac1, frac2, frac3, cbase, cweight);
+        for (bin = 0u; bin < bin_cunt; bin++)
+        {
+            view_transmittance = ldg_exp(0.0lf - (rayleigh[bin] * depth_rayleigh_mid + mie_extinction * depth_mie_mid + fog_extinction * depth_fog_mid + ozone[bin] * depth_ozone_mid));
+            delta_radiance[base + bin] += view_transmittance * quad_corner_gather(cbase, cweight, bin) * step;
+        }
+    }
+}

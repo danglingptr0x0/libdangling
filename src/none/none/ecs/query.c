@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <string.h>
 
 #include <dangling/core/macros.h>
 #include <dangling/core/err.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/ecs/ecs.h>
 
 LDG_EXPORT uint32_t ldg_ecs_ctx_query_begin(ldg_ecs_ctx_t *ctx, const ldg_ecs_query_t *query, ldg_ecs_query_iter_t *out)
@@ -15,8 +15,8 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_query_begin(ldg_ecs_ctx_t *ctx, const ldg_ecs_qu
 
     if (LDG_UNLIKELY(!ctx || !query || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    memset(out, 0, sizeof(*out));
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_NOT_INIT; }
+    ldg_mem_zero(out, sizeof(*out));
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(query->comp_cunt == 0 || query->comp_cunt > LDG_ECS_QUERY_COMP_MAX)) { return LDG_ERR_ECS_QUERY_INVALID; }
 
@@ -27,7 +27,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_query_begin(ldg_ecs_ctx_t *ctx, const ldg_ecs_qu
         comp_id = query->comp_id[query_idx];
         if (LDG_UNLIKELY(comp_id == LDG_ECS_COMP_ID_INVALID || comp_id >= ctx->conf.comp_cap)) { return LDG_ERR_ECS_QUERY_INVALID; }
 
-        if (LDG_UNLIKELY(!ctx->comp[comp_id].is_reg)) { return LDG_ERR_NOT_FOUND; }
+        if (LDG_UNLIKELY(ctx->comp[comp_id].is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_FOUND; }
 
         comp_cunt = ldg_ecs_comp_cunt_get(&ctx->comp[comp_id]);
         if (comp_cunt < best_cunt)
@@ -53,7 +53,7 @@ LDG_EXPORT uint8_t ldg_ecs_ctx_query_next(ldg_ecs_ctx_t *ctx, const ldg_ecs_quer
 
     if (LDG_UNLIKELY(!ctx || !query || !iter)) { return 0; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return 0; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return 0; }
 
     if (LDG_UNLIKELY(iter->pivot_comp_id == LDG_ECS_COMP_ID_INVALID || iter->pivot_comp_id >= ctx->conf.comp_cap)) { return 0; }
 
@@ -63,7 +63,7 @@ LDG_EXPORT uint8_t ldg_ecs_ctx_query_next(ldg_ecs_ctx_t *ctx, const ldg_ecs_quer
         iter->pivot_pos++;
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { continue; }
 
-        if (LDG_UNLIKELY(!ldg_ecs_entity_alive_is(&ctx->store, entity))) { continue; }
+        if (LDG_UNLIKELY(ldg_ecs_entity_alive_is(&ctx->store, entity) != LDG_TRUTH_TRUE)) { continue; }
 
         match = 1;
         for (query_idx = 0; query_idx < query->comp_cunt; query_idx++)
@@ -71,7 +71,7 @@ LDG_EXPORT uint8_t ldg_ecs_ctx_query_next(ldg_ecs_ctx_t *ctx, const ldg_ecs_quer
             comp_id = query->comp_id[query_idx];
             if (comp_id == iter->pivot_comp_id) { continue; }
 
-            if (comp_id >= ctx->conf.comp_cap || !ldg_ecs_comp_has(&ctx->comp[comp_id], entity))
+            if (comp_id >= ctx->conf.comp_cap || ldg_ecs_comp_has(&ctx->comp[comp_id], entity) != LDG_TRUTH_TRUE)
             {
                 match = 0;
                 break;

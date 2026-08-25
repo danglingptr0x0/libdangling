@@ -1,0 +1,35 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer pressure_blk { double pressure[]; };
+layout(std430, binding = 1) readonly buffer velocity_blk { double velocity[]; };
+layout(std430, binding = 2) writeonly buffer pack_blk { double pack_out[]; };
+layout(std430, binding = 3) readonly buffer pack_param_blk
+{
+    uint nx;
+    uint ny;
+    uint nz;
+    uint vol_stride;
+    uint vol_x;
+    uint vol_y;
+    uint vol_z;
+    uint slice_z;
+};
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    if (idx_x >= nx || idx_y >= ny) { return; }
+
+    uint cell_cunt = nx * ny * nz;
+    uint vol_cunt = vol_x * vol_y * vol_z;
+    uint plane = nx * ny;
+    uint cell = (slice_z * ny + idx_y) * nx + idx_x;
+    uint pcell = idx_y * nx + idx_x;
+    pack_out[4u * vol_cunt + 0u * plane + pcell] = pressure[cell];
+    pack_out[4u * vol_cunt + 1u * plane + pcell] = velocity[cell];
+    pack_out[4u * vol_cunt + 2u * plane + pcell] = velocity[cell_cunt + cell];
+    pack_out[4u * vol_cunt + 3u * plane + pcell] = velocity[2u * cell_cunt + cell];
+}

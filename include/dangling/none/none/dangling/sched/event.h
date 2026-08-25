@@ -8,6 +8,12 @@
 #define LDG_SCHED_EVENT_MAX 1024
 #define LDG_SCHED_SUB_MAX 4096
 #define LDG_SCHED_EVENT_HANDLER_MAX 64
+#define LDG_SCHED_EVENT_LOCK_SPIN_MAX 65536
+#define LDG_SCHED_EVENT_DRAIN_SPIN_MAX 1048576
+#define LDG_SCHED_EVENT_LOCK_FREE 0
+#define LDG_SCHED_EVENT_LOCK_HELD 1
+#define LDG_SCHED_EVENT_SUB_ID_BASE 1
+#define LDG_SCHED_EVENT_STEP 1
 
 typedef struct ldg_sched_event_desc
 {
@@ -42,9 +48,11 @@ typedef struct ldg_sched_sub
     void *user_data;
     ldg_sched_event_desc_t event;
     uint32_t id;
+    uint32_t generation;
+    volatile uint32_t in_flight;
     uint8_t prio;
     uint8_t is_active;
-    uint8_t pudding[10];
+    uint8_t pudding[2];
 } LDG_ALIGNED ldg_sched_sub_t;
 
 typedef struct ldg_sched_event_pool

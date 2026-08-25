@@ -1,6 +1,5 @@
 #ifdef LDG_GPU_VULKAN
 
-#include <string.h>
 #include <vulkan/vulkan.h>
 
 #include "state.h"
@@ -227,9 +226,9 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 
     *out = (ldg_gpu_swapchain_t)LDG_STRUCT_ZERO_INIT;
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
-    if (LDG_UNLIKELY(!ctx->has_swapchain_ext)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
+    if (LDG_UNLIKELY(ctx->has_swapchain_ext != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
 
     if (LDG_UNLIKELY(desc->surface_id >= LDG_GPU_SURFACE_MAX || !ctx->surfaces[desc->surface_id].in_use)) { return LDG_ERR_GPU_SURFACE_NOT_FOUND; }
 
@@ -385,7 +384,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -445,7 +444,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -550,7 +549,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_img_acquire(void *vk, uint32_t swapchain_i
 
     *img_idx = UINT32_MAX;
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -611,7 +610,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, u
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!ctx->is_init)) { return LDG_ERR_GPU_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_NOT_INIT; }
 
     if (LDG_UNLIKELY(swapchain_id >= LDG_GPU_SWAPCHAIN_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 

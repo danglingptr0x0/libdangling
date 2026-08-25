@@ -1,0 +1,116 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+
+layout(std430, binding = 0) readonly buffer intensity_in_blk { double intensity_in[]; };
+layout(std430, binding = 1) writeonly buffer intensity_out_blk { double intensity_out[]; };
+layout(std430, binding = 2) readonly buffer phase_blk { double phase[]; };
+layout(std430, binding = 3) readonly buffer refract_blk { double refract[]; };
+layout(std430, binding = 4) readonly buffer alpha_blk { double alpha_cell[]; };
+layout(std430, binding = 5) readonly buffer param_blk
+{
+    double spacing;
+    double tol;
+    uint nx;
+    uint ny;
+    uint nz;
+    uint pudding_a;
+};
+layout(std430, binding = 6) buffer flag_blk { uint flag; };
+
+const double PHASE_FAR = 1.0e300;
+
+void face_cum(uint center, uint nb, double refract_center, inout double influx, inout double denom, inout uint has_upwind)
+{
+    double refract_face = 0.5 * (refract_center + refract[nb]);
+    double mismatch = (refract[nb] - refract_center) / (refract[nb] + refract_center);
+    double slope = 0.0;
+    if (phase[nb] >= PHASE_FAR) { return; }
+
+    slope = (phase[nb] - phase[center]) / (spacing * refract_face);
+    if (slope > 1.0) { slope = 1.0; }
+
+    if (slope < 0.0 - 1.0) { slope = 0.0 - 1.0; }
+
+    if (phase[nb] < phase[center])
+    {
+        influx += (1.0 - mismatch * mismatch) * intensity_in[nb] * (0.0 - slope);
+        has_upwind = 1u;
+    }
+    else
+    {
+        denom += slope;
+    }
+}
+
+void edge_cum(uint center, uint opp, double refract_center, inout double denom)
+{
+    double slope = (phase[center] - phase[opp]) / (spacing * refract_center);
+    if (slope > 1.0) { slope = 1.0; }
+
+    if (slope < 0.0) { slope = 0.0; }
+
+    denom += slope;
+}
+
+void main()
+{
+    uint idx_x = gl_GlobalInvocationID.x;
+    uint idx_y = gl_GlobalInvocationID.y;
+    uint idx_z = gl_GlobalInvocationID.z;
+    if (idx_x >= nx || idx_y >= ny || idx_z >= nz) { return; }
+
+    uint plane = nx * ny;
+    uint center = (idx_z * ny + idx_y) * nx + idx_x;
+    double refract_center = refract[center];
+    double influx = 0.0;
+    double denom = 0.0;
+    double candidate = 0.0;
+    double diff = 0.0;
+    uint has_upwind = 0u;
+    if (phase[center] >= PHASE_FAR)
+    {
+        intensity_out[center] = 0.0;
+        return;
+    }
+
+    if (idx_x > 0u) { face_cum(center, center - 1u, refract_center, influx, denom, has_upwind); }
+    else { edge_cum(center, center + 1u, refract_center, denom); }
+
+    if (idx_x + 1u < nx) { face_cum(center, center + 1u, refract_center, influx, denom, has_upwind); }
+    else { edge_cum(center, center - 1u, refract_center, denom); }
+
+    if (idx_y > 0u) { face_cum(center, center - nx, refract_center, influx, denom, has_upwind); }
+    else { edge_cum(center, center + nx, refract_center, denom); }
+
+    if (idx_y + 1u < ny) { face_cum(center, center + nx, refract_center, influx, denom, has_upwind); }
+    else { edge_cum(center, center - nx, refract_center, denom); }
+
+    if (nz > 1u)
+    {
+        if (idx_z > 0u) { face_cum(center, center - plane, refract_center, influx, denom, has_upwind); }
+        else { edge_cum(center, center + plane, refract_center, denom); }
+
+        if (idx_z + 1u < nz) { face_cum(center, center + plane, refract_center, influx, denom, has_upwind); }
+        else { edge_cum(center, center - plane, refract_center, denom); }
+    }
+
+    if (has_upwind == 0u)
+    {
+        intensity_out[center] = intensity_in[center];
+        return;
+    }
+
+    denom += alpha_cell[center] * spacing;
+    if (denom <= 0.0)
+    {
+        intensity_out[center] = intensity_in[center];
+        return;
+    }
+
+    candidate = influx / denom;
+    diff = abs(intensity_in[center] - candidate);
+    if (diff > tol) { atomicOr(flag, 1u); }
+
+    intensity_out[center] = candidate;
+}
