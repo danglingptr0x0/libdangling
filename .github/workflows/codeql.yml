@@ -18,18 +18,28 @@ jobs:
       security-events: write
     steps:
       - name: packages
-        run: pacman -Syu --noconfirm --needed git cmake nasm pkgconf curl pipewire clang
-      - uses: actions/checkout@v7
+        run: pacman -Syu --noconfirm --needed git cmake nasm pkgconf curl pipewire clang unzip
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: github/codeql-action/init@v4
+          fetch-depth: 0
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           languages: c-cpp
           build-mode: manual
       - name: build
         run: |
-          cmake -S . -B build -DCMAKE_C_COMPILER=clang -DLDG_WITH_GPU=OFF
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang -DLDG_WITH_GPU=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           cmake --build build -j "$(nproc)"
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           category: /language:c-cpp
+      - name: sonarqube
+        if: github.event_name != 'pull_request'
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=danglingptr0x0 -Dsonar.projectKey=danglingptr0x0_libdangling -Dsonar.sources=src,include -Dsonar.cfamily.compile-commands=build/compile_commands.json
+

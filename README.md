@@ -1,4 +1,6 @@
 <a href="https://scan.coverity.com/projects/danglingptr0x0-libdangling"><img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/33363/badge.svg"/></a>
+<a href="https://sonarcloud.io/summary/new_code?id=danglingptr0x0_libdangling"><img alt="Quality gate status" src="https://sonarcloud.io/api/project_badges/measure?project=danglingptr0x0_libdangling&metric=alert_status"></a>
+<a href="https://www.bestpractices.dev/projects/16361"><img alt="OpenSSF Best Practices" src="https://www.bestpractices.dev/projects/16361/badge"/></a>
 
 # libdangling
 

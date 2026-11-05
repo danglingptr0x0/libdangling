@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: packages
         run: pacman -Syu --noconfirm --needed git github-cli cmake nasm pkgconf curl pipewire unzip xz mingw-w64-gcc
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: dangcsa toolchain
@@ -75,7 +75,7 @@ jobs:
         run: |
           cmake --install build --prefix "$GITHUB_WORKSPACE/stage"
           tar -cJf "libdangling-${GITHUB_REF_NAME}-${{ matrix.platform }}-amd64.tar.xz" -C "$GITHUB_WORKSPACE/stage" .
-      - uses: actions/attest-build-provenance@v4
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: libdangling-${{ github.ref_name }}-${{ matrix.platform }}-amd64.tar.xz
       - name: upload
