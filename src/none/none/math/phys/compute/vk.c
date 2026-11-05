@@ -1,4 +1,3 @@
-
 #include <dangling/math/phys.h>
 #include <dangling/math/math.h>
 #include <dangling/core/macros.h>
@@ -47,8 +46,6 @@ extern const uint32_t ldg_math_phys_spirv_acoustic_pressure_rigid[];
 extern const uint64_t ldg_math_phys_spirv_acoustic_pressure_rigid_size;
 extern const uint32_t ldg_math_phys_spirv_em_port_tap[];
 extern const uint64_t ldg_math_phys_spirv_em_port_tap_size;
-
-#define LDG_MATH_PHYS_COMPUTE_PIPELINE_CUNT 17
 
 typedef struct ldg_math_phys_compute_slot
 {
@@ -1655,7 +1652,7 @@ static uint32_t ldg_math_phys_compute_batch_build(ldg_math_phys_compute_bridge_t
     return dispatch_cunt;
 }
 
-LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_footprint_upload(ldg_math_phys_ctx_t *ctx, ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, uint32_t region)
+static uint32_t ldg_math_phys_acoustic_footprint_upload(ldg_math_phys_ctx_t *ctx, ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, uint32_t region)
 {
     double body_pos[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
     double grid_pos[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
@@ -1752,7 +1749,7 @@ LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_footprint_upload(ldg_math_ph
     return ldg_gpu_buff_wr(bridge->dev, slot->footprint_param.id, param_word, 4 * sizeof(uint32_t), 0);
 }
 
-LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_tap_param_wr(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, const double *probe_pos, uint32_t probe_cunt)
+static uint32_t ldg_math_phys_acoustic_tap_param_wr(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, const double *probe_pos, uint32_t probe_cunt)
 {
     uint8_t raw[LDG_MATH_PHYS_COMPUTE_TAP_PARAM_SIZE] = LDG_ARR_ZERO_INIT;
     uint32_t word[40] = LDG_ARR_ZERO_INIT;
@@ -1797,7 +1794,7 @@ LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_tap_param_wr(ldg_math_phys_c
     return ldg_gpu_buff_wr(bridge->dev, slot->tap_param.id, raw, LDG_MATH_PHYS_COMPUTE_TAP_PARAM_SIZE, 0);
 }
 
-LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_series_stage(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, uint64_t tick_base, uint64_t span)
+static uint32_t ldg_math_phys_acoustic_series_stage(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, const ldg_math_phys_acoustic_compute_info_t *info, uint64_t tick_base, uint64_t span)
 {
     double dt_sub = info->dt_sub;
     double t_rel = 0.0;
@@ -1839,7 +1836,7 @@ LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_series_stage(ldg_math_phys_c
     return ldg_gpu_buff_wr(bridge->dev, slot->batch_blk.id, slot->series_span, LDG_MATH_PHYS_EM_DRIVE_CAP * LDG_MATH_PHYS_COMPUTE_BATCH_TICK_CUNT * sizeof(double), LDG_MATH_PHYS_COMPUTE_SERIES_OFFSET);
 }
 
-LDG_NOINLINE static uint32_t ldg_math_phys_acoustic_batch_build(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, uint64_t span, uint8_t final_batch)
+static uint32_t ldg_math_phys_acoustic_batch_build(ldg_math_phys_compute_bridge_t *bridge, ldg_math_phys_compute_slot_t *slot, uint64_t span, uint8_t final_batch)
 {
     uint64_t batch_tick = 0;
     uint32_t dispatch_cunt = 0;
@@ -2543,7 +2540,7 @@ static uint32_t atmosphere_gpu_ceil_div(uint64_t num, uint64_t den)
     return (uint32_t)((num + den - 1) / den);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_teardown(void *dev, ldg_gpu_buff_t *buff, uint32_t buff_made, uint32_t *pipe, uint32_t pipe_made)
+static uint32_t atmosphere_gpu_teardown(void *dev, ldg_gpu_buff_t *buff, uint32_t buff_made, uint32_t *pipe, uint32_t pipe_made)
 {
     uint32_t ret = LDG_ERR_AOK;
     uint32_t err = 0;
@@ -2561,7 +2558,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_teardown(void *dev, ldg_gpu_buff_t *
     return ret;
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_run(void *dev, uint32_t pipeline, uint32_t gx, uint32_t gy, uint32_t gz, const uint32_t *ids, uint32_t cunt)
+static uint32_t atmosphere_gpu_run(void *dev, uint32_t pipeline, uint32_t gx, uint32_t gy, uint32_t gz, const uint32_t *ids, uint32_t cunt)
 {
     ldg_gpu_dispatch_desc_t desc = LDG_STRUCT_ZERO_INIT;
     uint32_t idx = 0;
@@ -2575,12 +2572,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_run(void *dev, uint32_t pipeline, ui
     return ldg_gpu_dispatch(dev, &desc);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_flag_set(void *dev, uint32_t param_id, uint32_t flag)
-{
-    return ldg_gpu_buff_wr(dev, param_id, &flag, sizeof(uint32_t), ATMOSPHERE_GPU_FLAG_OFFSET);
-}
-
-LDG_NOINLINE static uint32_t atmosphere_gpu_cum(void *dev, uint32_t *pipe, ldg_gpu_buff_t *buff, uint32_t dst_id, uint32_t src_id, uint64_t elem_cunt)
+static uint32_t atmosphere_gpu_cum(void *dev, uint32_t *pipe, ldg_gpu_buff_t *buff, uint32_t dst_id, uint32_t src_id, uint64_t elem_cunt)
 {
     uint32_t ids[3] = LDG_ARR_ZERO_INIT;
     uint32_t elem = (uint32_t)elem_cunt;
@@ -2594,7 +2586,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_cum(void *dev, uint32_t *pipe, ldg_g
     return atmosphere_gpu_run(dev, pipe[ATMOSPHERE_GPU_PIPE_CUM], atmosphere_gpu_ceil_div(elem_cunt, 64), 1, 1, ids, 3);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_param_upload(void *dev, uint32_t param_id, const ldg_math_phys_atmosphere_hdr_t *hdr)
+static uint32_t atmosphere_gpu_param_upload(void *dev, uint32_t param_id, const ldg_math_phys_atmosphere_hdr_t *hdr)
 {
     uint8_t raw[ATMOSPHERE_GPU_PARAM_SIZE] = LDG_ARR_ZERO_INIT;
     double dvals[13] = LDG_ARR_ZERO_INIT;
@@ -2624,7 +2616,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_param_upload(void *dev, uint32_t par
     return ldg_gpu_buff_wr(dev, param_id, raw, ATMOSPHERE_GPU_PARAM_SIZE, 0);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_dirs_upload(void *dev, uint32_t dirs_id)
+static uint32_t atmosphere_gpu_dirs_upload(void *dev, uint32_t dirs_id)
 {
     double dirs[ATMOSPHERE_GPU_DIRS_ELEM] = LDG_ARR_ZERO_INIT;
     double polar = 0.0;
@@ -2654,7 +2646,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_dirs_upload(void *dev, uint32_t dirs
     return ldg_gpu_buff_wr(dev, dirs_id, dirs, ATMOSPHERE_GPU_DIRS_ELEM * sizeof(double), 0);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_buffs_make(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info, uint32_t *pipe, uint32_t pipe_made)
+static uint32_t atmosphere_gpu_buffs_make(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info, uint32_t *pipe, uint32_t pipe_made)
 {
     ldg_gpu_buff_desc_t bdesc = LDG_STRUCT_ZERO_INIT;
     uint64_t bin = info->hdr->bin_cunt;
@@ -2692,7 +2684,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_buffs_make(void *dev, ldg_gpu_buff_t
     return LDG_ERR_AOK;
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_pipes_make(void *dev, uint32_t *pipe)
+static uint32_t atmosphere_gpu_pipes_make(void *dev, uint32_t *pipe)
 {
     ldg_gpu_spirv_desc_t spirv = LDG_STRUCT_ZERO_INIT;
     const uint32_t *code[ATMOSPHERE_GPU_PIPE_CUNT] = LDG_ARR_ZERO_INIT;
@@ -2726,7 +2718,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_pipes_make(void *dev, uint32_t *pipe
     return LDG_ERR_AOK;
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_inputs_upload(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
+static uint32_t atmosphere_gpu_inputs_upload(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
 {
     uint64_t bin = info->hdr->bin_cunt;
     uint32_t err = 0;
@@ -2754,7 +2746,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_inputs_upload(void *dev, ldg_gpu_buf
     return ldg_gpu_buff_fill(dev, buff[ATMOSPHERE_GPU_B_GROUND].id, 0, info->ground_total * sizeof(double), 0);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_readback(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
+static uint32_t atmosphere_gpu_readback(void *dev, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
 {
     uint32_t err = 0;
     err = ldg_gpu_buff_rd(dev, buff[ATMOSPHERE_GPU_B_TRANS].id, info->transmittance, info->trans_total * sizeof(double), 0);
@@ -2775,7 +2767,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_readback(void *dev, ldg_gpu_buff_t *
     return ldg_gpu_buff_rd(dev, buff[ATMOSPHERE_GPU_B_GROUND].id, info->ground, info->ground_total * sizeof(double), 0);
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
+static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg_gpu_buff_t *buff, const ldg_math_phys_atmosphere_compute_info_t *info)
 {
     uint32_t ids[11] = LDG_ARR_ZERO_INIT;
     uint64_t alt = info->hdr->altitude_cunt;
@@ -2786,7 +2778,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg
     uint32_t gz4 = atmosphere_gpu_ceil_div(sv, 4);
     uint32_t gsun = atmosphere_gpu_ceil_div(info->hdr->sun_cunt, 64);
     uint32_t prev_id = UINT32_MAX;
-    uint32_t cur_id = 0;
+    uint32_t curr_id = 0;
     uint32_t use_ping = 1;
     uint32_t prevbuf = 0;
     uint32_t gflag = 0;
@@ -2811,7 +2803,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg
     err = atmosphere_gpu_run(dev, pipe[ATMOSPHERE_GPU_PIPE_SINGLE], gx4, gy4, gz4, ids, 8);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-    err = atmosphere_gpu_flag_set(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, 0);
+    err = ldg_gpu_buff_wr(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, &gflag, sizeof(uint32_t), ATMOSPHERE_GPU_FLAG_OFFSET);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
     ids[0] = buff[ATMOSPHERE_GPU_B_PARAM].id;
@@ -2831,7 +2823,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg
         prevbuf = (prev_id == UINT32_MAX) ? buff[ATMOSPHERE_GPU_B_DR].id : prev_id;
         gflag = (prev_id == UINT32_MAX) ? 0 : 1;
         iflag = (prev_id == UINT32_MAX) ? 1 : 2;
-        err = atmosphere_gpu_flag_set(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, gflag);
+        err = ldg_gpu_buff_wr(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, &gflag, sizeof(uint32_t), ATMOSPHERE_GPU_FLAG_OFFSET);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
         ids[0] = buff[ATMOSPHERE_GPU_B_PARAM].id;
@@ -2848,7 +2840,7 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg
         err = atmosphere_gpu_run(dev, pipe[ATMOSPHERE_GPU_PIPE_GATHER], gx4, gy4, gz4, ids, 11);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        err = atmosphere_gpu_flag_set(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, iflag);
+        err = ldg_gpu_buff_wr(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, &iflag, sizeof(uint32_t), ATMOSPHERE_GPU_FLAG_OFFSET);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
         ids[0] = buff[ATMOSPHERE_GPU_B_PARAM].id;
@@ -2866,24 +2858,24 @@ LDG_NOINLINE static uint32_t atmosphere_gpu_chain(void *dev, uint32_t *pipe, ldg
         err = atmosphere_gpu_cum(dev, pipe, buff, buff[ATMOSPHERE_GPU_B_GROUND].id, buff[ATMOSPHERE_GPU_B_DI].id, info->ground_total);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        cur_id = (use_ping != 0) ? buff[ATMOSPHERE_GPU_B_PING].id : buff[ATMOSPHERE_GPU_B_PONG].id;
+        curr_id = (use_ping != 0) ? buff[ATMOSPHERE_GPU_B_PING].id : buff[ATMOSPHERE_GPU_B_PONG].id;
         ids[0] = buff[ATMOSPHERE_GPU_B_PARAM].id;
         ids[1] = buff[ATMOSPHERE_GPU_B_RAYLEIGH].id;
         ids[2] = buff[ATMOSPHERE_GPU_B_GATHER].id;
-        ids[3] = cur_id;
+        ids[3] = curr_id;
         ids[4] = buff[ATMOSPHERE_GPU_B_OZONE].id;
         err = atmosphere_gpu_run(dev, pipe[ATMOSPHERE_GPU_PIPE_ORDER], gx4, gy4, gz4, ids, 5);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        err = atmosphere_gpu_cum(dev, pipe, buff, buff[ATMOSPHERE_GPU_B_MULTI].id, cur_id, info->grid_total);
+        err = atmosphere_gpu_cum(dev, pipe, buff, buff[ATMOSPHERE_GPU_B_MULTI].id, curr_id, info->grid_total);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        prev_id = cur_id;
+        prev_id = curr_id;
         use_ping = (use_ping != 0) ? 0 : 1;
     }
     prevbuf = (prev_id == UINT32_MAX) ? buff[ATMOSPHERE_GPU_B_DR].id : prev_id;
     iflag = (prev_id == UINT32_MAX) ? 1 : 2;
-    err = atmosphere_gpu_flag_set(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, iflag);
+    err = ldg_gpu_buff_wr(dev, buff[ATMOSPHERE_GPU_B_PARAM].id, &iflag, sizeof(uint32_t), ATMOSPHERE_GPU_FLAG_OFFSET);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
     ids[0] = buff[ATMOSPHERE_GPU_B_PARAM].id;
@@ -2941,7 +2933,7 @@ uint32_t ldg_math_phys_atmosphere_vk_solve(ldg_math_phys_ctx_t *ctx)
     return err;
 }
 
-LDG_NOINLINE static uint32_t atmosphere_gpu_vol_param_build(const ldg_math_phys_atmosphere_compute_info_t *info, const ldg_math_phys_atmosphere_vol_desc_t *desc, uint8_t *raw)
+static uint32_t atmosphere_gpu_vol_param_build(const ldg_math_phys_atmosphere_compute_info_t *info, const ldg_math_phys_atmosphere_vol_desc_t *desc, uint8_t *raw)
 {
     double dvals[26] = LDG_ARR_ZERO_INIT;
     uint32_t uvals[8] = LDG_ARR_ZERO_INIT;

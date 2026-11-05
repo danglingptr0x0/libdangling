@@ -1061,7 +1061,7 @@ static DWORD WINAPI audio_pcm_thread(__attribute__((unused)) LPVOID param)
                 LDG_BARRIER;
 
                 if (src_cb != 0x0) { if (src_cb(g_audio_pcm.src_user, data, avail, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; } }
-                else if (ldg_audio_play_frames_pull(data, avail, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; }
+                else if (ldg_audio_play_frames_pull(data, (uint64_t)avail * g_audio_pcm.frame_size, g_audio_pcm.frame_size, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; }
 
                 if (got < avail)
                 {

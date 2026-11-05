@@ -1,0 +1,36 @@
+name: coverity
+on:
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: packages
+        run: pacman -Syu --noconfirm --needed git cmake nasm pkgconf curl pipewire clang
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: coverity tool
+        env:
+          COVERITY_SCAN_TOKEN: ${{ secrets.COVERITY_SCAN_TOKEN }}
+        run: |
+          mkdir -p /opt/cov
+          curl -fsSL -o /tmp/cov.tgz --form token="$COVERITY_SCAN_TOKEN" --form project=danglingptr0x0/libdangling https://scan.coverity.com/download/linux64
+          tar -xzf /tmp/cov.tgz -C /opt/cov --strip-components=1
+      - name: build under cov-build
+        run: |
+          export PATH="/opt/cov/bin:$PATH"
+          cov-configure --template --compiler clang --comptype clangcc
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang -DLDG_WITH_GPU=OFF
+          cov-build --dir cov-int cmake --build build -j "$(nproc)"
+          tar -czf cov-int.tgz cov-int
+      - name: upload
+        env:
+          COVERITY_SCAN_TOKEN: ${{ secrets.COVERITY_SCAN_TOKEN }}
+          COVERITY_SCAN_EMAIL: ${{ secrets.COVERITY_SCAN_EMAIL }}
+        run: curl -fsS --form token="$COVERITY_SCAN_TOKEN" --form email="$COVERITY_SCAN_EMAIL" --form file=@cov-int.tgz --form version="$GITHUB_SHA" --form description="libdangling $GITHUB_SHA" "https://scan.coverity.com/builds?project=danglingptr0x0%2Flibdangling"

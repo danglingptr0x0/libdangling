@@ -202,6 +202,9 @@ LDG_EXPORT uint8_t ldg_sched_event_valid_is(ldg_sched_event_pool_t *pool, ldg_sc
 LDG_EXPORT uint32_t ldg_sched_event_ctx_set(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc, void *ctx, uint64_t ctx_size)
 {
     ldg_sched_event_t *event = 0x0;
+    ldg_sched_sub_t *sub = 0x0;
+    void *old_ctx = 0x0;
+    uint32_t scan = 0;
 
     if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -215,8 +218,52 @@ LDG_EXPORT uint32_t ldg_sched_event_ctx_set(ldg_sched_event_pool_t *pool, ldg_sc
 
     if (LDG_UNLIKELY(event->desc.generation != desc.generation)) { return LDG_ERR_NOT_FOUND; }
 
+    old_ctx = event->ctx;
     event->ctx = ctx;
     event->ctx_size = ctx_size;
+
+    if (old_ctx == ctx) { return LDG_ERR_AOK; }
+
+    for (scan = 0; scan < LDG_SCHED_SUB_MAX; scan++)
+    {
+        sub = &pool->subs[scan];
+
+        if (LDG_LD_ACQUIRE(sub->is_active) != LDG_TRUTH_TRUE || !sub->on_owner_change) { continue; }
+
+        if (sub->event.idx != desc.idx || sub->event.generation != desc.generation) { continue; }
+
+        sub->on_owner_change(desc, old_ctx, ctx, sub->user_data);
+    }
+
+    return LDG_ERR_AOK;
+}
+
+LDG_EXPORT uint32_t ldg_sched_event_sub_cb_set(ldg_sched_event_pool_t *pool, uint32_t sub_id, ldg_sched_event_on_destroy_cb_t on_destroy, ldg_sched_event_on_owner_change_cb_t on_owner_change)
+{
+    ldg_sched_sub_t *sub = 0x0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(sub_id < LDG_SCHED_EVENT_SUB_ID_BASE || sub_id > LDG_SCHED_SUB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    sub = &pool->subs[sub_id - LDG_SCHED_EVENT_SUB_ID_BASE];
+
+    ret = sched_event_pool_lock(pool);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (LDG_UNLIKELY(sub->is_active != LDG_TRUTH_TRUE))
+    {
+        LDG_ST_RELEASE(pool->lock, LDG_SCHED_EVENT_LOCK_FREE);
+        return LDG_ERR_NOT_FOUND;
+    }
+
+    sub->on_destroy = on_destroy;
+    sub->on_owner_change = on_owner_change;
+
+    LDG_ST_RELEASE(pool->lock, LDG_SCHED_EVENT_LOCK_FREE);
 
     return LDG_ERR_AOK;
 }

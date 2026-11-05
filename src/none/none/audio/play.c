@@ -71,7 +71,7 @@ typedef struct ldg_audio_play_track
 typedef struct ldg_audio_play_ctx
 {
     ldg_audio_play_track_t track[LDG_AUDIO_PLAY_TRACK_MAX];
-    ldg_audio_play_track_t *cur;
+    ldg_audio_play_track_t *curr;
     ldg_io_file_t *file;
     ldg_mut_t mut;
     uint64_t frame_pos;
@@ -81,7 +81,8 @@ typedef struct ldg_audio_play_ctx
     ldg_audio_play_state_t state;
     uint8_t loop;
     uint8_t is_init;
-    uint8_t pudding[6];
+    uint8_t sink_shared;
+    uint8_t pudding[1];
 } ldg_audio_play_ctx_t;
 
 static ldg_audio_play_ctx_t g_audio_play = LDG_STRUCT_ZERO_INIT;
@@ -342,7 +343,7 @@ static uint32_t play_track_ld(uint32_t track_idx)
 
     if (track->raw != 0x0)
     {
-        g_audio_play.cur = track;
+        g_audio_play.curr = track;
         g_audio_play.track_idx = track_idx;
         g_audio_play.frame_pos = LDG_AUDIO_PLAY_NONE;
 
@@ -360,9 +361,23 @@ static uint32_t play_track_ld(uint32_t track_idx)
         return ret;
     }
 
-    g_audio_play.cur = track;
+    g_audio_play.curr = track;
     g_audio_play.track_idx = track_idx;
     g_audio_play.frame_pos = LDG_AUDIO_PLAY_NONE;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t play_sink_release(void)
+{
+    uint32_t ret = 0;
+
+    if (g_audio_play.state == LDG_AUDIO_PLAY_STATE_IDLE || g_audio_play.sink_shared == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+    ret = ldg_audio_sink_pcm_close();
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    g_audio_play.state = LDG_AUDIO_PLAY_STATE_IDLE;
 
     return LDG_ERR_AOK;
 }
@@ -394,6 +409,9 @@ uint32_t ldg_audio_play_list_open(const char *const *path, uint32_t cunt)
     ret = play_ctx_arm();
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
+    ret = play_sink_release();
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -403,7 +421,7 @@ uint32_t ldg_audio_play_list_open(const char *const *path, uint32_t cunt)
         g_audio_play.file = 0x0;
     }
 
-    g_audio_play.cur = 0x0;
+    g_audio_play.curr = 0x0;
     g_audio_play.track_cunt = LDG_AUDIO_PLAY_NONE;
     g_audio_play.track_idx = LDG_AUDIO_PLAY_NONE;
     g_audio_play.frame_pos = LDG_AUDIO_PLAY_NONE;
@@ -531,6 +549,9 @@ uint32_t ldg_audio_play_mem_open(const ldg_byte_t *raw, uint64_t size)
     ret = play_ctx_arm();
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
+    ret = play_sink_release();
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -540,7 +561,7 @@ uint32_t ldg_audio_play_mem_open(const ldg_byte_t *raw, uint64_t size)
         g_audio_play.file = 0x0;
     }
 
-    g_audio_play.cur = 0x0;
+    g_audio_play.curr = 0x0;
     g_audio_play.track_cunt = LDG_AUDIO_PLAY_NONE;
     g_audio_play.track_idx = LDG_AUDIO_PLAY_NONE;
     g_audio_play.frame_pos = LDG_AUDIO_PLAY_NONE;
@@ -580,22 +601,23 @@ uint32_t ldg_audio_play_fmt_get(uint32_t *out_rate, uint16_t *out_channel_cunt, 
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (LDG_UNLIKELY(!g_audio_play.cur))
+    if (LDG_UNLIKELY(!g_audio_play.curr))
     {
         ldg_mut_unlock(&g_audio_play.mut);
         return LDG_ERR_EMPTY;
     }
 
-    *out_rate = g_audio_play.cur->rate;
-    *out_channel_cunt = g_audio_play.cur->channel_cunt;
-    *out_bit_depth = g_audio_play.cur->bit_depth;
+    *out_rate = g_audio_play.curr->rate;
+    *out_channel_cunt = g_audio_play.curr->channel_cunt;
+    *out_bit_depth = g_audio_play.curr->bit_depth;
 
     return ldg_mut_unlock(&g_audio_play.mut);
 }
 
-uint32_t ldg_audio_play_frames_pull(void *buff, uint32_t frame_cunt, uint32_t *out_cunt)
+uint32_t ldg_audio_play_frames_pull(void *buff, uint64_t buff_size, uint32_t expect_frame_size, uint32_t *out_cunt)
 {
     uint64_t frame_size = 0;
+    uint64_t frame_cunt = 0;
     uint64_t want = 0;
     uint64_t remain = 0;
     uint64_t rd_cunt = 0;
@@ -604,27 +626,39 @@ uint32_t ldg_audio_play_frames_pull(void *buff, uint32_t frame_cunt, uint32_t *o
     if (LDG_UNLIKELY(!buff || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     *out_cunt = LDG_AUDIO_PLAY_NONE;
+    if (LDG_UNLIKELY(expect_frame_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    frame_cunt = buff_size / expect_frame_size;
     if (LDG_UNLIKELY(frame_cunt == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (frame_cunt > UINT32_MAX) { frame_cunt = UINT32_MAX; }
 
     if (LDG_UNLIKELY(g_audio_play.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (g_audio_play.state != LDG_AUDIO_PLAY_STATE_PLAYING || !g_audio_play.cur)
+    if (g_audio_play.state != LDG_AUDIO_PLAY_STATE_PLAYING || !g_audio_play.curr)
     {
         ldg_mut_unlock(&g_audio_play.mut);
         return LDG_ERR_AGAIN;
     }
 
-    if (g_audio_play.cur->raw == 0x0 && !g_audio_play.file)
+    if (g_audio_play.curr->raw == 0x0 && !g_audio_play.file)
     {
         ldg_mut_unlock(&g_audio_play.mut);
         return LDG_ERR_AGAIN;
     }
 
-    frame_size = (uint64_t)g_audio_play.cur->channel_cunt * ((uint64_t)g_audio_play.cur->bit_depth / LDG_AUDIO_WAV_BIT_DEPTH_MIN);
-    remain = g_audio_play.cur->frame_cunt - g_audio_play.frame_pos;
+    frame_size = (uint64_t)g_audio_play.curr->channel_cunt * ((uint64_t)g_audio_play.curr->bit_depth / LDG_AUDIO_WAV_BIT_DEPTH_MIN);
+
+    if (frame_size != expect_frame_size)
+    {
+        ldg_mut_unlock(&g_audio_play.mut);
+        return LDG_ERR_UNSUPPORTED;
+    }
+
+    remain = g_audio_play.curr->frame_cunt - g_audio_play.frame_pos;
     want = frame_cunt;
     if (want > remain) { want = remain; }
 
@@ -634,11 +668,11 @@ uint32_t ldg_audio_play_frames_pull(void *buff, uint32_t frame_cunt, uint32_t *o
         return LDG_ERR_EOF;
     }
 
-    if (g_audio_play.cur->raw != 0x0)
+    if (g_audio_play.curr->raw != 0x0)
     {
         rd_cunt = want * frame_size;
 
-        ret = ldg_mem_secure_cpy(buff, g_audio_play.cur->raw + g_audio_play.cur->data_off + (g_audio_play.frame_pos * frame_size), rd_cunt);
+        ret = ldg_mem_secure_cpy(buff, g_audio_play.curr->raw + g_audio_play.curr->data_off + (g_audio_play.frame_pos * frame_size), rd_cunt);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             ldg_mut_unlock(&g_audio_play.mut);
@@ -670,12 +704,15 @@ uint32_t ldg_audio_play_start(void)
 
     if (LDG_UNLIKELY(g_audio_play.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    if (LDG_UNLIKELY(!g_audio_play.cur)) { return LDG_ERR_EMPTY; }
+    if (LDG_UNLIKELY(!g_audio_play.curr)) { return LDG_ERR_EMPTY; }
 
     if (g_audio_play.state == LDG_AUDIO_PLAY_STATE_PAUSED)
     {
-        ret = ldg_audio_sink_pcm_pause_set(LDG_TRUTH_FALSE);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+        if (g_audio_play.sink_shared != LDG_TRUTH_TRUE)
+        {
+            ret = ldg_audio_sink_pcm_pause_set(LDG_TRUTH_FALSE);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+        }
 
         g_audio_play.state = LDG_AUDIO_PLAY_STATE_PLAYING;
         return LDG_ERR_AOK;
@@ -687,8 +724,15 @@ uint32_t ldg_audio_play_start(void)
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     g_audio_play.state = LDG_AUDIO_PLAY_STATE_PLAYING;
+    g_audio_play.sink_shared = LDG_TRUTH_FALSE;
 
     ret = ldg_audio_sink_pcm_open(rate, channel_cunt, bit_depth);
+    if (ret == LDG_ERR_BUSY)
+    {
+        g_audio_play.sink_shared = LDG_TRUTH_TRUE;
+        return LDG_ERR_AOK;
+    }
+
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         g_audio_play.state = LDG_AUDIO_PLAY_STATE_IDLE;
@@ -706,8 +750,11 @@ uint32_t ldg_audio_play_pause(void)
 
     if (g_audio_play.state != LDG_AUDIO_PLAY_STATE_PLAYING) { return LDG_ERR_AOK; }
 
-    ret = ldg_audio_sink_pcm_pause_set(LDG_TRUTH_TRUE);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    if (g_audio_play.sink_shared != LDG_TRUTH_TRUE)
+    {
+        ret = ldg_audio_sink_pcm_pause_set(LDG_TRUTH_TRUE);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
 
     g_audio_play.state = LDG_AUDIO_PLAY_STATE_PAUSED;
 
@@ -722,8 +769,11 @@ uint32_t ldg_audio_play_stop(void)
 
     if (g_audio_play.state == LDG_AUDIO_PLAY_STATE_IDLE) { return LDG_ERR_AOK; }
 
-    ret = ldg_audio_sink_pcm_close();
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    if (g_audio_play.sink_shared != LDG_TRUTH_TRUE)
+    {
+        ret = ldg_audio_sink_pcm_close();
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
 
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -749,7 +799,7 @@ uint32_t ldg_audio_play_track_set(uint32_t track_idx)
     if (LDG_UNLIKELY(track_idx >= g_audio_play.track_cunt)) { return LDG_ERR_BOUNDS; }
 
     was = g_audio_play.state;
-    if (was != LDG_AUDIO_PLAY_STATE_IDLE)
+    if (was != LDG_AUDIO_PLAY_STATE_IDLE && g_audio_play.sink_shared != LDG_TRUTH_TRUE)
     {
         ret = ldg_audio_sink_pcm_close();
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -829,7 +879,7 @@ uint32_t ldg_audio_play_vol_set(double vol)
 
     g_audio_play.vol = vol;
 
-    if (g_audio_play.state == LDG_AUDIO_PLAY_STATE_IDLE) { return LDG_ERR_AOK; }
+    if (g_audio_play.state == LDG_AUDIO_PLAY_STATE_IDLE || g_audio_play.sink_shared == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
 
     ret = ldg_audio_sink_pcm_vol_set(vol);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -865,13 +915,13 @@ uint32_t ldg_audio_play_status_get(ldg_audio_play_status_t *out)
     out->track_cunt = g_audio_play.track_cunt;
     out->frame_pos = g_audio_play.frame_pos;
 
-    if (g_audio_play.cur != 0x0)
+    if (g_audio_play.curr != 0x0)
     {
-        out->frame_cunt = g_audio_play.cur->frame_cunt;
-        out->rate = g_audio_play.cur->rate;
-        out->channel_cunt = g_audio_play.cur->channel_cunt;
-        out->bit_depth = g_audio_play.cur->bit_depth;
-        ret = ldg_str_rbrcpy(out->path, g_audio_play.cur->path, LDG_AUDIO_PLAY_PATH_MAX);
+        out->frame_cunt = g_audio_play.curr->frame_cunt;
+        out->rate = g_audio_play.curr->rate;
+        out->channel_cunt = g_audio_play.curr->channel_cunt;
+        out->bit_depth = g_audio_play.curr->bit_depth;
+        ret = ldg_str_rbrcpy(out->path, g_audio_play.curr->path, LDG_AUDIO_PLAY_PATH_MAX);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             ldg_mut_unlock(&g_audio_play.mut);
@@ -888,11 +938,8 @@ uint32_t ldg_audio_play_close(void)
 
     if (g_audio_play.is_init != LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
 
-    if (g_audio_play.state != LDG_AUDIO_PLAY_STATE_IDLE)
-    {
-        ret = ldg_audio_sink_pcm_close();
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
-    }
+    ret = play_sink_release();
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ret = ldg_mut_lock(&g_audio_play.mut);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -903,19 +950,12 @@ uint32_t ldg_audio_play_close(void)
         g_audio_play.file = 0x0;
     }
 
-    g_audio_play.cur = 0x0;
+    g_audio_play.curr = 0x0;
     g_audio_play.track_cunt = LDG_AUDIO_PLAY_NONE;
     g_audio_play.track_idx = LDG_AUDIO_PLAY_NONE;
     g_audio_play.frame_pos = LDG_AUDIO_PLAY_NONE;
     g_audio_play.state = LDG_AUDIO_PLAY_STATE_IDLE;
+    g_audio_play.sink_shared = LDG_TRUTH_FALSE;
 
-    ret = ldg_mut_unlock(&g_audio_play.mut);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
-
-    ret = ldg_mut_destroy(&g_audio_play.mut);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
-
-    g_audio_play.is_init = LDG_TRUTH_FALSE;
-
-    return LDG_ERR_AOK;
+    return ldg_mut_unlock(&g_audio_play.mut);
 }

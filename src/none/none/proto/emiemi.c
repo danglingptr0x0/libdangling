@@ -4,7 +4,8 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/mem/secure.h>
 
-#define LDG_EMIEMI_MARKER_FIRST_MATCH 1
+#define LDG_EMIEMI_RESYNC_STEP 1
+#define LDG_EMIEMI_MARKER_UNMATCHED 0
 #define LDG_EMIEMI_ARCHIVE_NAME_LEN_OFF 0
 #define LDG_EMIEMI_ARCHIVE_CHECKSUM_OFF 2
 #define LDG_EMIEMI_ARCHIVE_SHIFT_MID 2
@@ -39,6 +40,23 @@ static uint32_t emiemi_hex_to_size_convert(const ldg_byte_t *hex, ldg_dword_t *o
 
     *out = val;
     return LDG_ERR_AOK;
+}
+
+static ldg_dword_t emiemi_marker_resync(const ldg_byte_t *marker, ldg_dword_t matched, uint8_t ch)
+{
+    ldg_dword_t cand = 0;
+    ldg_dword_t pos = 0;
+
+    for (cand = matched; cand > 0; cand--)
+    {
+        if (marker[cand - LDG_EMIEMI_RESYNC_STEP] != ch) { continue; }
+
+        for (pos = 0; pos + LDG_EMIEMI_RESYNC_STEP < cand; pos++) { if (marker[pos] != marker[matched - cand + LDG_EMIEMI_RESYNC_STEP + pos]) { break; } }
+
+        if (pos + LDG_EMIEMI_RESYNC_STEP >= cand) { return cand; }
+    }
+
+    return LDG_EMIEMI_MARKER_UNMATCHED;
 }
 
 LDG_EXPORT ldg_dword_t ldg_emiemi_fnv1a_compute(const ldg_byte_t *data, ldg_dword_t len)
@@ -86,8 +104,7 @@ LDG_EXPORT uint32_t ldg_emiemi_hdr_recv(ldg_emiemi_io_ctx_t *io, ldg_dword_t *pa
         consumed++;
 
         if (ch == marker[idx]) { idx++; }
-        else if (ch == marker[0]) { idx = LDG_EMIEMI_MARKER_FIRST_MATCH; }
-        else { idx = 0; }
+        else { idx = emiemi_marker_resync(marker, idx, ch); }
     }
 
     for (iter = 0; iter < LDG_EMIEMI_SIZE_FIELD_LEN; iter++)

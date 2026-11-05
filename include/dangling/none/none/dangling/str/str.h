@@ -8,10 +8,17 @@
 #define LDG_ASCII_MAX 0x7F
 #define LDG_ASCII_PRINTABLE_MIN 32
 #define LDG_ASCII_PRINTABLE_MAX 126
-#define LDG_ASCII_NONPRINT_CHAR '.'
+#define LDG_ASCII_NONPRINTABLE_CHAR '.'
 #define LDG_ASCII_DELETE 127
 #define LDG_ASCII_CASE_GAP 32
 #define LDG_ASCII_DIGIT_ZERO '0'
+#define LDG_ASCII_TAB 0x09
+#define LDG_ASCII_LF 0x0A
+#define LDG_ASCII_CR 0x0D
+#define LDG_ASCII_ESC 0x1B
+#define LDG_ASCII_SPACE 0x20
+#define LDG_ASCII_QUOTE '"'
+#define LDG_ASCII_BSLASH '\\'
 #define LDG_STR_BASE_MIN 2
 #define LDG_STR_BASE_MAX 36
 
@@ -26,7 +33,7 @@ LDG_EXPORT uint32_t ldg_str_rbrcpy(char *dst, const char *src, uint64_t abssize)
 
 static inline uint8_t ldg_char_space_is(uint8_t character)
 {
-    if (character == ' ' || character == '\t' || character == '\n') { return LDG_TRUTH_TRUE; }
+    if (character == LDG_ASCII_SPACE || character == LDG_ASCII_TAB || character == LDG_ASCII_LF || character == LDG_ASCII_CR) { return LDG_TRUTH_TRUE; }
 
     return LDG_TRUTH_FALSE;
 }

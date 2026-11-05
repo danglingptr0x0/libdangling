@@ -15,11 +15,12 @@ ldg_rdtsc:
 
 global ldg_rdtscp
 ldg_rdtscp:
+    mov r8, rcx
     rdtscp
-    shl     rdx, 32
-    or      rax, rdx
-    test    rcx, rcx
-    jz      .done
-    mov     [rcx], ecx
+    shl rdx, 32
+    or rax, rdx
+    test r8, r8
+    jz .done
+    mov [r8], ecx
 .done:
     ret

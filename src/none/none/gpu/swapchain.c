@@ -4,21 +4,22 @@
 
 #include "state.h"
 
+#define LDG_GPU_SURFACE_FMT_MAX 16
+
 static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
-    VkImageCreateInfo img_info = { 0 };
+    VkImageCreateInfo img_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     VkMemoryRequirements mem_reqs = { 0 };
-    VkMemoryAllocateInfo mem_alloc = { 0 };
-    VkImageViewCreateInfo view_info = { 0 };
+    VkMemoryAllocateInfo mem_alloc = { .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+    VkImageViewCreateInfo view_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
     VkImage depth_img = VK_NULL_HANDLE;
     VkDeviceMemory depth_mem = VK_NULL_HANDLE;
     VkImageView depth_view = VK_NULL_HANDLE;
     VkFormat depth_vk = VK_FORMAT_UNDEFINED;
 
-    depth_vk = (VkFormat)gpu_fmt_to_vk(sc->depth_fmt);
+    depth_vk = (VkFormat)ldg_gpu_fmt_to_vk(sc->depth_fmt);
     if (LDG_UNLIKELY(depth_vk == VK_FORMAT_UNDEFINED)) { return LDG_ERR_GPU_FMT_UNSUPPORTED; }
 
-    img_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     img_info.imageType = VK_IMAGE_TYPE_2D;
     img_info.format = depth_vk;
     img_info.extent.width = sc->w;
@@ -35,8 +36,6 @@ static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_ent
     if (LDG_UNLIKELY(vkCreateImage(dev, &img_info, 0x0, &depth_img) != VK_SUCCESS)) { return LDG_ERR_GPU_DEPTH_CREATE; }
 
     vkGetImageMemoryRequirements(dev, depth_img, &mem_reqs);
-
-    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.allocationSize = mem_reqs.size;
     mem_alloc.memoryTypeIndex = ctx->dev_local_type_idx;
 
@@ -53,7 +52,6 @@ static uint32_t swapchain_depth_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_ent
         return LDG_ERR_GPU_DEPTH_CREATE;
     }
 
-    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_info.image = depth_img;
     view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view_info.format = depth_vk;
@@ -136,7 +134,7 @@ static uint32_t swapchain_img_views_destroy(ldg_gpu_swapchain_entry_t *sc, VkDev
 static uint32_t swapchain_img_views_create(ldg_gpu_swapchain_entry_t *sc, VkDevice dev, VkSwapchainKHR vk_sc)
 {
     VkImage imgs[LDG_GPU_SWAPCHAIN_IMG_MAX] = { 0 };
-    VkImageViewCreateInfo view_info = { 0 };
+    VkImageViewCreateInfo view_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
     uint32_t img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX;
     VkFormat color_vk = VK_FORMAT_UNDEFINED;
     uint32_t i = 0;
@@ -146,13 +144,11 @@ static uint32_t swapchain_img_views_create(ldg_gpu_swapchain_entry_t *sc, VkDevi
     if (img_cunt > LDG_GPU_SWAPCHAIN_IMG_MAX) { img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX; }
 
     sc->img_cunt = img_cunt;
-    color_vk = (VkFormat)gpu_fmt_to_vk(sc->color_fmt);
+    color_vk = (VkFormat)ldg_gpu_fmt_to_vk(sc->color_fmt);
 
     for (i = 0; i < img_cunt; i++)
     {
-        view_info = (VkImageViewCreateInfo)LDG_STRUCT_ZERO_INIT;
-
-        view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        view_info = (VkImageViewCreateInfo) { .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
         view_info.image = imgs[i];
         view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         view_info.format = color_vk;
@@ -170,16 +166,11 @@ static uint32_t swapchain_img_views_create(ldg_gpu_swapchain_entry_t *sc, VkDevi
 
 static uint32_t swapchain_sync_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entry_t *sc, VkDevice dev)
 {
-    VkSemaphoreCreateInfo sem_info = { 0 };
-    VkFenceCreateInfo fence_info = { 0 };
-    VkCommandBufferAllocateInfo cmd_alloc = { 0 };
+    VkSemaphoreCreateInfo sem_info = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    VkFenceCreateInfo fence_info = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    VkCommandBufferAllocateInfo cmd_alloc = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
     uint32_t i = 0;
-
-    sem_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    cmd_alloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmd_alloc.commandPool = (VkCommandPool)ctx->cmd_pool;
     cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmd_alloc.commandBufferCount = 1;
@@ -200,16 +191,16 @@ static uint32_t swapchain_sync_create(ldg_gpu_ctx_t *ctx, ldg_gpu_swapchain_entr
 
 LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_desc_t *desc, ldg_gpu_swapchain_t *out)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     VkSurfaceCapabilitiesKHR caps = { 0 };
-    VkSwapchainCreateInfoKHR sc_info = { 0 };
+    VkSwapchainCreateInfoKHR sc_info = { .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
     VkSwapchainKHR vk_sc = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR surf_fmts[16] = { { 0 } };
+    VkSurfaceFormatKHR surf_fmts[LDG_GPU_SURFACE_FMT_MAX] = { { .format = VK_FORMAT_UNDEFINED } };
     VkDevice dev = VK_NULL_HANDLE;
     VkPhysicalDevice phys = VK_NULL_HANDLE;
     VkBool32 present_supported = VK_FALSE;
-    uint32_t fmt_cunt = 16;
+    uint32_t fmt_cunt = LDG_GPU_SURFACE_FMT_MAX;
     uint32_t slot = UINT32_MAX;
     uint32_t chosen_fmt = LDG_GPU_FMT_UNDEFINED;
     VkFormat chosen_vk_fmt = VK_FORMAT_UNDEFINED;
@@ -285,7 +276,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
             break;
         }
     }
-    chosen_fmt = gpu_vk_to_fmt((uint32_t)chosen_vk_fmt);
+    chosen_fmt = ldg_gpu_vk_to_fmt((uint32_t)chosen_vk_fmt);
 
     img_cunt = desc->preferred_img_cunt;
     if (img_cunt < caps.minImageCount) { img_cunt = caps.minImageCount; }
@@ -294,7 +285,6 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 
     if (img_cunt > LDG_GPU_SWAPCHAIN_IMG_MAX) { img_cunt = LDG_GPU_SWAPCHAIN_IMG_MAX; }
 
-    sc_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sc_info.surface = surface;
     sc_info.minImageCount = img_cunt;
     sc_info.imageFormat = chosen_vk_fmt;
@@ -376,7 +366,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_create(void *vk, const ldg_gpu_swapchain_d
 
 LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     VkDevice dev = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
     uint32_t ret = 0;
@@ -431,9 +421,9 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_destroy(void *vk, uint32_t swapchain_id)
 
 LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, uint32_t new_w, uint32_t new_h)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     VkSurfaceCapabilitiesKHR caps = { 0 };
-    VkSwapchainCreateInfoKHR sc_info = { 0 };
+    VkSwapchainCreateInfoKHR sc_info = { .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
     VkSwapchainKHR old_sc = VK_NULL_HANDLE;
     VkSwapchainKHR new_sc = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -483,10 +473,9 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
         return LDG_ERR_GPU_SWAPCHAIN_CREATE;
     }
 
-    sc_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sc_info.surface = surface;
     sc_info.minImageCount = sc->img_cunt;
-    sc_info.imageFormat = (VkFormat)gpu_fmt_to_vk(sc->color_fmt);
+    sc_info.imageFormat = (VkFormat)ldg_gpu_fmt_to_vk(sc->color_fmt);
     sc_info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     sc_info.imageExtent.width = new_w;
     sc_info.imageExtent.height = new_h;
@@ -533,7 +522,7 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_recreate(void *vk, uint32_t swapchain_id, 
 
 LDG_EXPORT uint32_t ldg_gpu_swapchain_img_acquire(void *vk, uint32_t swapchain_id, uint32_t *img_idx)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     VkDevice dev = VK_NULL_HANDLE;
     VkFence in_flight = VK_NULL_HANDLE;
     VkSemaphore img_avail = VK_NULL_HANDLE;
@@ -599,8 +588,8 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_img_acquire(void *vk, uint32_t swapchain_i
 
 LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, uint32_t img_idx)
 {
-    ldg_gpu_ctx_t *ctx = vk;
-    VkPresentInfoKHR present_info = { 0 };
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
+    VkPresentInfoKHR present_info = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     VkSwapchainKHR vk_sc = VK_NULL_HANDLE;
     VkSemaphore render_finished = VK_NULL_HANDLE;
     ldg_gpu_swapchain_entry_t *sc = 0x0;
@@ -627,8 +616,6 @@ LDG_EXPORT uint32_t ldg_gpu_swapchain_present(void *vk, uint32_t swapchain_id, u
     fidx = sc->current_frame_idx;
     vk_sc = (VkSwapchainKHR)sc->vk_swapchain;
     render_finished = (VkSemaphore)sc->frame_sync[fidx].render_finished_sem;
-
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = &render_finished;
     present_info.swapchainCount = 1;

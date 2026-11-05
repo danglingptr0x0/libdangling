@@ -17,9 +17,10 @@ typedef enum ldg_tok_type
 
 typedef struct ldg_tok
 {
+    uint64_t pos;
     ldg_tok_type_t type;
     char val[LDG_TOK_LEN_MAX];
-    uint64_t pos;
+    uint8_t pudding[4];
 } ldg_tok_t;
 
 typedef struct ldg_tok_arr

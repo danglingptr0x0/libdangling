@@ -10,6 +10,8 @@
 
 #define LDG_ECS_CMD_CAP_DEFAULT 256
 #define LDG_ECS_CMD_PAYLOAD_CAP_DEFAULT (128 * LDG_KIB)
+#define LDG_ECS_CMD_ENTITY_DEFERRED_TAG 0x8000000000000000ULL
+#define LDG_ECS_CMD_ENTITY_DEFERRED_IDX_MASK 0x00000000FFFFFFFFULL
 
 typedef enum ldg_ecs_cmd_op
 {
@@ -26,7 +28,8 @@ typedef struct ldg_ecs_cmd
     void *payload;
     uint32_t comp_id;
     uint32_t op;
-    uint8_t pudding[8];
+    uint32_t payload_size;
+    uint8_t pudding[4];
 } ldg_ecs_cmd_t;
 
 typedef struct ldg_ecs_cmd_buff
@@ -42,7 +45,7 @@ typedef struct ldg_ecs_cmd_buff
 
 LDG_EXPORT uint32_t ldg_ecs_cmd_buff_init(ldg_ecs_cmd_buff_t *buff, uint32_t cmd_cap, uint64_t payload_cap);
 LDG_EXPORT uint32_t ldg_ecs_cmd_buff_shutdown(ldg_ecs_cmd_buff_t *buff);
-LDG_EXPORT uint32_t ldg_ecs_cmd_entity_create(ldg_ecs_cmd_buff_t *buff);
+LDG_EXPORT uint32_t ldg_ecs_cmd_entity_create(ldg_ecs_cmd_buff_t *buff, uint64_t *out_entity);
 LDG_EXPORT uint32_t ldg_ecs_cmd_entity_destroy(ldg_ecs_cmd_buff_t *buff, uint64_t entity);
 LDG_EXPORT uint32_t ldg_ecs_cmd_comp_add(ldg_ecs_cmd_buff_t *buff, uint64_t entity, uint32_t comp_id, const void *src, uint64_t src_size);
 LDG_EXPORT uint32_t ldg_ecs_cmd_comp_remove(ldg_ecs_cmd_buff_t *buff, uint64_t entity, uint32_t comp_id);

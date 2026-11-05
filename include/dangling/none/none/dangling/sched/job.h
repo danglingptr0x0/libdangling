@@ -5,6 +5,7 @@
 
 #include <dangling/core/macros.h>
 #include <dangling/math/astar.h>
+#include <dangling/math/rational.h>
 
 #define LDG_SCHED_PRIO_LEVELS 16
 #define LDG_SCHED_JOB_MAX 4096
@@ -12,11 +13,16 @@
 #define LDG_SCHED_WORKER_DEQUE_SIZE 256
 #define LDG_SCHED_JOB_ID_INVALID 0
 
-#define LDG_SCHED_FRAME_DEADLINE_DEFAULT_MS 16.666
-#define LDG_SCHED_PLOT_WEIGHT_CRIT_DEFAULT 0.4
-#define LDG_SCHED_PLOT_WEIGHT_REMAINING_DEFAULT 0.3
-#define LDG_SCHED_PLOT_WEIGHT_DEADLINE_DEFAULT 0.3
-#define LDG_SCHED_PRIO_DEADLINE_NONE 1.0e30
+#define LDG_SCHED_FRAME_DEADLINE_NUM_DEFAULT 50
+#define LDG_SCHED_FRAME_DEADLINE_DEN_DEFAULT 3U
+#define LDG_SCHED_DURATION_NONE 0U
+#define LDG_SCHED_PLOT_WEIGHT_CRIT_NUM_DEFAULT 2
+#define LDG_SCHED_PLOT_WEIGHT_CRIT_DEN_DEFAULT 5U
+#define LDG_SCHED_PLOT_WEIGHT_REMAINING_NUM_DEFAULT 3
+#define LDG_SCHED_PLOT_WEIGHT_REMAINING_DEN_DEFAULT 10U
+#define LDG_SCHED_PLOT_WEIGHT_DEADLINE_NUM_DEFAULT 3
+#define LDG_SCHED_PLOT_WEIGHT_DEADLINE_DEN_DEFAULT 10U
+#define LDG_SCHED_PRIO_DEADLINE_NONE ((uint64_t)UINT32_MAX)
 #define LDG_SCHED_JOB_LOCK_SPIN_MAX 65536
 #define LDG_SCHED_JOB_CAS_RETRY_MAX 256
 #define LDG_SCHED_LOCK_FREE 0
@@ -44,7 +50,8 @@ typedef enum ldg_sched_job_state
     LDG_SCHED_JOB_STATE_READY,
     LDG_SCHED_JOB_STATE_RUNNING,
     LDG_SCHED_JOB_STATE_YIELDED,
-    LDG_SCHED_JOB_STATE_DONE
+    LDG_SCHED_JOB_STATE_DONE,
+    LDG_SCHED_JOB_STATE_CREATED
 } ldg_sched_job_state_t;
 
 typedef enum ldg_sched_job_res
@@ -61,11 +68,11 @@ typedef struct ldg_sched_job
     ldg_sched_job_func_cb_t func;
     void *arg;
     void *yield_ctx;
-    double est_duration;
-    double actual_duration;
-    uint64_t submit_tsc;
-    uint64_t start_tsc;
-    uint64_t end_tsc;
+    uint64_t est_duration;
+    uint64_t actual_duration;
+    uint64_t submit_time;
+    uint64_t start_time;
+    uint64_t end_time;
     ldg_sched_job_id_t id;
     ldg_sched_job_id_t cont;
     ldg_sched_job_id_t deps[LDG_SCHED_DEP_MAX];
@@ -76,7 +83,7 @@ typedef struct ldg_sched_job
     uint8_t proc_affinity;
     uint8_t is_static;
     uint16_t job_class;
-    double deadline;
+    uint64_t deadline;
     uint8_t pudding[8];
 } LDG_ALIGNED ldg_sched_job_t;
 
@@ -92,49 +99,50 @@ typedef struct ldg_sched_worker_deque
     uint8_t pudding2[56];
 } LDG_ALIGNED ldg_sched_worker_deque_t;
 
-typedef uint32_t (*ldg_sched_prio_cb_t)(const ldg_sched_job_t *job, double *out);
+typedef uint32_t (*ldg_sched_prio_cb_t)(const ldg_sched_job_t *job, ldg_math_rational_t *out);
 
 typedef struct ldg_sched_job_pool
 {
     ldg_sched_job_t jobs[LDG_SCHED_JOB_MAX];
     uint32_t free_list[LDG_SCHED_JOB_MAX];
     uint64_t plot_order[LDG_SCHED_PLOT_NODE_CUNT];
-    double plot_crit[LDG_SCHED_JOB_MAX];
+    uint64_t plot_crit[LDG_SCHED_JOB_MAX];
     uint32_t plot_stack[LDG_SCHED_JOB_MAX];
     uint8_t plot_crit_state[LDG_SCHED_JOB_MAX];
     uint8_t plot_crit_cursor[LDG_SCHED_JOB_MAX];
     volatile uint64_t free_hd;
-    double frame_deadline;
-    double plot_weight_crit;
-    double plot_weight_remaining;
-    double plot_weight_deadline;
-    double plot_total_remaining;
+    ldg_math_rational_t frame_deadline;
+    ldg_math_rational_t plot_weight_crit;
+    ldg_math_rational_t plot_weight_remaining;
+    ldg_math_rational_t plot_weight_deadline;
+    uint64_t plot_total_remaining;
     ldg_sched_prio_cb_t prio_cb;
     volatile uint32_t lock;
     uint32_t job_cunt;
     uint8_t is_init;
-    uint8_t pudding[63];
+    uint8_t pudding[23];
 } LDG_ALIGNED ldg_sched_job_pool_t;
 
 LDG_EXPORT uint32_t ldg_sched_job_pool_init(ldg_sched_job_pool_t *pool);
 LDG_EXPORT uint32_t ldg_sched_job_pool_shutdown(ldg_sched_job_pool_t *pool);
 LDG_EXPORT uint32_t ldg_sched_job_create(ldg_sched_job_pool_t *pool, ldg_sched_job_func_cb_t func, void *arg, uint8_t prio, uint8_t proc_affinity, ldg_sched_job_id_t *out_id);
 LDG_EXPORT uint32_t ldg_sched_job_destroy(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id);
+LDG_EXPORT uint32_t ldg_sched_job_done_reclaim(ldg_sched_job_pool_t *pool, uint64_t *out_cunt);
 LDG_EXPORT uint32_t ldg_sched_job_dep_add(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t job, ldg_sched_job_id_t dep);
 LDG_EXPORT uint32_t ldg_sched_job_dep_sig(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t completed);
 LDG_EXPORT uint32_t ldg_sched_job_cont_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t job, ldg_sched_job_id_t cont);
 LDG_EXPORT uint32_t ldg_sched_job_submit(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id);
 LDG_EXPORT uint32_t ldg_sched_job_run(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, ldg_sched_job_res_t *out_res);
 LDG_EXPORT uint32_t ldg_sched_job_yield_ctx_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, void *ctx);
-LDG_EXPORT uint32_t ldg_sched_job_est_duration_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double est);
-LDG_EXPORT uint32_t ldg_sched_job_actual_duration_get(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double *out);
+LDG_EXPORT uint32_t ldg_sched_job_est_duration_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t est);
+LDG_EXPORT uint32_t ldg_sched_job_actual_duration_get(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t *out);
 LDG_EXPORT uint32_t ldg_sched_job_class_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint16_t job_class);
 LDG_EXPORT uint32_t ldg_sched_job_class_get(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint16_t *out);
-LDG_EXPORT uint32_t ldg_sched_job_deadline_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double deadline);
-LDG_EXPORT uint32_t ldg_sched_prio_deadline_cb(const ldg_sched_job_t *job, double *out);
-LDG_EXPORT uint32_t ldg_sched_prio_fastest_cb(const ldg_sched_job_t *job, double *out);
-LDG_EXPORT uint32_t ldg_sched_job_plot_weight_set(ldg_sched_job_pool_t *pool, double weight_crit, double weight_remaining, double weight_deadline);
-LDG_EXPORT uint32_t ldg_sched_job_frame_deadline_set(ldg_sched_job_pool_t *pool, double deadline);
+LDG_EXPORT uint32_t ldg_sched_job_deadline_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t deadline);
+LDG_EXPORT uint32_t ldg_sched_prio_deadline_cb(const ldg_sched_job_t *job, ldg_math_rational_t *out);
+LDG_EXPORT uint32_t ldg_sched_prio_fastest_cb(const ldg_sched_job_t *job, ldg_math_rational_t *out);
+LDG_EXPORT uint32_t ldg_sched_job_plot_weight_set(ldg_sched_job_pool_t *pool, const ldg_math_rational_t *weight_crit, const ldg_math_rational_t *weight_remaining, const ldg_math_rational_t *weight_deadline);
+LDG_EXPORT uint32_t ldg_sched_job_frame_deadline_set(ldg_sched_job_pool_t *pool, const ldg_math_rational_t *deadline);
 LDG_EXPORT uint32_t ldg_sched_job_plot(ldg_sched_job_pool_t *pool, ldg_math_astar_ctx_t *astar, ldg_sched_job_id_t *out_order, uint64_t max_cunt, uint64_t *out_cunt);
 LDG_EXPORT uint32_t ldg_sched_job_replot(ldg_sched_job_pool_t *pool, ldg_math_astar_ctx_t *astar, ldg_sched_job_id_t failed_job, ldg_sched_job_id_t *out_order, uint64_t max_cunt, uint64_t *out_cunt);
 LDG_EXPORT uint32_t ldg_sched_worker_deque_init(ldg_sched_worker_deque_t *deque, uint32_t core_id, uint32_t owner_id);

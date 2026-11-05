@@ -80,6 +80,7 @@ LDG_EXPORT uint32_t ldg_sched_event_ctx_get(ldg_sched_event_pool_t *pool, ldg_sc
 LDG_EXPORT uint64_t ldg_sched_event_ctx_size_get(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc);
 LDG_EXPORT uint32_t ldg_sched_event_sub(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc, ldg_sched_event_handler_cb_t handler, uint64_t filter_mask, uint8_t prio, void *user_data, uint32_t *out_sub_id);
 LDG_EXPORT uint32_t ldg_sched_event_unsub(ldg_sched_event_pool_t *pool, uint32_t sub_id);
+LDG_EXPORT uint32_t ldg_sched_event_sub_cb_set(ldg_sched_event_pool_t *pool, uint32_t sub_id, ldg_sched_event_on_destroy_cb_t on_destroy, ldg_sched_event_on_owner_change_cb_t on_owner_change);
 LDG_EXPORT uint32_t ldg_sched_event_emit(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc);
 LDG_EXPORT uint32_t ldg_sched_event_ctx_emit(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc, void *ctx, uint64_t ctx_size);
 LDG_EXPORT uint32_t ldg_sched_event_on_destroy_set(ldg_sched_event_pool_t *pool, ldg_sched_event_desc_t desc, ldg_sched_event_on_destroy_cb_t cb, void *user_data);

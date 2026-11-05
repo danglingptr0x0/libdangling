@@ -64,12 +64,14 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_buff_shutdown(ldg_ecs_cmd_buff_t *buff)
     return ret;
 }
 
-LDG_EXPORT uint32_t ldg_ecs_cmd_entity_create(ldg_ecs_cmd_buff_t *buff)
+LDG_EXPORT uint32_t ldg_ecs_cmd_entity_create(ldg_ecs_cmd_buff_t *buff, uint64_t *out_entity)
 {
     ldg_ecs_cmd_t *rec = 0x0;
     uint32_t ret = 0x0;
 
-    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!buff || !out_entity)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_entity = LDG_ECS_ENTITY_NULL;
 
     if (LDG_UNLIKELY(buff->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
@@ -87,6 +89,8 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_entity_create(ldg_ecs_cmd_buff_t *buff)
     rec->payload = 0x0;
     rec->comp_id = 0;
     rec->op = LDG_ECS_CMD_OP_ENTITY_CREATE;
+    rec->payload_size = 0;
+    *out_entity = LDG_ECS_CMD_ENTITY_DEFERRED_TAG | (uint64_t)buff->cmd_cunt;
     buff->cmd_cunt++;
 
     return ldg_mut_unlock(&buff->lock);
@@ -115,6 +119,7 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_entity_destroy(ldg_ecs_cmd_buff_t *buff, uint64_
     rec->payload = 0x0;
     rec->comp_id = 0;
     rec->op = LDG_ECS_CMD_OP_ENTITY_DESTROY;
+    rec->payload_size = 0;
     buff->cmd_cunt++;
 
     return ldg_mut_unlock(&buff->lock);
@@ -156,6 +161,7 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_comp_add(ldg_ecs_cmd_buff_t *buff, uint64_t enti
     rec->payload = payload;
     rec->comp_id = comp_id;
     rec->op = LDG_ECS_CMD_OP_COMP_ADD;
+    rec->payload_size = (uint32_t)src_size;
     buff->cmd_cunt++;
 
     return ldg_mut_unlock(&buff->lock);
@@ -184,6 +190,7 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_comp_remove(ldg_ecs_cmd_buff_t *buff, uint64_t e
     rec->payload = 0x0;
     rec->comp_id = comp_id;
     rec->op = LDG_ECS_CMD_OP_COMP_REMOVE;
+    rec->payload_size = 0;
     buff->cmd_cunt++;
 
     return ldg_mut_unlock(&buff->lock);

@@ -11,6 +11,8 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/mem/cpy.h>
 
+#define LDG_IO_FILE_OPEN_DIRECT 0x4000
+
 // errno
 static uint32_t ldg_io_errno_translate(void)
 {
@@ -67,6 +69,8 @@ static uint32_t ldg_io_flags_translate(uint32_t ldg_flags, int32_t *posix_flags)
 
     if (ldg_flags & LDG_IO_EXCLUSIVE) { pf |= O_EXCL; }
 
+    if (ldg_flags & LDG_IO_DIRECT) { pf |= LDG_IO_FILE_OPEN_DIRECT; }
+
     *posix_flags = pf;
 
     return LDG_ERR_AOK;
@@ -86,7 +90,7 @@ uint32_t ldg_io_file_open(const char *path, uint32_t flags, uint32_t access, ldg
     ret = ldg_io_flags_translate(flags, &posix_flags);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
+    ret = ldg_mem_fd_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_ALLOC_NULL; }
 
     if (LDG_UNLIKELY(memset(file, 0, sizeof(struct ldg_io_file)) != file))
@@ -280,7 +284,7 @@ uint32_t ldg_io_pipe_create(ldg_io_file_t **rd, ldg_io_file_t **wr)
 
     if (LDG_UNLIKELY(pipe((int *)pipefd) < 0)) { return ldg_io_errno_translate(); }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&rd_file);
+    ret = ldg_mem_fd_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&rd_file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         close((int)pipefd[0]);
@@ -296,7 +300,7 @@ uint32_t ldg_io_pipe_create(ldg_io_file_t **rd, ldg_io_file_t **wr)
         return LDG_ERR_MEM_BAD;
     }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&wr_file);
+    ret = ldg_mem_fd_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&wr_file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(rd_file);
@@ -335,7 +339,7 @@ uint32_t ldg_io_file_dup(ldg_io_file_t *src, ldg_io_file_t **out)
     new_fd = (int32_t)dup((int)src->handle);
     if (LDG_UNLIKELY(new_fd < 0)) { return ldg_io_errno_translate(); }
 
-    ret = ldg_mem_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
+    ret = ldg_mem_fd_alloc((uint64_t)sizeof(struct ldg_io_file), (void **)&file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         close((int)new_fd);

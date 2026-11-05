@@ -120,8 +120,6 @@ static uint32_t ldg_mem_unlocked_alloc(uint64_t size, void **out)
 
     if (LDG_UNLIKELY(g_mem.is_init != LDG_TRUTH_TRUE)) { LDG_ERRLOG_ERR("mem: subsystem not init"); return LDG_ERR_NOT_INIT; }
 
-    if (LDG_UNLIKELY(g_mem.is_locked == LDG_TRUTH_TRUE)) { return LDG_ERR_DENIED; }
-
     ret = ldg_arith_uint64_add((uint64_t)sizeof(ldg_mem_hdr_t), size, &total_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
 
@@ -335,6 +333,22 @@ uint8_t ldg_mem_locked_is(void)
 }
 
 uint32_t ldg_mem_alloc(uint64_t size, void **out)
+{
+    uint32_t ret = 0;
+
+    ret = ldg_mut_lock(&g_mem_mut);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (LDG_UNLIKELY(g_mem.is_locked == LDG_TRUTH_TRUE)) { ldg_mut_unlock(&g_mem_mut); return LDG_ERR_DENIED; }
+
+    ret = ldg_mem_unlocked_alloc(size, out);
+
+    ldg_mut_unlock(&g_mem_mut);
+
+    return ret;
+}
+
+uint32_t ldg_mem_fd_alloc(uint64_t size, void **out)
 {
     uint32_t ret = 0;
 

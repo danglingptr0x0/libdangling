@@ -8,6 +8,7 @@
 #include <dangling/core/macros.h>
 
 #define LDG_TERM_VT_STEP 1
+#define LDG_TERM_VT_PARAM_DEFAULT 0
 #define LDG_TERM_VT_DECIMAL 10
 #define LDG_TERM_VT_ESC_CH 0x1B
 #define LDG_TERM_VT_BEL_CH 0x07
@@ -17,7 +18,6 @@
 #define LDG_TERM_VT_VTAB_CH 0x0B
 #define LDG_TERM_VT_FF_CH 0x0C
 #define LDG_TERM_VT_CR_CH 0x0D
-#define LDG_TERM_VT_SPACE_CH 0x20
 #define LDG_TERM_VT_DEL_CH 0x7F
 #define LDG_TERM_VT_DIGIT_LOW 0x30
 #define LDG_TERM_VT_DIGIT_HIGH 0x39
@@ -87,121 +87,14 @@
 #define LDG_TERM_VT_MODE_ALT_CURSOR 1048
 #define LDG_TERM_VT_MODE_ALT_FULL 1049
 
-#define LDG_TERM_VT_PALETTE_BASE 16
-#define LDG_TERM_VT_PALETTE_GRAY 232
 #define LDG_TERM_VT_PALETTE_MAX 255
-#define LDG_TERM_VT_CUBE_SIDE 6
-#define LDG_TERM_VT_CUBE_PLANE 36
-#define LDG_TERM_VT_CUBE_BASE 55
-#define LDG_TERM_VT_CUBE_STEP 40
-#define LDG_TERM_VT_GRAY_BASE 8
-#define LDG_TERM_VT_GRAY_STEP 10
 #define LDG_TERM_VT_BRIGHT_BIT 8
 
 #define LDG_TERM_VT_RED_IDX 0
 #define LDG_TERM_VT_GREEN_IDX 1
 #define LDG_TERM_VT_BLUE_IDX 2
 
-#define LDG_TERM_VT_DIM_LEVEL 0x80
-#define LDG_TERM_VT_FULL_LEVEL 0xC0
-#define LDG_TERM_VT_PEAK_LEVEL 0xFE
-#define LDG_TERM_VT_OFF_LEVEL 0
 #define LDG_TERM_VT_PARAM_FIRST 0
-#define LDG_TERM_VT_ANSI_BLACK 0
-#define LDG_TERM_VT_ANSI_RED 1
-#define LDG_TERM_VT_ANSI_GREEN 2
-#define LDG_TERM_VT_ANSI_YELLOW 3
-#define LDG_TERM_VT_ANSI_BLUE 4
-#define LDG_TERM_VT_ANSI_MAGENTA 5
-#define LDG_TERM_VT_ANSI_CYAN 6
-
-static void vt_ansi_color_get(uint32_t idx, uint8_t *out)
-{
-    uint32_t base = idx % LDG_TERM_VT_BRIGHT_BIT;
-    uint8_t low = LDG_TERM_VT_DIM_LEVEL;
-    uint8_t high = LDG_TERM_VT_FULL_LEVEL;
-
-    if (idx >= LDG_TERM_VT_BRIGHT_BIT)
-    {
-        low = LDG_TERM_VT_PEAK_LEVEL;
-        high = LDG_TERM_VT_PEAK_LEVEL;
-    }
-
-    out[LDG_TERM_VT_RED_IDX] = 0;
-    out[LDG_TERM_VT_GREEN_IDX] = 0;
-    out[LDG_TERM_VT_BLUE_IDX] = 0;
-
-    if (base == LDG_TERM_VT_ANSI_BLACK)
-    {
-        if (idx >= LDG_TERM_VT_BRIGHT_BIT)
-        {
-            out[LDG_TERM_VT_RED_IDX] = LDG_TERM_VT_DIM_LEVEL;
-            out[LDG_TERM_VT_GREEN_IDX] = LDG_TERM_VT_DIM_LEVEL;
-            out[LDG_TERM_VT_BLUE_IDX] = LDG_TERM_VT_DIM_LEVEL;
-        }
-
-        return;
-    }
-
-    if (base == LDG_TERM_VT_ANSI_RED) { out[LDG_TERM_VT_RED_IDX] = low; }
-    else if (base == LDG_TERM_VT_ANSI_GREEN) { out[LDG_TERM_VT_GREEN_IDX] = low; }
-    else if (base == LDG_TERM_VT_ANSI_YELLOW)
-    {
-        out[LDG_TERM_VT_RED_IDX] = low;
-        out[LDG_TERM_VT_GREEN_IDX] = low;
-    }
-    else if (base == LDG_TERM_VT_ANSI_BLUE) { out[LDG_TERM_VT_BLUE_IDX] = low; }
-    else if (base == LDG_TERM_VT_ANSI_MAGENTA)
-    {
-        out[LDG_TERM_VT_RED_IDX] = low;
-        out[LDG_TERM_VT_BLUE_IDX] = low;
-    }
-    else if (base == LDG_TERM_VT_ANSI_CYAN)
-    {
-        out[LDG_TERM_VT_GREEN_IDX] = low;
-        out[LDG_TERM_VT_BLUE_IDX] = low;
-    }
-    else
-    {
-        out[LDG_TERM_VT_RED_IDX] = high;
-        out[LDG_TERM_VT_GREEN_IDX] = high;
-        out[LDG_TERM_VT_BLUE_IDX] = high;
-    }
-}
-
-static void vt_palette_get(uint32_t idx, uint8_t *out)
-{
-    uint32_t val = 0;
-    uint32_t red = 0;
-    uint32_t green = 0;
-    uint32_t blue = 0;
-
-    if (idx < LDG_TERM_VT_PALETTE_BASE)
-    {
-        vt_ansi_color_get(idx, out);
-        return;
-    }
-
-    if (idx >= LDG_TERM_VT_PALETTE_GRAY)
-    {
-        val = LDG_TERM_VT_GRAY_BASE + ((idx - LDG_TERM_VT_PALETTE_GRAY) * LDG_TERM_VT_GRAY_STEP);
-
-        out[LDG_TERM_VT_RED_IDX] = (uint8_t)val;
-        out[LDG_TERM_VT_GREEN_IDX] = (uint8_t)val;
-        out[LDG_TERM_VT_BLUE_IDX] = (uint8_t)val;
-
-        return;
-    }
-
-    val = idx - LDG_TERM_VT_PALETTE_BASE;
-    red = val / LDG_TERM_VT_CUBE_PLANE;
-    green = (val / LDG_TERM_VT_CUBE_SIDE) % LDG_TERM_VT_CUBE_SIDE;
-    blue = val % LDG_TERM_VT_CUBE_SIDE;
-
-    out[LDG_TERM_VT_RED_IDX] = (red > 0) ? (uint8_t)(LDG_TERM_VT_CUBE_BASE + (red * LDG_TERM_VT_CUBE_STEP)) : LDG_TERM_VT_OFF_LEVEL;
-    out[LDG_TERM_VT_GREEN_IDX] = (green > 0) ? (uint8_t)(LDG_TERM_VT_CUBE_BASE + (green * LDG_TERM_VT_CUBE_STEP)) : LDG_TERM_VT_OFF_LEVEL;
-    out[LDG_TERM_VT_BLUE_IDX] = (blue > 0) ? (uint8_t)(LDG_TERM_VT_CUBE_BASE + (blue * LDG_TERM_VT_CUBE_STEP)) : LDG_TERM_VT_OFF_LEVEL;
-}
 
 static uint32_t vt_param_get(const ldg_term_vt_t *vt, uint32_t idx, uint32_t fallback)
 {
@@ -259,7 +152,7 @@ static void vt_sgr_apply(ldg_term_vt_t *vt)
 
     for (idx = 0; idx < vt->param_cunt; idx++)
     {
-        code = vt_param_get(vt, idx, LDG_TERM_VT_SGR_RST);
+        code = vt_param_get(vt, idx, LDG_TERM_VT_PARAM_DEFAULT);
 
         if (code == LDG_TERM_VT_SGR_RST) { ldg_term_attr_rst(vt->term); }
         else if (code == LDG_TERM_VT_SGR_BOLD) { ldg_term_attr_set(vt->term, LDG_TERM_ATTR_BOLD); }
@@ -279,37 +172,41 @@ static void vt_sgr_apply(ldg_term_vt_t *vt)
         else if (code == LDG_TERM_VT_SGR_NO_STRIKE) { ldg_term_attr_clear(vt->term, LDG_TERM_ATTR_STRIKE); }
         else if (code >= LDG_TERM_VT_SGR_FG_LOW && code <= LDG_TERM_VT_SGR_FG_HIGH)
         {
-            vt_ansi_color_get(code - LDG_TERM_VT_SGR_FG_LOW, rgb);
+            if (LDG_UNLIKELY(ldg_term_palette_get(vt->term, code - LDG_TERM_VT_SGR_FG_LOW, rgb) != LDG_ERR_AOK)) { continue; }
+
             ldg_term_fg_set(vt->term, rgb[LDG_TERM_VT_RED_IDX], rgb[LDG_TERM_VT_GREEN_IDX], rgb[LDG_TERM_VT_BLUE_IDX]);
         }
         else if (code >= LDG_TERM_VT_SGR_BG_LOW && code <= LDG_TERM_VT_SGR_BG_HIGH)
         {
-            vt_ansi_color_get(code - LDG_TERM_VT_SGR_BG_LOW, rgb);
+            if (LDG_UNLIKELY(ldg_term_palette_get(vt->term, code - LDG_TERM_VT_SGR_BG_LOW, rgb) != LDG_ERR_AOK)) { continue; }
+
             ldg_term_bg_set(vt->term, rgb[LDG_TERM_VT_RED_IDX], rgb[LDG_TERM_VT_GREEN_IDX], rgb[LDG_TERM_VT_BLUE_IDX]);
         }
         else if (code >= LDG_TERM_VT_SGR_FG_BRIGHT_LOW && code <= LDG_TERM_VT_SGR_FG_BRIGHT_HIGH)
         {
-            vt_ansi_color_get((code - LDG_TERM_VT_SGR_FG_BRIGHT_LOW) + LDG_TERM_VT_BRIGHT_BIT, rgb);
+            if (LDG_UNLIKELY(ldg_term_palette_get(vt->term, (code - LDG_TERM_VT_SGR_FG_BRIGHT_LOW) + LDG_TERM_VT_BRIGHT_BIT, rgb) != LDG_ERR_AOK)) { continue; }
+
             ldg_term_fg_set(vt->term, rgb[LDG_TERM_VT_RED_IDX], rgb[LDG_TERM_VT_GREEN_IDX], rgb[LDG_TERM_VT_BLUE_IDX]);
         }
         else if (code >= LDG_TERM_VT_SGR_BG_BRIGHT_LOW && code <= LDG_TERM_VT_SGR_BG_BRIGHT_HIGH)
         {
-            vt_ansi_color_get((code - LDG_TERM_VT_SGR_BG_BRIGHT_LOW) + LDG_TERM_VT_BRIGHT_BIT, rgb);
+            if (LDG_UNLIKELY(ldg_term_palette_get(vt->term, (code - LDG_TERM_VT_SGR_BG_BRIGHT_LOW) + LDG_TERM_VT_BRIGHT_BIT, rgb) != LDG_ERR_AOK)) { continue; }
+
             ldg_term_bg_set(vt->term, rgb[LDG_TERM_VT_RED_IDX], rgb[LDG_TERM_VT_GREEN_IDX], rgb[LDG_TERM_VT_BLUE_IDX]);
         }
         else if (code == LDG_TERM_VT_SGR_FG_DEFAULT) { ldg_term_fg_set(vt->term, vt->term->default_fg[LDG_TERM_VT_RED_IDX], vt->term->default_fg[LDG_TERM_VT_GREEN_IDX], vt->term->default_fg[LDG_TERM_VT_BLUE_IDX]); }
         else if (code == LDG_TERM_VT_SGR_BG_DEFAULT) { ldg_term_bg_set(vt->term, vt->term->default_bg[LDG_TERM_VT_RED_IDX], vt->term->default_bg[LDG_TERM_VT_GREEN_IDX], vt->term->default_bg[LDG_TERM_VT_BLUE_IDX]); }
         else if (code == LDG_TERM_VT_SGR_FG_EXT || code == LDG_TERM_VT_SGR_BG_EXT)
         {
-            kind = vt_param_get(vt, idx + LDG_TERM_VT_STEP, LDG_TERM_VT_SGR_RST);
+            kind = vt_param_get(vt, idx + LDG_TERM_VT_STEP, LDG_TERM_VT_PARAM_DEFAULT);
 
             if (kind == LDG_TERM_VT_SGR_EXT_PALETTE)
             {
-                val = vt_param_get(vt, idx + LDG_TERM_VT_STEP + LDG_TERM_VT_STEP, LDG_TERM_VT_SGR_RST);
+                val = vt_param_get(vt, idx + LDG_TERM_VT_STEP + LDG_TERM_VT_STEP, LDG_TERM_VT_PARAM_DEFAULT);
 
                 if (val > LDG_TERM_VT_PALETTE_MAX) { val = LDG_TERM_VT_PALETTE_MAX; }
 
-                vt_palette_get(val, rgb);
+                if (LDG_UNLIKELY(ldg_term_palette_get(vt->term, val, rgb) != LDG_ERR_AOK)) { continue; }
 
                 idx += LDG_TERM_VT_STEP;
                 idx += LDG_TERM_VT_STEP;
@@ -320,9 +217,9 @@ static void vt_sgr_apply(ldg_term_vt_t *vt)
 
                 if (base < vt->param_cunt && vt->param_sub[base] == LDG_TRUTH_TRUE && vt->param_seen[base] != LDG_TRUTH_TRUE) { base += LDG_TERM_VT_STEP; }
 
-                rgb[LDG_TERM_VT_RED_IDX] = (uint8_t)vt_param_get(vt, base, LDG_TERM_VT_SGR_RST);
-                rgb[LDG_TERM_VT_GREEN_IDX] = (uint8_t)vt_param_get(vt, base + LDG_TERM_VT_STEP, LDG_TERM_VT_SGR_RST);
-                rgb[LDG_TERM_VT_BLUE_IDX] = (uint8_t)vt_param_get(vt, base + LDG_TERM_VT_STEP + LDG_TERM_VT_STEP, LDG_TERM_VT_SGR_RST);
+                rgb[LDG_TERM_VT_RED_IDX] = (uint8_t)vt_param_get(vt, base, LDG_TERM_VT_PARAM_DEFAULT);
+                rgb[LDG_TERM_VT_GREEN_IDX] = (uint8_t)vt_param_get(vt, base + LDG_TERM_VT_STEP, LDG_TERM_VT_PARAM_DEFAULT);
+                rgb[LDG_TERM_VT_BLUE_IDX] = (uint8_t)vt_param_get(vt, base + LDG_TERM_VT_STEP + LDG_TERM_VT_STEP, LDG_TERM_VT_PARAM_DEFAULT);
 
                 idx = base + LDG_TERM_VT_STEP + LDG_TERM_VT_STEP;
             }
@@ -391,7 +288,7 @@ static void vt_mode_apply(ldg_term_vt_t *vt, uint8_t en)
     {
         for (idx = 0; idx < vt->param_cunt; idx++)
         {
-            code = vt_param_get(vt, idx, LDG_TERM_VT_SGR_RST);
+            code = vt_param_get(vt, idx, LDG_TERM_VT_PARAM_DEFAULT);
 
             if (code == LDG_TERM_VT_ANSI_IRM) { ldg_term_insert_mode_set(vt->term, en); }
             else if (code == LDG_TERM_VT_ANSI_LNM) { ldg_term_newline_mode_set(vt->term, en); }
@@ -402,7 +299,7 @@ static void vt_mode_apply(ldg_term_vt_t *vt, uint8_t en)
 
     for (idx = 0; idx < vt->param_cunt; idx++)
     {
-        code = vt_param_get(vt, idx, LDG_TERM_VT_SGR_RST);
+        code = vt_param_get(vt, idx, LDG_TERM_VT_PARAM_DEFAULT);
 
         if (code == LDG_TERM_VT_DEC_APP_CURSOR) { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_APP_CURSOR, en); }
         else if (code == LDG_TERM_VT_DEC_ORIG)
@@ -456,8 +353,6 @@ static void vt_mode_apply(ldg_term_vt_t *vt, uint8_t en)
 #define LDG_TERM_VT_OSC_SEP ';'
 #define LDG_TERM_VT_OSC_CLIP_HIGH '5'
 #define LDG_TERM_VT_OSC_CLIP_LOW '2'
-#define LDG_TERM_VT_OSC_TITLE_BOTH '0'
-#define LDG_TERM_VT_OSC_TITLE_WIN '2'
 #define LDG_TERM_VT_OSC_LEAD 0x5D
 #define LDG_TERM_VT_BEL_BYTE 0x07
 #define LDG_TERM_VT_CLIP_SEL 'c'
@@ -521,7 +416,7 @@ static void vt_reply_parm_wr(ldg_term_vt_t *vt)
 {
     uint32_t sol = 0;
 
-    sol = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST);
+    sol = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT);
 
     vt_reply_byte_wr(vt, LDG_TERM_VT_ESC_BYTE);
     vt_reply_byte_wr(vt, LDG_TERM_VT_CSI_LEAD);
@@ -570,15 +465,12 @@ static void vt_reply_dsr_wr(ldg_term_vt_t *vt, uint32_t kind)
 
 #define LDG_TERM_VT_FINAL_BASE 0x40
 #define LDG_TERM_VT_FINAL_SPAN 64
-#define LDG_TERM_VT_BIT_ONE 1ULL
-
-#define LDG_TERM_VT_KBD_MODE_ALL 1
+#define LDG_TERM_VT_SLOT_BIT 1ULL
 #define LDG_TERM_VT_KBD_MODE_SET 2
 #define LDG_TERM_VT_KBD_MODE_CLEAR 3
 #define LDG_TERM_VT_KBD_QUERY_CH 0x3F
 #define LDG_TERM_VT_KBD_PUSH_CH 0x3E
 #define LDG_TERM_VT_KBD_POP_CH 0x3C
-#define LDG_TERM_VT_KBD_SET_CH 0x3D
 
 static uint32_t vt_kbd_screen_get(const ldg_term_vt_t *vt)
 {
@@ -596,6 +488,8 @@ static void vt_kbd_rst(ldg_term_vt_t *vt)
         vt->kbd_flags[screen] = 0;
         vt->kbd_stack_len[screen] = 0;
     }
+
+    vt->other_keys = 0;
 }
 
 static void vt_kbd_push(ldg_term_vt_t *vt, uint32_t screen, uint32_t flags)
@@ -654,7 +548,7 @@ static void vt_kbd_apply(ldg_term_vt_t *vt)
 
     if (vt->priv_lead == LDG_TERM_VT_KBD_PUSH_CH)
     {
-        flags = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST);
+        flags = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT);
         vt_kbd_push(vt, screen, flags);
         return;
     }
@@ -665,7 +559,7 @@ static void vt_kbd_apply(ldg_term_vt_t *vt)
         return;
     }
 
-    flags = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST);
+    flags = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT);
     mode = vt_param_cunt_get(vt, LDG_TERM_VT_STEP);
 
     if (mode == LDG_TERM_VT_KBD_MODE_SET) { vt->kbd_flags[screen] |= flags; }
@@ -707,7 +601,7 @@ static void vt_rqm_reply(ldg_term_vt_t *vt)
     uint32_t code = 0;
     uint32_t state = 0;
 
-    code = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST);
+    code = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT);
     state = vt_mode_state_get(vt, code);
 
     vt_reply_byte_wr(vt, LDG_TERM_VT_ESC_BYTE);
@@ -741,8 +635,8 @@ static void vt_unhandled_mark(ldg_term_vt_t *vt, uint8_t final)
 
     slot = (uint32_t)final - LDG_TERM_VT_FINAL_BASE;
 
-    if (slot >= LDG_TERM_VT_FINAL_SPAN) { vt->unhandled_hi |= LDG_TERM_VT_BIT_ONE << (slot - LDG_TERM_VT_FINAL_SPAN); }
-    else { vt->unhandled_lo |= LDG_TERM_VT_BIT_ONE << slot; }
+    if (slot >= LDG_TERM_VT_FINAL_SPAN) { vt->unhandled_hi |= LDG_TERM_VT_SLOT_BIT << (slot - LDG_TERM_VT_FINAL_SPAN); }
+    else { vt->unhandled_lo |= LDG_TERM_VT_SLOT_BIT << slot; }
 }
 
 #define LDG_TERM_VT_WINOP_TITLE_PUSH 22
@@ -814,12 +708,48 @@ static void vt_winop_apply(ldg_term_vt_t *vt, uint32_t op)
         vt_reply_byte_wr(vt, LDG_TERM_VT_CSI_LEAD);
         vt_reply_num_wr(vt, LDG_TERM_VT_WINOP_PIXEL_REPLY);
         vt_reply_byte_wr(vt, LDG_TERM_VT_OSC_SEP);
-        vt_reply_num_wr(vt, vt->term->row_cunt * LDG_TERM_VT_CELL_HEIGHT_PX);
+        vt_reply_num_wr(vt, vt->term->row_cunt * vt->cell_px_height);
         vt_reply_byte_wr(vt, LDG_TERM_VT_OSC_SEP);
-        vt_reply_num_wr(vt, vt->term->col_cunt * LDG_TERM_VT_CELL_WIDTH_PX);
+        vt_reply_num_wr(vt, vt->term->col_cunt * vt->cell_px_width);
         vt_reply_byte_wr(vt, 't');
         return;
     }
+}
+
+#define LDG_TERM_VT_XTMODKEYS_LEAD_CH 0x3E
+#define LDG_TERM_VT_XTMODKEYS_OTHER 4
+#define LDG_TERM_VT_OTHER_KEYS_OFF 0
+#define LDG_TERM_VT_OTHER_KEYS_LEVEL_EXCEPT 1
+#define LDG_TERM_VT_OTHER_KEYS_LEVEL_ALL 2
+
+static void vt_other_keys_apply(ldg_term_vt_t *vt, uint8_t final)
+{
+    uint32_t resource = 0;
+    uint32_t level = 0;
+
+    resource = vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT);
+
+    if (resource != LDG_TERM_VT_XTMODKEYS_OTHER)
+    {
+        vt_unhandled_mark(vt, final);
+        return;
+    }
+
+    if (final == 'n')
+    {
+        vt->other_keys = LDG_TERM_VT_OTHER_KEYS_OFF;
+        return;
+    }
+
+    level = vt_param_get(vt, LDG_TERM_VT_STEP, LDG_TERM_VT_OTHER_KEYS_OFF);
+
+    if (level > LDG_TERM_VT_OTHER_KEYS_LEVEL_ALL)
+    {
+        vt_unhandled_mark(vt, final);
+        return;
+    }
+
+    vt->other_keys = level;
 }
 
 static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
@@ -831,6 +761,12 @@ static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
     if (vt->priv_lead != 0 && final == 'u')
     {
         vt_kbd_apply(vt);
+        return;
+    }
+
+    if (vt->priv_lead == LDG_TERM_VT_XTMODKEYS_LEAD_CH && (final == 'm' || final == 'n'))
+    {
+        vt_other_keys_apply(vt, final);
         return;
     }
 
@@ -867,8 +803,8 @@ static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
         second = vt_param_cunt_get(vt, LDG_TERM_VT_STEP);
         ldg_term_cursor_set(vt->term, second - LDG_TERM_VT_STEP, first - LDG_TERM_VT_STEP);
     }
-    else if (final == 'J') { ldg_term_display_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST)); }
-    else if (final == 'K') { ldg_term_line_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST)); }
+    else if (final == 'J') { ldg_term_display_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT)); }
+    else if (final == 'K') { ldg_term_line_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT)); }
     else if (final == 'L') { ldg_term_line_insert(vt->term, first); }
     else if (final == 'M') { ldg_term_line_delete(vt->term, first); }
     else if (final == 'P') { ldg_term_ch_delete(vt->term, first); }
@@ -879,7 +815,7 @@ static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
     else if (final == 'm') { vt_sgr_apply(vt); }
     else if (final == 'I') { ldg_term_tab_advance_cunt(vt->term, first); }
     else if (final == 'Z') { ldg_term_tab_back(vt->term, first); }
-    else if (final == 'g') { ldg_term_tab_clear(vt->term, (vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST) == LDG_TERM_VT_TBC_ALL) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE); }
+    else if (final == 'g') { ldg_term_tab_clear(vt->term, (vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT) == LDG_TERM_VT_TBC_ALL) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE); }
     else if (final == '`') { ldg_term_cursor_set(vt->term, first - LDG_TERM_VT_STEP, vt->term->cursor_row); }
     else if (final == 'E')
     {
@@ -913,7 +849,7 @@ static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
     else if (final == 'c') { vt_reply_da_wr(vt); }
     else if (final == 'x') { vt_reply_parm_wr(vt); }
     else if (final == 'n') { vt_reply_dsr_wr(vt, first); }
-    else if (final == 'q' && vt->inter_cunt > 0 && vt->inter[LDG_TERM_VT_PARAM_FIRST] == LDG_TERM_VT_SPACE_INTER) { vt->cursor_shape = (uint8_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_SGR_RST); }
+    else if (final == 'q' && vt->inter_cunt > 0 && vt->inter[LDG_TERM_VT_PARAM_FIRST] == LDG_TERM_VT_SPACE_INTER) { vt->cursor_shape = (uint8_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT); }
     else { vt_unhandled_mark(vt, final); }
 }
 
@@ -1007,6 +943,9 @@ static void vt_title_set(ldg_term_vt_t *vt, uint64_t start)
 #define LDG_TERM_VT_HEX_PAIR 2
 #define LDG_TERM_VT_HEX_RADIX 16
 #define LDG_TERM_VT_NIBBLE_NONE 0
+#define LDG_TERM_VT_X11_DIGIT_MAX 4
+#define LDG_TERM_VT_X11_CHANNEL_MAX 255
+#define LDG_TERM_VT_X11_ROUND_DIV 2
 
 static uint32_t vt_osc_code_get(const ldg_term_vt_t *vt, uint64_t *out_body)
 {
@@ -1042,6 +981,9 @@ static uint32_t vt_color_parse(const ldg_term_vt_t *vt, uint64_t start, uint64_t
     uint64_t idx = 0;
     uint32_t comp = 0;
     uint32_t digit = 0;
+    uint32_t span = 0;
+    uint32_t nibble_cunt = 0;
+    uint8_t nibble = 0;
 
     if (start >= stop) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -1071,14 +1013,24 @@ static uint32_t vt_color_parse(const ldg_term_vt_t *vt, uint64_t start, uint64_t
     for (comp = 0; comp < LDG_TERM_RGB_CUNT; comp++)
     {
         digit = 0;
+        span = 0;
+        nibble_cunt = 0;
 
         while (idx < stop && vt->osc[idx] != LDG_TERM_VT_COLOR_SLASH)
         {
-            digit = (digit * LDG_TERM_VT_HEX_RADIX) + vt_hex_nibble_get(vt->osc[idx]);
+            if (ldg_char_hex_is((uint8_t)vt->osc[idx]) != LDG_TRUTH_TRUE || nibble_cunt >= LDG_TERM_VT_X11_DIGIT_MAX) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+            nibble = vt_hex_nibble_get(vt->osc[idx]);
+
+            digit = (digit * LDG_TERM_VT_HEX_RADIX) + nibble;
+            span = (span * LDG_TERM_VT_HEX_RADIX) + (LDG_TERM_VT_HEX_RADIX - LDG_TERM_VT_STEP);
+            nibble_cunt++;
             idx++;
         }
 
-        out[comp] = (uint8_t)digit;
+        if (nibble_cunt == 0) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+        out[comp] = (uint8_t)(((digit * LDG_TERM_VT_X11_CHANNEL_MAX) + (span / LDG_TERM_VT_X11_ROUND_DIV)) / span);
 
         if (idx < stop) { idx++; }
     }
@@ -1483,6 +1435,7 @@ static void vt_dcs_feed(ldg_term_vt_t *vt, uint8_t byte)
 
 typedef struct vt_gfx_cmd
 {
+    uint64_t body;
     uint32_t fmt;
     uint32_t width;
     uint32_t height;
@@ -1492,9 +1445,8 @@ typedef struct vt_gfx_cmd
     uint32_t rows;
     uint32_t layer;
     uint32_t more;
-    uint64_t body;
     uint8_t action;
-    uint8_t pudding[7];
+    uint8_t pudding[3];
 } vt_gfx_cmd_t;
 
 static void vt_gfx_key_apply(vt_gfx_cmd_t *cmd, uint8_t key, uint32_t val, uint8_t letter)
@@ -1881,7 +1833,9 @@ static void vt_gfx_dispatch(ldg_term_vt_t *vt)
 #define LDG_TERM_VT_SIXEL_FULL 100
 #define LDG_TERM_VT_SIXEL_MAP 256
 #define LDG_TERM_VT_SIXEL_DIM_MAX 256
-#define LDG_TERM_VT_SIXEL_ID 1
+#define LDG_TERM_VT_SIXEL_ID_BASE LDG_TERM_IMG_ID_TRANSIENT_BASE
+#define LDG_TERM_VT_SIXEL_SEQ_MAX 0x0FFFFFFFU
+#define LDG_TERM_VT_SIXEL_SEQ_FIRST 0
 #define LDG_TERM_VT_SIXEL_FINAL 'q'
 
 static uint64_t vt_sixel_num_get(const ldg_term_vt_t *vt, uint64_t idx, uint32_t *out)
@@ -1916,8 +1870,11 @@ static void vt_sixel_dispatch(ldg_term_vt_t *vt)
     uint32_t blue = 0;
     uint32_t bit = 0;
     uint32_t span = 0;
-    uint32_t cur_col = 0;
-    uint32_t cur_row = 0;
+    uint32_t curr_col = 0;
+    uint32_t curr_row = 0;
+    uint32_t ext_width = 0;
+    uint32_t ext_height = 0;
+    uint32_t img_id = 0;
     uint8_t val = 0;
 
     if (!vt->term->buff) { return; }
@@ -1978,15 +1935,15 @@ static void vt_sixel_dispatch(ldg_term_vt_t *vt)
 
         if (vt->osc[idx] == LDG_TERM_VT_SIXEL_CR)
         {
-            cur_col = 0;
+            curr_col = 0;
             idx++;
             continue;
         }
 
         if (vt->osc[idx] == LDG_TERM_VT_SIXEL_LF)
         {
-            cur_col = 0;
-            cur_row += LDG_TERM_VT_SIXEL_BAND;
+            curr_col = 0;
+            curr_row += LDG_TERM_VT_SIXEL_BAND;
             idx++;
             continue;
         }
@@ -2009,27 +1966,41 @@ static void vt_sixel_dispatch(ldg_term_vt_t *vt)
             {
                 if (!(val & (LDG_TERM_VT_STEP << bit))) { continue; }
 
-                row = cur_row + bit;
+                row = curr_row + bit;
 
-                if (cur_col >= width || row >= height) { continue; }
+                if (curr_col >= width || row >= height) { continue; }
 
-                vt->term->buff[((row * width) + cur_col) * LDG_TERM_VT_PNG_CHAN_RGB] = map[slot][LDG_TERM_VT_RED_IDX];
-                vt->term->buff[(((row * width) + cur_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_STEP] = map[slot][LDG_TERM_VT_GREEN_IDX];
-                vt->term->buff[(((row * width) + cur_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_PAIR_STEP] = map[slot][LDG_TERM_VT_BLUE_IDX];
+                vt->term->buff[((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB] = map[slot][LDG_TERM_VT_RED_IDX];
+                vt->term->buff[(((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_STEP] = map[slot][LDG_TERM_VT_GREEN_IDX];
+                vt->term->buff[(((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_PAIR_STEP] = map[slot][LDG_TERM_VT_BLUE_IDX];
+
+                if (curr_col + LDG_TERM_VT_STEP > ext_width) { ext_width = curr_col + LDG_TERM_VT_STEP; }
+
+                if (row + LDG_TERM_VT_STEP > ext_height) { ext_height = row + LDG_TERM_VT_STEP; }
             }
 
-            cur_col++;
+            curr_col++;
         }
 
         repeat = 0;
         idx++;
     }
 
-    if (ldg_term_img_st(vt->term, LDG_TERM_VT_SIXEL_ID, width, height, LDG_TERM_IMG_FMT_RGB, vt->term->buff, span) != LDG_ERR_AOK) { return; }
+    if (ext_width == 0 || ext_height == 0) { return; }
+
+    for (row = 0; row < ext_height; row++) { for (idx = 0; idx < (uint64_t)ext_width * LDG_TERM_VT_PNG_CHAN_RGB; idx++) { vt->term->buff[((uint64_t)row * ext_width * LDG_TERM_VT_PNG_CHAN_RGB) + idx] = vt->term->buff[((uint64_t)row * width * LDG_TERM_VT_PNG_CHAN_RGB) + idx]; } }
+
+    span = ext_width * ext_height * LDG_TERM_VT_PNG_CHAN_RGB;
+    img_id = LDG_TERM_VT_SIXEL_ID_BASE + vt->sixel_seq;
+
+    vt->sixel_seq++;
+    if (vt->sixel_seq >= LDG_TERM_VT_SIXEL_SEQ_MAX) { vt->sixel_seq = LDG_TERM_VT_SIXEL_SEQ_FIRST; }
+
+    if (ldg_term_img_st(vt->term, img_id, ext_width, ext_height, LDG_TERM_IMG_FMT_RGB, vt->term->buff, span) != LDG_ERR_AOK) { return; }
 
     ldg_term_cursor_get(vt->term, &col, &row);
 
-    placement.img_id = LDG_TERM_VT_SIXEL_ID;
+    placement.img_id = img_id;
     placement.col = col;
     placement.row = row;
 
@@ -2237,6 +2208,9 @@ uint32_t ldg_term_vt_init(ldg_term_vt_t *vt, ldg_term_t *term)
     if (LDG_UNLIKELY(!vt || !term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     vt->term = term;
+    vt->cell_px_width = LDG_TERM_VT_CELL_WIDTH_PX;
+    vt->cell_px_height = LDG_TERM_VT_CELL_HEIGHT_PX;
+    vt->sixel_seq = LDG_TERM_VT_SIXEL_SEQ_FIRST;
     vt->state = LDG_TERM_VT_STATE_GROUND;
     vt->osc[0] = LDG_STR_TERM;
     vt->title[0] = LDG_STR_TERM;
@@ -2251,6 +2225,18 @@ uint32_t ldg_term_vt_init(ldg_term_vt_t *vt, ldg_term_t *term)
     vt_kbd_rst(vt);
 
     vt_param_rst(vt);
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_term_vt_cell_px_set(ldg_term_vt_t *vt, uint32_t width, uint32_t height)
+{
+    if (LDG_UNLIKELY(!vt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(width == 0 || height == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    vt->cell_px_width = width;
+    vt->cell_px_height = height;
 
     return LDG_ERR_AOK;
 }
@@ -2327,6 +2313,21 @@ uint32_t ldg_term_vt_title_get(const ldg_term_vt_t *vt, char *out, uint64_t cap)
 #define LDG_TERM_VT_KEY_CODE_ENTER 13
 #define LDG_TERM_VT_KEY_CODE_ESC 27
 #define LDG_TERM_VT_KEY_CODE_BS 127
+#define LDG_TERM_VT_KEY_CODE_FUNC_FIRST 0xE000U
+#define LDG_TERM_VT_KEY_CODE_FUNC_LAST 0xF8FFU
+#define LDG_TERM_VT_KEY_CODE_LOCK_FIRST 57358U
+#define LDG_TERM_VT_KEY_CODE_LOCK_LAST 57360U
+#define LDG_TERM_VT_KEY_CODE_MOD_FIRST 57441U
+#define LDG_TERM_VT_KEY_CODE_MOD_LAST 57454U
+#define LDG_TERM_VT_TILDE_OTHER_KEYS 27
+#define LDG_TERM_VT_OTHER_MOD_MASK 0x3F
+#define LDG_TERM_VT_X11_CTRL_DEL_CH 0x3F
+#define LDG_TERM_VT_X11_CTRL_DIGIT_FIRST 0x32
+#define LDG_TERM_VT_X11_CTRL_DIGIT_LAST 0x38
+#define LDG_TERM_VT_X11_CTRL_UPPER_FIRST 0x40
+#define LDG_TERM_VT_X11_CTRL_UPPER_LAST 0x5F
+#define LDG_TERM_VT_X11_CTRL_LOWER_FIRST 0x61
+#define LDG_TERM_VT_X11_CTRL_LOWER_LAST 0x7A
 #define LDG_TERM_VT_NUM_RADIX 10
 #define LDG_TERM_VT_NUM_CAP 8
 #define LDG_TERM_VT_TILDE_F3 13
@@ -2397,6 +2398,99 @@ static uint32_t vt_key_code_get(uint8_t key, uint32_t codepoint)
     if (key == LDG_TERM_KEY_BACKSPACE) { return LDG_TERM_VT_KEY_CODE_BS; }
 
     return LDG_TERM_VT_KEY_CODE_NONE;
+}
+
+static uint8_t vt_key_code_func_is(uint32_t code)
+{
+    if (code >= LDG_TERM_VT_KEY_CODE_FUNC_FIRST && code <= LDG_TERM_VT_KEY_CODE_FUNC_LAST) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
+}
+
+static uint8_t vt_key_code_mod_is(uint32_t code)
+{
+    if (code >= LDG_TERM_VT_KEY_CODE_MOD_FIRST && code <= LDG_TERM_VT_KEY_CODE_MOD_LAST) { return LDG_TRUTH_TRUE; }
+
+    if (code >= LDG_TERM_VT_KEY_CODE_LOCK_FIRST && code <= LDG_TERM_VT_KEY_CODE_LOCK_LAST) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
+}
+
+static uint8_t vt_key_code_x11_ctrl_is(uint32_t code)
+{
+    if (code == LDG_ASCII_SPACE || code == LDG_TERM_VT_X11_CTRL_DEL_CH) { return LDG_TRUTH_TRUE; }
+
+    if (code >= LDG_TERM_VT_X11_CTRL_DIGIT_FIRST && code <= LDG_TERM_VT_X11_CTRL_DIGIT_LAST) { return LDG_TRUTH_TRUE; }
+
+    if (code >= LDG_TERM_VT_X11_CTRL_UPPER_FIRST && code <= LDG_TERM_VT_X11_CTRL_UPPER_LAST) { return LDG_TRUTH_TRUE; }
+
+    if (code >= LDG_TERM_VT_X11_CTRL_LOWER_FIRST && code <= LDG_TERM_VT_X11_CTRL_LOWER_LAST) { return LDG_TRUTH_TRUE; }
+
+    return LDG_TRUTH_FALSE;
+}
+
+static uint8_t vt_other_keys_send_is(uint32_t level, uint32_t mods, uint32_t code)
+{
+    uint32_t active = 0;
+
+    active = mods & LDG_TERM_VT_OTHER_MOD_MASK;
+
+    if (level == LDG_TERM_VT_OTHER_KEYS_LEVEL_ALL)
+    {
+        if ((active & (LDG_TERM_MOD_ALT | LDG_TERM_MOD_CTRL | LDG_TERM_MOD_SUPER | LDG_TERM_MOD_HYPER | LDG_TERM_MOD_META)) != 0) { return LDG_TRUTH_TRUE; }
+
+        return LDG_TRUTH_FALSE;
+    }
+
+    if (level != LDG_TERM_VT_OTHER_KEYS_LEVEL_EXCEPT) { return LDG_TRUTH_FALSE; }
+
+    if ((active & LDG_TERM_MOD_CTRL) == 0) { return LDG_TRUTH_FALSE; }
+
+    if (vt_key_code_x11_ctrl_is(code) == LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
+
+    return LDG_TRUTH_TRUE;
+}
+
+static uint32_t vt_other_keys_wr(const ldg_term_key_event_t *event, ldg_byte_t *out, uint64_t cap, uint64_t *out_len)
+{
+    uint64_t len = 0;
+    uint32_t code = 0;
+    uint32_t param = 0;
+    uint32_t ret = 0;
+
+    code = event->codepoint;
+
+    if ((event->mods & LDG_TERM_MOD_SHIFT) && event->shifted != 0) { code = event->shifted; }
+
+    param = LDG_TERM_VT_MOD_BASE + (event->mods & LDG_TERM_VT_OTHER_MOD_MASK);
+
+    ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_ESC_BYTE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_CSI_LEAD);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_num_wr(out, cap, &len, LDG_TERM_VT_TILDE_OTHER_KEYS);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_SEMI);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_num_wr(out, cap, &len, param);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_SEMI);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_num_wr(out, cap, &len, code);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_TILDE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    *out_len = len;
+
+    return LDG_ERR_AOK;
 }
 
 static uint32_t vt_csi_u_wr(const ldg_term_vt_t *vt, const ldg_term_key_event_t *event, uint32_t code, ldg_byte_t *out, uint64_t cap, uint64_t *out_len)
@@ -2651,7 +2745,7 @@ uint32_t ldg_term_vt_unhandled_get(const ldg_term_vt_t *vt, ldg_byte_t *out, uin
 
     for (slot = 0; slot < LDG_TERM_VT_FINAL_SPAN; slot++)
     {
-        if ((vt->unhandled_lo & (LDG_TERM_VT_BIT_ONE << slot)) == 0) { continue; }
+        if ((vt->unhandled_lo & (LDG_TERM_VT_SLOT_BIT << slot)) == 0) { continue; }
 
         if (found >= cap) { return LDG_ERR_FULL; }
 
@@ -2661,7 +2755,7 @@ uint32_t ldg_term_vt_unhandled_get(const ldg_term_vt_t *vt, ldg_byte_t *out, uin
 
     for (slot = 0; slot < LDG_TERM_VT_FINAL_SPAN; slot++)
     {
-        if ((vt->unhandled_hi & (LDG_TERM_VT_BIT_ONE << slot)) == 0) { continue; }
+        if ((vt->unhandled_hi & (LDG_TERM_VT_SLOT_BIT << slot)) == 0) { continue; }
 
         if (found >= cap) { return LDG_ERR_FULL; }
 
@@ -2726,16 +2820,33 @@ uint32_t ldg_term_key_encode(const ldg_term_vt_t *vt, const ldg_term_key_event_t
 
     if (LDG_UNLIKELY(cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
+    if (event->key == LDG_TERM_KEY_BREAK || event->key == LDG_TERM_KEY_PRINT) { return LDG_ERR_AOK; }
+
     flags = vt_kbd_active_get(vt);
     key = event->key;
     mods = event->mods;
     code = vt_key_code_get(key, event->codepoint);
 
+    if (event->kind == LDG_TERM_KEY_KIND_RELEASE && (flags & LDG_TERM_VT_KBD_EVENT_TYPE) == 0) { return LDG_ERR_AOK; }
+
     if (key == LDG_TERM_KEY_NONE)
     {
         if (flags & LDG_TERM_VT_KBD_ALL_ESC) { return vt_csi_u_wr(vt, event, code, out, cap, out_len); }
 
+        if (vt_key_code_func_is(code) == LDG_TRUTH_TRUE)
+        {
+            if (vt_key_code_mod_is(code) == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+            if (flags & LDG_TERM_VT_KBD_DISAMBIGUATE) { return vt_csi_u_wr(vt, event, code, out, cap, out_len); }
+
+            return LDG_ERR_AOK;
+        }
+
         if ((flags & LDG_TERM_VT_KBD_DISAMBIGUATE) && (mods & (LDG_TERM_MOD_CTRL | LDG_TERM_MOD_ALT))) { return vt_csi_u_wr(vt, event, code, out, cap, out_len); }
+
+        if (event->kind == LDG_TERM_KEY_KIND_RELEASE) { return LDG_ERR_AOK; }
+
+        if (vt_other_keys_send_is(vt->other_keys, mods, code) == LDG_TRUTH_TRUE) { return vt_other_keys_wr(event, out, cap, out_len); }
 
         return vt_legacy_text_wr(event, out, cap, out_len);
     }
@@ -2746,6 +2857,8 @@ uint32_t ldg_term_key_encode(const ldg_term_vt_t *vt, const ldg_term_key_event_t
 
         if ((flags & LDG_TERM_VT_KBD_DISAMBIGUATE) && key == LDG_TERM_KEY_ESCAPE) { return vt_csi_u_wr(vt, event, code, out, cap, out_len); }
     }
+
+    if (event->kind == LDG_TERM_KEY_KIND_RELEASE) { return LDG_ERR_AOK; }
 
     if (key == LDG_TERM_KEY_BACKSPACE) { return vt_out_byte_wr(out, cap, out_len, LDG_TERM_VT_DEL_BYTE); }
 
@@ -2770,7 +2883,7 @@ uint32_t ldg_term_key_encode(const ldg_term_vt_t *vt, const ldg_term_key_event_t
         return LDG_ERR_AOK;
     }
 
-    ret = vt_key_final_get(key, &final, &tilde, &num);
+    ret = vt_key_final_get((ldg_term_key_t)key, &final, &tilde, &num);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     param = vt_mod_param_get(mods);
@@ -2899,13 +3012,13 @@ uint32_t ldg_term_resize_encode(const ldg_term_vt_t *vt, ldg_byte_t *out, uint64
     ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_SEMI);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = vt_out_num_wr(out, cap, &len, vt->term->row_cunt * LDG_TERM_VT_CELL_HEIGHT_PX);
+    ret = vt_out_num_wr(out, cap, &len, vt->term->row_cunt * vt->cell_px_height);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ret = vt_out_byte_wr(out, cap, &len, LDG_TERM_VT_SEMI);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = vt_out_num_wr(out, cap, &len, vt->term->col_cunt * LDG_TERM_VT_CELL_WIDTH_PX);
+    ret = vt_out_num_wr(out, cap, &len, vt->term->col_cunt * vt->cell_px_width);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ret = vt_out_byte_wr(out, cap, &len, 't');
@@ -2999,9 +3112,6 @@ static uint32_t vt_paste_marker_wr(ldg_byte_t *out, uint64_t cap, uint64_t *len,
     ret = vt_out_byte_wr(out, cap, len, LDG_TERM_VT_CSI_LEAD);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = vt_out_byte_wr(out, cap, len, '?');
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
-
     ret = vt_out_num_wr(out, cap, len, code);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -3028,6 +3138,8 @@ uint32_t ldg_term_paste_encode(const ldg_term_vt_t *vt, const ldg_byte_t *text, 
 
     for (idx = 0; idx < len; idx++)
     {
+        if ((vt->mode & LDG_TERM_VT_MODE_PASTE_BRACKET) && text[idx] == LDG_TERM_VT_ESC_BYTE) { continue; }
+
         ret = vt_out_byte_wr(out, cap, &written, text[idx]);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }

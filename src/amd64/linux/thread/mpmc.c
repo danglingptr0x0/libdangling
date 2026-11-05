@@ -29,7 +29,7 @@ static uint32_t mpmc_slot_get(ldg_mpmc_queue_t *queue, uint64_t idx, ldg_mpmc_sl
 
     if (LDG_UNLIKELY(idx >= queue->cap)) { return LDG_ERR_BOUNDS; }
 
-    *out = (ldg_mpmc_slot_t *)(queue->buff + (idx * queue->slot_size));
+    *out = (ldg_mpmc_slot_t *)(void *)(queue->buff + (idx * queue->slot_size));
 
     return LDG_ERR_AOK;
 }

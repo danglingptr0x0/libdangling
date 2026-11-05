@@ -37,10 +37,10 @@ typedef struct ldg_sys_progress_conf_t
 typedef struct ldg_sys_progress_t
 {
     ldg_sys_progress_conf_t conf;
-    uint64_t cur;
+    uint64_t curr;
     uint64_t start_time;
     uint64_t last_time;
-    uint64_t last_cur;
+    uint64_t last_curr;
     double rate;
     uint32_t spinner_phase;
     uint8_t rate_valid;
@@ -53,14 +53,14 @@ LDG_EXPORT uint32_t ldg_sys_progress_conf_default_get(ldg_sys_progress_conf_t *o
 LDG_EXPORT uint32_t ldg_sys_progress_init(ldg_sys_progress_t *bar, const ldg_sys_progress_conf_t *conf, uint64_t now);
 LDG_EXPORT uint32_t ldg_sys_progress_rst(ldg_sys_progress_t *bar, uint64_t now);
 LDG_EXPORT uint32_t ldg_sys_progress_advance(ldg_sys_progress_t *bar, uint64_t delta, uint64_t now);
-LDG_EXPORT uint32_t ldg_sys_progress_cur_set(ldg_sys_progress_t *bar, uint64_t cur, uint64_t now);
+LDG_EXPORT uint32_t ldg_sys_progress_curr_set(ldg_sys_progress_t *bar, uint64_t curr, uint64_t now);
 LDG_EXPORT uint32_t ldg_sys_progress_total_set(ldg_sys_progress_t *bar, uint64_t total);
 LDG_EXPORT uint32_t ldg_sys_progress_finish(ldg_sys_progress_t *bar, uint64_t now);
 LDG_EXPORT uint32_t ldg_sys_progress_render(ldg_sys_progress_t *bar, uint8_t *out, uint64_t cap, uint64_t *len);
 LDG_EXPORT uint64_t ldg_sys_progress_rate_get(const ldg_sys_progress_t *bar);
 LDG_EXPORT uint64_t ldg_sys_progress_eta_get(const ldg_sys_progress_t *bar);
 LDG_EXPORT uint32_t ldg_sys_progress_pct_get(const ldg_sys_progress_t *bar);
-LDG_EXPORT uint64_t ldg_sys_progress_cur_get(const ldg_sys_progress_t *bar);
+LDG_EXPORT uint64_t ldg_sys_progress_curr_get(const ldg_sys_progress_t *bar);
 LDG_EXPORT uint8_t ldg_sys_progress_done_is(const ldg_sys_progress_t *bar);
 
 #endif

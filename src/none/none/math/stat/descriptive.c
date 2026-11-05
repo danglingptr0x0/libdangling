@@ -329,7 +329,7 @@ LDG_EXPORT uint32_t ldg_math_stat_hist_observe(ldg_math_stat_hist_t *hist, doubl
 
     if (LDG_UNLIKELY(!hist)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(hist->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_MATH_STAT_HIST_FULL; }
+    if (LDG_UNLIKELY(hist->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(val < hist->lower || val >= hist->upper)) { return LDG_ERR_RANGE; }
 

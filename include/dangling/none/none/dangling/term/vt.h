@@ -142,6 +142,8 @@ typedef enum ldg_term_key
     LDG_TERM_KEY_F10,
     LDG_TERM_KEY_F11,
     LDG_TERM_KEY_F12,
+    LDG_TERM_KEY_BREAK,
+    LDG_TERM_KEY_PRINT,
     LDG_TERM_KEY_CUNT
 } ldg_term_key_t;
 
@@ -195,7 +197,11 @@ typedef struct ldg_term_vt
     uint32_t gfx_fmt;
     uint32_t gfx_width;
     uint32_t gfx_height;
-    uint8_t pudding_hi[4];
+    uint32_t other_keys;
+    uint32_t cell_px_width;
+    uint32_t cell_px_height;
+    uint32_t sixel_seq;
+    uint32_t pudding_seq;
     uint64_t unhandled_lo;
     uint64_t unhandled_hi;
     uint8_t last_ch;
@@ -209,6 +215,7 @@ typedef struct ldg_term_vt
 
 LDG_EXPORT uint32_t ldg_term_vt_init(ldg_term_vt_t *vt, ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_vt_rst(ldg_term_vt_t *vt);
+LDG_EXPORT uint32_t ldg_term_vt_cell_px_set(ldg_term_vt_t *vt, uint32_t width, uint32_t height);
 LDG_EXPORT uint32_t ldg_term_vt_feed(ldg_term_vt_t *vt, const ldg_byte_t *buff, uint64_t len);
 LDG_EXPORT uint32_t ldg_term_vt_title_get(const ldg_term_vt_t *vt, char *out, uint64_t cap);
 LDG_EXPORT uint32_t ldg_term_vt_clipboard_get(ldg_term_vt_t *vt, ldg_byte_t *out, uint64_t cap, uint64_t *out_len);

@@ -9,6 +9,10 @@
 #include <dangling/mem/cpy.h>
 #include <dangling/core/macros.h>
 
+#define LDG_SCHED_PLOT_DEADLINE_BIAS 1
+#define LDG_SCHED_RECLAIM_REF_NONE 0
+#define LDG_SCHED_RECLAIM_REF_HELD 1
+
 static uint32_t sched_job_pool_lock(ldg_sched_job_pool_t *pool)
 {
     uint32_t expected = 0;
@@ -23,6 +27,13 @@ static uint32_t sched_job_pool_lock(ldg_sched_job_pool_t *pool)
     }
 
     return LDG_ERR_BUSY;
+}
+
+static void sched_job_ready_promote(ldg_sched_job_t *job, uint8_t from)
+{
+    uint8_t expected = from;
+
+    if (LDG_CAS(&job->state, &expected, (uint8_t)LDG_SCHED_JOB_STATE_READY)) { return; }
 }
 
 LDG_EXPORT uint32_t ldg_sched_job_pool_init(ldg_sched_job_pool_t *pool)
@@ -45,10 +56,14 @@ LDG_EXPORT uint32_t ldg_sched_job_pool_init(ldg_sched_job_pool_t *pool)
 
     pool->free_hd = 0;
     pool->job_cunt = 0;
-    pool->frame_deadline = LDG_SCHED_FRAME_DEADLINE_DEFAULT_MS;
-    pool->plot_weight_crit = LDG_SCHED_PLOT_WEIGHT_CRIT_DEFAULT;
-    pool->plot_weight_remaining = LDG_SCHED_PLOT_WEIGHT_REMAINING_DEFAULT;
-    pool->plot_weight_deadline = LDG_SCHED_PLOT_WEIGHT_DEADLINE_DEFAULT;
+    if (LDG_UNLIKELY(ldg_math_rational_set(LDG_SCHED_FRAME_DEADLINE_NUM_DEFAULT, LDG_SCHED_FRAME_DEADLINE_DEN_DEFAULT, &pool->frame_deadline) != LDG_ERR_AOK)) { return LDG_ERR_MATH_VAL_INVALID; }
+
+    if (LDG_UNLIKELY(ldg_math_rational_set(LDG_SCHED_PLOT_WEIGHT_CRIT_NUM_DEFAULT, LDG_SCHED_PLOT_WEIGHT_CRIT_DEN_DEFAULT, &pool->plot_weight_crit) != LDG_ERR_AOK)) { return LDG_ERR_MATH_VAL_INVALID; }
+
+    if (LDG_UNLIKELY(ldg_math_rational_set(LDG_SCHED_PLOT_WEIGHT_REMAINING_NUM_DEFAULT, LDG_SCHED_PLOT_WEIGHT_REMAINING_DEN_DEFAULT, &pool->plot_weight_remaining) != LDG_ERR_AOK)) { return LDG_ERR_MATH_VAL_INVALID; }
+
+    if (LDG_UNLIKELY(ldg_math_rational_set(LDG_SCHED_PLOT_WEIGHT_DEADLINE_NUM_DEFAULT, LDG_SCHED_PLOT_WEIGHT_DEADLINE_DEN_DEFAULT, &pool->plot_weight_deadline) != LDG_ERR_AOK)) { return LDG_ERR_MATH_VAL_INVALID; }
+
     pool->prio_cb = 0x0;
     pool->is_init = LDG_TRUTH_TRUE;
 
@@ -73,7 +88,9 @@ LDG_EXPORT uint32_t ldg_sched_job_create(ldg_sched_job_pool_t *pool, ldg_sched_j
     uint32_t idx = 0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !func || !out_id)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !func || !out_id)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out_id = LDG_SCHED_JOB_ID_INVALID;
 
@@ -97,11 +114,11 @@ LDG_EXPORT uint32_t ldg_sched_job_create(ldg_sched_job_pool_t *pool, ldg_sched_j
     job->func = func;
     job->arg = arg;
     job->yield_ctx = 0x0;
-    job->est_duration = 0.0;
-    job->actual_duration = 0.0;
-    job->submit_tsc = 0;
-    job->start_tsc = 0;
-    job->end_tsc = 0;
+    job->est_duration = LDG_SCHED_DURATION_NONE;
+    job->actual_duration = LDG_SCHED_DURATION_NONE;
+    job->submit_time = 0;
+    job->start_time = 0;
+    job->end_time = 0;
     job->id = idx + LDG_SCHED_JOB_ID_BASE;
     job->cont = LDG_SCHED_JOB_ID_INVALID;
     job->dep_cunt = 0;
@@ -110,7 +127,7 @@ LDG_EXPORT uint32_t ldg_sched_job_create(ldg_sched_job_pool_t *pool, ldg_sched_j
     job->proc_affinity = proc_affinity;
     job->is_static = LDG_TRUTH_FALSE;
     job->job_class = 0;
-    job->deadline = 0.0;
+    job->deadline = LDG_SCHED_DURATION_NONE;
 
     if (LDG_UNLIKELY(ldg_mem_fill(job->deps, LDG_SCHED_JOB_ID_INVALID, LDG_SCHED_DEP_MAX * sizeof(ldg_sched_job_id_t)) != LDG_ERR_AOK))
     {
@@ -118,7 +135,7 @@ LDG_EXPORT uint32_t ldg_sched_job_create(ldg_sched_job_pool_t *pool, ldg_sched_j
         return LDG_ERR_INVALID;
     }
 
-    LDG_ST_RELEASE(job->state, LDG_SCHED_JOB_STATE_PENDING);
+    LDG_ST_RELEASE(job->state, LDG_SCHED_JOB_STATE_CREATED);
 
     *out_id = job->id;
 
@@ -134,7 +151,9 @@ LDG_EXPORT uint32_t ldg_sched_job_destroy(ldg_sched_job_pool_t *pool, ldg_sched_
     uint32_t idx = 0;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -169,13 +188,83 @@ LDG_EXPORT uint32_t ldg_sched_job_destroy(ldg_sched_job_pool_t *pool, ldg_sched_
     return LDG_ERR_AOK;
 }
 
+LDG_EXPORT uint32_t ldg_sched_job_done_reclaim(ldg_sched_job_pool_t *pool, uint64_t *out_cunt)
+{
+    ldg_sched_job_t *job = 0x0;
+    ldg_sched_job_id_t dep_id = 0;
+    uint64_t hd = 0;
+    uint64_t freed = 0;
+    uint32_t idx = 0;
+    uint32_t dep_idx = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!pool || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_cunt = 0;
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    ret = sched_job_pool_lock(pool);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    for (idx = 0; idx < LDG_SCHED_JOB_MAX; idx++) { pool->plot_crit_state[idx] = LDG_SCHED_RECLAIM_REF_NONE; }
+
+    for (idx = 0; idx < LDG_SCHED_JOB_MAX; idx++)
+    {
+        job = &pool->jobs[idx];
+
+        if (job->state == LDG_SCHED_JOB_STATE_FREE || job->state == LDG_SCHED_JOB_STATE_DONE) { continue; }
+
+        for (dep_idx = 0; dep_idx < job->dep_cunt && dep_idx < LDG_SCHED_DEP_MAX; dep_idx++)
+        {
+            dep_id = job->deps[dep_idx];
+
+            if (dep_id == LDG_SCHED_JOB_ID_INVALID || dep_id > LDG_SCHED_JOB_MAX) { continue; }
+
+            pool->plot_crit_state[dep_id - LDG_SCHED_JOB_ID_BASE] = LDG_SCHED_RECLAIM_REF_HELD;
+        }
+    }
+
+    for (idx = 0; idx < LDG_SCHED_JOB_MAX; idx++)
+    {
+        job = &pool->jobs[idx];
+
+        if (job->state != LDG_SCHED_JOB_STATE_DONE || job->is_static == LDG_TRUTH_TRUE) { continue; }
+
+        if (pool->plot_crit_state[idx] == LDG_SCHED_RECLAIM_REF_HELD) { continue; }
+
+        job->state = LDG_SCHED_JOB_STATE_FREE;
+        job->func = 0x0;
+        job->arg = 0x0;
+
+        hd = pool->free_hd;
+
+        if (hd > 0)
+        {
+            pool->free_hd = hd - LDG_SCHED_STEP;
+            pool->free_list[hd - LDG_SCHED_STEP] = idx;
+        }
+
+        pool->job_cunt--;
+        freed++;
+    }
+
+    LDG_ST_RELEASE(pool->lock, LDG_SCHED_LOCK_FREE);
+
+    *out_cunt = freed;
+
+    return LDG_ERR_AOK;
+}
+
 LDG_EXPORT uint32_t ldg_sched_job_dep_add(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t job_id, ldg_sched_job_id_t dep_id)
 {
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
     uint32_t dep_idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(job_id == LDG_SCHED_JOB_ID_INVALID || job_id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -190,9 +279,14 @@ LDG_EXPORT uint32_t ldg_sched_job_dep_add(ldg_sched_job_pool_t *pool, ldg_sched_
 
     if (LDG_UNLIKELY(job->dep_cunt >= LDG_SCHED_DEP_MAX)) { return LDG_ERR_FULL; }
 
+    if (LDG_UNLIKELY(LDG_LD_ACQUIRE(pool->jobs[dep_id - LDG_SCHED_STEP].state) == LDG_SCHED_JOB_STATE_FREE)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     job->deps[job->dep_cunt] = dep_id;
     job->dep_cunt++;
-    job->deps_remaining++;
+
+    if (LDG_LD_ACQUIRE(pool->jobs[dep_id - LDG_SCHED_STEP].state) == LDG_SCHED_JOB_STATE_DONE) { return LDG_ERR_AOK; }
+
+    LDG_FETCH_ADD(job->deps_remaining, (uint8_t)LDG_SCHED_STEP);
 
     return LDG_ERR_AOK;
 }
@@ -205,16 +299,20 @@ LDG_EXPORT uint32_t ldg_sched_job_dep_sig(ldg_sched_job_pool_t *pool, ldg_sched_
     uint32_t attempt = 0;
     uint32_t ret = 0;
     uint8_t old = 0;
+    uint8_t state = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(completed_id == LDG_SCHED_JOB_ID_INVALID)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     for (job_idx = 0; job_idx < LDG_SCHED_JOB_MAX; job_idx++)
     {
         job = &pool->jobs[job_idx];
+        state = LDG_LD_ACQUIRE(job->state);
 
-        if (LDG_LD_ACQUIRE(job->state) != LDG_SCHED_JOB_STATE_PENDING) { continue; }
+        if (state != LDG_SCHED_JOB_STATE_PENDING && state != LDG_SCHED_JOB_STATE_CREATED) { continue; }
 
         for (dep_idx = 0; dep_idx < job->dep_cunt; dep_idx++)
         {
@@ -228,7 +326,7 @@ LDG_EXPORT uint32_t ldg_sched_job_dep_sig(ldg_sched_job_pool_t *pool, ldg_sched_
 
                 if (LDG_CAS(&job->deps_remaining, &old, (uint8_t)(old - LDG_SCHED_STEP)))
                 {
-                    if (old == LDG_SCHED_STEP) { LDG_ST_RELEASE(job->state, LDG_SCHED_JOB_STATE_READY); }
+                    if (old == LDG_SCHED_STEP) { sched_job_ready_promote(job, LDG_SCHED_JOB_STATE_PENDING); }
 
                     break;
                 }
@@ -250,7 +348,9 @@ LDG_EXPORT uint32_t ldg_sched_job_cont_set(ldg_sched_job_pool_t *pool, ldg_sched
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(job_id == LDG_SCHED_JOB_ID_INVALID || job_id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -268,19 +368,25 @@ LDG_EXPORT uint32_t ldg_sched_job_submit(ldg_sched_job_pool_t *pool, ldg_sched_j
 {
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
+    uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    idx = id - 1;
+    idx = id - LDG_SCHED_JOB_ID_BASE;
     job = &pool->jobs[idx];
 
-    if (LDG_UNLIKELY(job->state != LDG_SCHED_JOB_STATE_PENDING)) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(LDG_LD_ACQUIRE(job->state) != LDG_SCHED_JOB_STATE_CREATED)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    job->submit_tsc = ldg_time_cycle_get();
+    ret = ldg_time_monotonic_ns_get(&job->submit_time);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (job->deps_remaining == 0) { job->state = LDG_SCHED_JOB_STATE_READY; }
+    LDG_ST_RELEASE(job->state, LDG_SCHED_JOB_STATE_PENDING);
+
+    if (LDG_RD_ONCE(job->deps_remaining) == 0) { sched_job_ready_promote(job, LDG_SCHED_JOB_STATE_PENDING); }
 
     return LDG_ERR_AOK;
 }
@@ -291,8 +397,11 @@ LDG_EXPORT uint32_t ldg_sched_job_run(ldg_sched_job_pool_t *pool, ldg_sched_job_
     ldg_sched_job_res_t res = LDG_SCHED_JOB_RES_DONE;
     uint32_t idx = 0;
     uint32_t ret = 0;
+    uint8_t prev = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !out_res)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !out_res)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out_res = LDG_SCHED_JOB_RES_DONE;
 
@@ -301,14 +410,25 @@ LDG_EXPORT uint32_t ldg_sched_job_run(ldg_sched_job_pool_t *pool, ldg_sched_job_
     idx = id - 1;
     job = &pool->jobs[idx];
 
-    if (LDG_UNLIKELY(job->state != LDG_SCHED_JOB_STATE_READY && job->state != LDG_SCHED_JOB_STATE_YIELDED)) { return LDG_ERR_FUNC_ARG_INVALID; }
+    prev = LDG_SCHED_JOB_STATE_READY;
 
-    job->state = LDG_SCHED_JOB_STATE_RUNNING;
-    job->start_tsc = ldg_time_cycle_get();
+    if (!LDG_CAS(&job->state, &prev, (uint8_t)LDG_SCHED_JOB_STATE_RUNNING))
+    {
+        prev = LDG_SCHED_JOB_STATE_YIELDED;
+
+        if (!LDG_CAS(&job->state, &prev, (uint8_t)LDG_SCHED_JOB_STATE_RUNNING)) { return LDG_ERR_BUSY; }
+    }
+
+    ret = ldg_time_monotonic_ns_get(&job->start_time);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        LDG_ST_RELEASE(job->state, prev);
+        return ret;
+    }
 
     if (job->func) { res = job->func(job->id, job->arg, job->yield_ctx); }
 
-    job->end_tsc = ldg_time_cycle_get();
+    if (LDG_UNLIKELY(ldg_time_monotonic_ns_get(&job->end_time) != LDG_ERR_AOK || job->end_time < job->start_time)) { job->end_time = job->start_time; }
 
     if (res == LDG_SCHED_JOB_RES_YIELD)
     {
@@ -318,7 +438,7 @@ LDG_EXPORT uint32_t ldg_sched_job_run(ldg_sched_job_pool_t *pool, ldg_sched_job_
     }
 
     job->state = LDG_SCHED_JOB_STATE_DONE;
-    job->actual_duration = (double)(job->end_tsc - job->start_tsc);
+    job->actual_duration = job->end_time - job->start_time;
 
     ret = ldg_sched_job_dep_sig(pool, id);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -339,7 +459,9 @@ LDG_EXPORT uint32_t ldg_sched_job_yield_ctx_set(ldg_sched_job_pool_t *pool, ldg_
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -350,12 +472,14 @@ LDG_EXPORT uint32_t ldg_sched_job_yield_ctx_set(ldg_sched_job_pool_t *pool, ldg_
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_sched_job_est_duration_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double est)
+LDG_EXPORT uint32_t ldg_sched_job_est_duration_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t est)
 {
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -366,14 +490,16 @@ LDG_EXPORT uint32_t ldg_sched_job_est_duration_set(ldg_sched_job_pool_t *pool, l
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_sched_job_actual_duration_get(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double *out)
+LDG_EXPORT uint32_t ldg_sched_job_actual_duration_get(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t *out)
 {
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *out = 0.0;
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    *out = 0;
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -389,7 +515,9 @@ LDG_EXPORT uint32_t ldg_sched_job_class_set(ldg_sched_job_pool_t *pool, ldg_sche
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -405,7 +533,9 @@ LDG_EXPORT uint32_t ldg_sched_job_class_get(ldg_sched_job_pool_t *pool, ldg_sche
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out = 0;
 
@@ -418,12 +548,14 @@ LDG_EXPORT uint32_t ldg_sched_job_class_get(ldg_sched_job_pool_t *pool, ldg_sche
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_sched_job_deadline_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, double deadline)
+LDG_EXPORT uint32_t ldg_sched_job_deadline_set(ldg_sched_job_pool_t *pool, ldg_sched_job_id_t id, uint64_t deadline)
 {
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(id == LDG_SCHED_JOB_ID_INVALID || id > LDG_SCHED_JOB_MAX)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -434,44 +566,62 @@ LDG_EXPORT uint32_t ldg_sched_job_deadline_set(ldg_sched_job_pool_t *pool, ldg_s
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_sched_prio_deadline_cb(const ldg_sched_job_t *job, double *out)
+static uint32_t sched_job_rational_uint64_set(uint64_t val, ldg_math_rational_t *out)
+{
+    if (LDG_UNLIKELY(val > (uint64_t)INT64_MAX)) { return LDG_ERR_RANGE; }
+
+    return ldg_math_rational_set((int64_t)val, LDG_MATH_RATIONAL_WHOLE_DEN, out);
+}
+
+LDG_EXPORT uint32_t ldg_sched_prio_deadline_cb(const ldg_sched_job_t *job, ldg_math_rational_t *out)
+{
+    uint64_t deadline = 0;
+
+    if (LDG_UNLIKELY(!job || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    deadline = job->deadline;
+    if (deadline == LDG_SCHED_DURATION_NONE || deadline > LDG_SCHED_PRIO_DEADLINE_NONE) { deadline = LDG_SCHED_PRIO_DEADLINE_NONE; }
+
+    return sched_job_rational_uint64_set(deadline, out);
+}
+
+LDG_EXPORT uint32_t ldg_sched_prio_fastest_cb(const ldg_sched_job_t *job, ldg_math_rational_t *out)
 {
     if (LDG_UNLIKELY(!job || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *out = (job->deadline > 0.0) ? job->deadline : LDG_SCHED_PRIO_DEADLINE_NONE;
-
-    return LDG_ERR_AOK;
+    return sched_job_rational_uint64_set(job->est_duration, out);
 }
 
-LDG_EXPORT uint32_t ldg_sched_prio_fastest_cb(const ldg_sched_job_t *job, double *out)
+LDG_EXPORT uint32_t ldg_sched_job_plot_weight_set(ldg_sched_job_pool_t *pool, const ldg_math_rational_t *weight_crit, const ldg_math_rational_t *weight_remaining, const ldg_math_rational_t *weight_deadline)
 {
-    if (LDG_UNLIKELY(!job || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+    uint32_t ret = 0;
 
-    *out = job->est_duration;
+    if (LDG_UNLIKELY(!pool || !weight_crit || !weight_remaining || !weight_deadline)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return LDG_ERR_AOK;
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(weight_crit->num < 0 || weight_remaining->num < 0 || weight_deadline->num < 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(weight_crit->den == 0 || weight_remaining->den == 0 || weight_deadline->den == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    ret = ldg_math_rational_set(weight_crit->num, weight_crit->den, &pool->plot_weight_crit);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_math_rational_set(weight_remaining->num, weight_remaining->den, &pool->plot_weight_remaining);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_math_rational_set(weight_deadline->num, weight_deadline->den, &pool->plot_weight_deadline);
 }
 
-LDG_EXPORT uint32_t ldg_sched_job_plot_weight_set(ldg_sched_job_pool_t *pool, double weight_crit, double weight_remaining, double weight_deadline)
+LDG_EXPORT uint32_t ldg_sched_job_frame_deadline_set(ldg_sched_job_pool_t *pool, const ldg_math_rational_t *deadline)
 {
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !deadline)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    pool->plot_weight_crit = weight_crit;
-    pool->plot_weight_remaining = weight_remaining;
-    pool->plot_weight_deadline = weight_deadline;
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    return LDG_ERR_AOK;
-}
+    if (LDG_UNLIKELY(deadline->num <= 0 || deadline->den == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-LDG_EXPORT uint32_t ldg_sched_job_frame_deadline_set(ldg_sched_job_pool_t *pool, double deadline)
-{
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
-
-    if (LDG_UNLIKELY(!(deadline > 0.0))) { return LDG_ERR_FUNC_ARG_INVALID; }
-
-    pool->frame_deadline = deadline;
-
-    return LDG_ERR_AOK;
+    return ldg_math_rational_set(deadline->num, deadline->den, &pool->frame_deadline);
 }
 
 static uint32_t sched_job_crit_fill(ldg_sched_job_pool_t *pool)
@@ -481,12 +631,12 @@ static uint32_t sched_job_crit_fill(ldg_sched_job_pool_t *pool)
     uint64_t visits = 0;
     uint32_t root = 0;
     uint32_t sp = 0;
-    uint32_t cur = 0;
+    uint32_t curr = 0;
     uint32_t dep_idx = 0;
 
     for (root = 0; root < LDG_SCHED_JOB_MAX; root++)
     {
-        pool->plot_crit[root] = 0.0;
+        pool->plot_crit[root] = LDG_SCHED_DURATION_NONE;
         pool->plot_crit_state[root] = LDG_SCHED_PLOT_CRIT_UNVISITED;
         pool->plot_crit_cursor[root] = 0;
     }
@@ -504,27 +654,27 @@ static uint32_t sched_job_crit_fill(ldg_sched_job_pool_t *pool)
             visits++;
             if (LDG_UNLIKELY(visits > LDG_SCHED_PLOT_VISIT_MAX)) { return LDG_ERR_MEM_CORRUPTION; }
 
-            cur = pool->plot_stack[sp - LDG_SCHED_STEP];
-            job = &pool->jobs[cur];
+            curr = pool->plot_stack[sp - LDG_SCHED_STEP];
+            job = &pool->jobs[curr];
 
             if (job->state == LDG_SCHED_JOB_STATE_FREE || job->state == LDG_SCHED_JOB_STATE_DONE)
             {
-                pool->plot_crit[cur] = 0.0;
-                pool->plot_crit_state[cur] = LDG_SCHED_PLOT_CRIT_SETTLED;
+                pool->plot_crit[curr] = LDG_SCHED_DURATION_NONE;
+                pool->plot_crit_state[curr] = LDG_SCHED_PLOT_CRIT_SETTLED;
                 sp--;
                 continue;
             }
 
-            if (pool->plot_crit_cursor[cur] >= job->dep_cunt)
+            if (pool->plot_crit_cursor[curr] >= job->dep_cunt)
             {
-                pool->plot_crit[cur] += job->est_duration;
-                pool->plot_crit_state[cur] = LDG_SCHED_PLOT_CRIT_SETTLED;
+                pool->plot_crit[curr] += job->est_duration;
+                pool->plot_crit_state[curr] = LDG_SCHED_PLOT_CRIT_SETTLED;
                 sp--;
                 continue;
             }
 
-            dep_id = job->deps[pool->plot_crit_cursor[cur]];
-            pool->plot_crit_cursor[cur]++;
+            dep_id = job->deps[pool->plot_crit_cursor[curr]];
+            pool->plot_crit_cursor[curr]++;
 
             if (dep_id == LDG_SCHED_JOB_ID_INVALID || dep_id > LDG_SCHED_JOB_MAX) { continue; }
 
@@ -532,7 +682,7 @@ static uint32_t sched_job_crit_fill(ldg_sched_job_pool_t *pool)
 
             if (pool->plot_crit_state[dep_idx] == LDG_SCHED_PLOT_CRIT_SETTLED)
             {
-                if (pool->plot_crit[dep_idx] > pool->plot_crit[cur]) { pool->plot_crit[cur] = pool->plot_crit[dep_idx]; }
+                if (pool->plot_crit[dep_idx] > pool->plot_crit[curr]) { pool->plot_crit[curr] = pool->plot_crit[dep_idx]; }
 
                 continue;
             }
@@ -550,9 +700,9 @@ static uint32_t sched_job_crit_fill(ldg_sched_job_pool_t *pool)
     return LDG_ERR_AOK;
 }
 
-static double sched_job_total_remaining_get(const ldg_sched_job_pool_t *pool)
+static uint64_t sched_job_total_remaining_get(const ldg_sched_job_pool_t *pool)
 {
-    double total = 0.0;
+    uint64_t total = 0;
     uint32_t idx = 0;
 
     for (idx = 0; idx < LDG_SCHED_JOB_MAX; idx++) { if (pool->jobs[idx].state == LDG_SCHED_JOB_STATE_READY || pool->jobs[idx].state == LDG_SCHED_JOB_STATE_PENDING) { total += pool->jobs[idx].est_duration; } }
@@ -560,52 +710,78 @@ static double sched_job_total_remaining_get(const ldg_sched_job_pool_t *pool)
     return total;
 }
 
-static double sched_job_plot_heur(uint64_t node, uint64_t goal, void *user_ctx)
+static uint32_t sched_job_plot_heur(uint64_t node, uint64_t goal, void *user_ctx, ldg_math_rational_t *out)
 {
     ldg_sched_job_pool_t *pool = 0x0;
     const ldg_sched_job_t *job = 0x0;
-    double crit_path = 0.0;
-    double total_remaining = 0.0;
-    double deadline_dist = 0.0;
-    double prio_term = 0.0;
-    double res = 0.0;
-    uint32_t cb_ret = 0;
+    ldg_math_rational_t term = LDG_STRUCT_ZERO_INIT;
+    ldg_math_rational_t deadline_bias = LDG_STRUCT_ZERO_INIT;
+    ldg_math_rational_t deadline_dist = LDG_STRUCT_ZERO_INIT;
+    ldg_math_rational_t deadline_val = LDG_STRUCT_ZERO_INIT;
+    ldg_math_rational_t res = LDG_STRUCT_ZERO_INIT;
+    uint64_t remaining = 0;
+    uint32_t ret = 0;
 
     pool = (ldg_sched_job_pool_t *)user_ctx;
 
-    if (node == goal || node >= LDG_SCHED_JOB_MAX) { return res; }
+    if (node == goal || node >= LDG_SCHED_JOB_MAX) { return ldg_math_rational_set(LDG_SCHED_DURATION_NONE, LDG_MATH_RATIONAL_WHOLE_DEN, out); }
 
     job = &pool->jobs[node];
 
     if (pool->prio_cb)
     {
-        cb_ret = pool->prio_cb(job, &res);
-        if (cb_ret == LDG_ERR_AOK) { return res; }
+        ret = pool->prio_cb(job, out);
+        if (ret == LDG_ERR_AOK) { return LDG_ERR_AOK; }
     }
 
-    crit_path = pool->plot_crit[node];
-    total_remaining = pool->plot_total_remaining;
+    ret = ldg_math_rational_uint64_mul(&pool->plot_weight_crit, pool->plot_crit[node], &res);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    deadline_dist = pool->frame_deadline;
-    if (deadline_dist < 0.0) { deadline_dist = __builtin_fabs(deadline_dist) * 2.0; }
+    remaining = LDG_SCHED_DURATION_NONE;
+    if (pool->plot_total_remaining > job->est_duration) { remaining = pool->plot_total_remaining - job->est_duration; }
 
-    prio_term = (double)(LDG_SCHED_PRIO_LEVELS - job->prio);
+    ret = ldg_math_rational_uint64_mul(&pool->plot_weight_remaining, remaining, &term);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    res = pool->plot_weight_crit * crit_path
-        + pool->plot_weight_remaining * total_remaining
-        + pool->plot_weight_deadline * (1.0 / (1.0 + deadline_dist))
-        - prio_term;
+    ret = ldg_math_rational_add(&res, &term, &res);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    return res;
+    ret = ldg_math_rational_set(LDG_SCHED_PLOT_DEADLINE_BIAS, LDG_MATH_RATIONAL_WHOLE_DEN, &deadline_bias);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_math_rational_add(&deadline_bias, &pool->frame_deadline, &deadline_dist);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    deadline_val = pool->frame_deadline;
+    if (job->deadline != LDG_SCHED_DURATION_NONE)
+    {
+        ret = sched_job_rational_uint64_set(job->deadline, &deadline_val);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
+
+    ret = ldg_math_rational_mul(&pool->plot_weight_deadline, &deadline_val, &term);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_math_rational_div(&term, &deadline_dist, &term);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_math_rational_add(&res, &term, &res);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_math_rational_set((int64_t)(LDG_SCHED_PRIO_LEVELS - job->prio), LDG_MATH_RATIONAL_WHOLE_DEN, &term);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_math_rational_sub(&res, &term, out);
 }
 
-static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, double *cost, uint64_t max_nbr, uint64_t *nbr_cunt, void *user_ctx)
+static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, ldg_math_rational_t *cost, uint64_t max_nbr, uint64_t *nbr_cunt, void *user_ctx)
 {
     ldg_sched_job_pool_t *pool = 0x0;
     ldg_sched_job_t *cand = 0x0;
-    double edge_cost = 0.0;
+    ldg_math_rational_t edge_cost = LDG_STRUCT_ZERO_INIT;
+    uint32_t ret = 0;
     uint64_t out_cunt = 0;
-    ldg_sched_job_id_t cur_id = 0;
+    ldg_sched_job_id_t curr_id = 0;
     ldg_sched_job_id_t dep_id = 0;
     uint32_t idx = 0;
     uint32_t dep_idx = 0;
@@ -623,7 +799,9 @@ static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, double *cost, 
                 if (out_cunt >= max_nbr) { return LDG_ERR_BOUNDS; }
 
                 nbr[out_cunt] = (uint64_t)idx;
-                cost[out_cunt] = 0.0;
+                ret = ldg_math_rational_set(LDG_SCHED_DURATION_NONE, LDG_MATH_RATIONAL_WHOLE_DEN, &cost[out_cunt]);
+                if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
                 out_cunt++;
             }
         }
@@ -635,8 +813,9 @@ static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, double *cost, 
 
     if (node > LDG_SCHED_JOB_MAX) { return LDG_ERR_AOK; }
 
-    cur_id = (ldg_sched_job_id_t)(node + LDG_SCHED_JOB_ID_BASE);
-    edge_cost = pool->jobs[node].est_duration;
+    curr_id = (ldg_sched_job_id_t)(node + LDG_SCHED_JOB_ID_BASE);
+    ret = sched_job_rational_uint64_set(pool->jobs[node].est_duration, &edge_cost);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     for (idx = 0; idx < LDG_SCHED_JOB_MAX; idx++)
     {
@@ -645,7 +824,7 @@ static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, double *cost, 
         if (cand->state != LDG_SCHED_JOB_STATE_PENDING) { continue; }
 
         depends = LDG_TRUTH_FALSE;
-        for (dep_idx = 0; dep_idx < cand->dep_cunt; dep_idx++) { if (cand->deps[dep_idx] == cur_id)
+        for (dep_idx = 0; dep_idx < cand->dep_cunt; dep_idx++) { if (cand->deps[dep_idx] == curr_id)
             {
                 depends = LDG_TRUTH_TRUE;
                 break;
@@ -659,9 +838,9 @@ static uint32_t sched_job_plot_succ(uint64_t node, uint64_t *nbr, double *cost, 
         {
             dep_id = cand->deps[dep_idx];
 
-            if (dep_id == LDG_SCHED_JOB_ID_INVALID || dep_id > LDG_SCHED_JOB_MAX || dep_id == cur_id) { continue; }
+            if (dep_id == LDG_SCHED_JOB_ID_INVALID || dep_id > LDG_SCHED_JOB_MAX || dep_id == curr_id) { continue; }
 
-            if (pool->jobs[dep_id - LDG_SCHED_JOB_ID_BASE].state == LDG_SCHED_JOB_STATE_PENDING)
+            if (pool->jobs[dep_id - LDG_SCHED_JOB_ID_BASE].state == LDG_SCHED_JOB_STATE_PENDING || pool->jobs[dep_id - LDG_SCHED_JOB_ID_BASE].state == LDG_SCHED_JOB_STATE_CREATED)
             {
                 dep_pending = LDG_TRUTH_TRUE;
                 break;
@@ -688,10 +867,12 @@ LDG_EXPORT uint32_t ldg_sched_job_plot(ldg_sched_job_pool_t *pool, ldg_math_asta
     uint64_t order_idx = 0;
     uint64_t copy_cunt = 0;
     uint64_t node = 0;
-    double total_cost = 0.0;
+    ldg_math_rational_t total_cost = LDG_STRUCT_ZERO_INIT;
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !astar || !out_order || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !astar || !out_order || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out_cunt = 0;
 
@@ -740,7 +921,9 @@ LDG_EXPORT uint32_t ldg_sched_job_replot(ldg_sched_job_pool_t *pool, ldg_math_as
     ldg_sched_job_t *job = 0x0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !astar || !out_order || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !astar || !out_order || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out_cunt = 0;
 
@@ -953,7 +1136,9 @@ LDG_EXPORT uint32_t ldg_sched_job_ready_collect(ldg_sched_job_pool_t *pool, ldg_
     uint64_t cunt = 0;
     uint32_t idx = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     *out_cunt = 0;
 

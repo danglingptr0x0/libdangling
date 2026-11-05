@@ -92,3 +92,45 @@ uint32_t ldg_io_console_byte_rd(uint8_t *out)
 
     return LDG_ERR_AOK;
 }
+
+uint32_t ldg_io_console_rd(uint8_t *dst, uint64_t cap, uint64_t *out_len)
+{
+    struct pollfd watch = LDG_STRUCT_ZERO_INIT;
+    int64_t got = 0;
+    int32_t ready = 0;
+
+    if (LDG_UNLIKELY(!dst || !out_len)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_len = 0;
+
+    if (cap == 0) { return LDG_ERR_AOK; }
+
+    watch.fd = LDG_IO_CONSOLE_IN_FD;
+    watch.events = POLLIN;
+
+    ready = (int32_t)poll(&watch, LDG_IO_CONSOLE_WATCH_CUNT, LDG_IO_CONSOLE_POLL_NO_WAIT);
+
+    if (ready < 0)
+    {
+        if (errno == EINTR) { return LDG_ERR_AOK; }
+
+        return LDG_ERR_IO_RD;
+    }
+
+    if (ready == 0) { return LDG_ERR_AOK; }
+
+    got = (int64_t)read(LDG_IO_CONSOLE_IN_FD, dst, cap);
+
+    if (got < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) { return LDG_ERR_AOK; }
+
+        return LDG_ERR_IO_RD;
+    }
+
+    if (got == 0) { return LDG_ERR_EOF; }
+
+    *out_len = (uint64_t)got;
+
+    return LDG_ERR_AOK;
+}

@@ -69,6 +69,7 @@ LDG_EXPORT uint32_t ldg_sched_trace_shutdown(ldg_sched_trace_ring_t *ring)
     }
 
     ring->hd = 0;
+    ring->tl = 0;
     ring->cap = 0;
 
     return LDG_ERR_AOK;
@@ -118,17 +119,11 @@ LDG_EXPORT uint32_t ldg_sched_trace_pop(ldg_sched_trace_ring_t *ring, ldg_sched_
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     hd = ring->hd;
+    tail = ring->tl;
 
-    if (hd >= ring->cap)
-    {
-        cunt = ring->cap;
-        tail = hd - ring->cap;
-    }
-    else
-    {
-        cunt = hd;
-        tail = 0;
-    }
+    if (hd - tail > ring->cap) { tail = hd - ring->cap; }
+
+    cunt = hd - tail;
 
     if (cunt == 0)
     {
@@ -143,6 +138,8 @@ LDG_EXPORT uint32_t ldg_sched_trace_pop(ldg_sched_trace_ring_t *ring, ldg_sched_
     entry->data0 = ring->entries[idx].data0;
     entry->data1 = ring->entries[idx].data1;
 
+    ring->tl = tail + LDG_SCHED_TRACE_STEP;
+
     LDG_ST_RELEASE(ring->lock, LDG_SCHED_TRACE_LOCK_FREE);
 
     return LDG_ERR_AOK;
@@ -151,14 +148,16 @@ LDG_EXPORT uint32_t ldg_sched_trace_pop(ldg_sched_trace_ring_t *ring, ldg_sched_
 LDG_EXPORT uint64_t ldg_sched_trace_cunt_get(ldg_sched_trace_ring_t *ring)
 {
     uint64_t hd = 0;
+    uint64_t tail = 0;
 
     if (LDG_UNLIKELY(!ring || ring->is_init != LDG_TRUTH_TRUE)) { return UINT64_MAX; }
 
     hd = LDG_RD_ONCE(ring->hd);
+    tail = LDG_RD_ONCE(ring->tl);
 
-    if (hd >= ring->cap) { return ring->cap; }
+    if (hd - tail > ring->cap) { return ring->cap; }
 
-    return hd;
+    return hd - tail;
 }
 
 LDG_EXPORT uint32_t ldg_sched_trace_clear(ldg_sched_trace_ring_t *ring)
@@ -173,6 +172,7 @@ LDG_EXPORT uint32_t ldg_sched_trace_clear(ldg_sched_trace_ring_t *ring)
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     ring->hd = 0;
+    ring->tl = 0;
 
     LDG_ST_RELEASE(ring->lock, LDG_SCHED_TRACE_LOCK_FREE);
 

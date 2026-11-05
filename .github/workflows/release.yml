@@ -1,0 +1,94 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: read
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+  build:
+    needs: draft
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [linux, windows]
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: packages
+        run: pacman -Syu --noconfirm --needed git github-cli cmake nasm pkgconf curl pipewire unzip xz mingw-w64-gcc
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: dangcsa toolchain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/dangcsa /opt/dangcsa
+          gh release download --repo danglingptr0x0/llvm-project-dangcsa_dangxa --pattern 'llvm-*-linux-amd64.tar.xz' --dir /tmp/dangcsa
+          for archive in /tmp/dangcsa/llvm-*-linux-amd64.tar.xz; do gh attestation verify "$archive" --repo danglingptr0x0/llvm-project-dangcsa_dangxa; tar -xJf "$archive" -C /opt/dangcsa; done
+          /opt/dangcsa/linux/bin/clang --version
+      - name: windows sdk winrt headers
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_ver=10.0.26100.7705
+          sdk_sha512=0349cfbf6964b18c3b5e81168f90021da02c37486cd3f96d0d15a41a1d61155ec5e6393cc0dd866d029fb942e0a1ea05697e884f5d8188cc3cabd926099ac467
+          curl -fsSL -o /tmp/sdk.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.cpp/${sdk_ver}/microsoft.windows.sdk.cpp.${sdk_ver}.nupkg"
+          sdk_actual="$(sha512sum /tmp/sdk.nupkg)"
+          [ "${sdk_actual%% *}" = "$sdk_sha512" ]
+          mkdir -p /opt/sdk
+          unzip -q /tmp/sdk.nupkg '*/winrt/*' -d /opt/sdk
+          winrt_dir="$(dirname "$(find /opt/sdk -name windows.media.control.h | head -n 1)")"
+          ln -s "$winrt_dir" /opt/winrt
+          cd /opt/winrt
+          declare -A lower_map
+          for hdr in *.h; do lower_map["${hdr,,}"]="$hdr"; done
+          grep -ohE '#include *["<][^">]+\.h[">]' -- *.h | sed -E 's/#include *["<]([^">]+)[">]/\1/' | sort -u | while read -r inc; do
+            if [ -e "$inc" ] || [[ "$inc" == */* ]]; then continue; fi
+            tgt="${lower_map[${inc,,}]:-}"
+            if [ -n "$tgt" ]; then ln -s "$tgt" "$inc"; fi
+          done
+      - name: configure linux
+        if: matrix.platform == 'linux'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/opt/dangcsa/linux/bin/clang -DLDG_WITH_GPU=OFF
+      - name: configure windows
+        if: matrix.platform == 'windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_C_COMPILER=/opt/dangcsa/linux/bin/clang -DCMAKE_C_COMPILER_TARGET=x86_64-w64-mingw32 -DCMAKE_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_NM=/usr/bin/x86_64-w64-mingw32-nm -DLDG_WINRT_INCLUDE_DIR=/opt/winrt -DLDG_WITH_GPU=OFF
+      - name: build
+        run: cmake --build build -j "$(nproc)"
+      - name: package
+        run: |
+          cmake --install build --prefix "$GITHUB_WORKSPACE/stage"
+          tar -cJf "libdangling-${GITHUB_REF_NAME}-${{ matrix.platform }}-amd64.tar.xz" -C "$GITHUB_WORKSPACE/stage" .
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: libdangling-${{ github.ref_name }}-${{ matrix.platform }}-amd64.tar.xz
+      - name: upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "libdangling-${GITHUB_REF_NAME}-${{ matrix.platform }}-amd64.tar.xz" --repo "$GITHUB_REPOSITORY"
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

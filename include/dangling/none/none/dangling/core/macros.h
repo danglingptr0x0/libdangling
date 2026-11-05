@@ -44,8 +44,7 @@
 #define LDG_ARR_ZERO_INIT { 0 }
 
 #define LDG_AMD64_CACHE_LINE_WIDTH 64
-#define LDG_MISC_CACHE_LINE_WIDTH 32
-#define LDG_NOINLINE __attribute__((noinline))
+#define LDG_DANGCSA_CACHE_LINE_WIDTH 64
 #define LDG_ALIGNED __attribute__((aligned(LDG_AMD64_CACHE_LINE_WIDTH)))
 #define LDG_PACKED __attribute__((packed))
 #define LDG_ALIGNED_UP(x) (((uint64_t)(x) + (LDG_AMD64_CACHE_LINE_WIDTH - 1)) & ~(uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1))

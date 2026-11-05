@@ -23,8 +23,15 @@ typedef struct ldg_ecs_sched
     ldg_ecs_sys_job_t *job;
     ldg_sched_job_id_t *job_id;
     uint32_t job_cap;
-    uint8_t pudding[4];
+    uint8_t pudding[44];
 } ldg_ecs_sched_t;
+
+static uint32_t ecs_first_fault_keep(uint32_t kept, uint32_t code)
+{
+    if (kept != LDG_ERR_AOK) { return kept; }
+
+    return code;
+}
 
 static uint8_t ecs_sys_conflict_is(const ldg_ecs_sys_desc_t *later, const ldg_ecs_sys_desc_t *earlier)
 {
@@ -118,7 +125,7 @@ uint32_t ldg_ecs_sched_init(ldg_ecs_ctx_t *ctx)
     }
 
     sched_conf.worker_cunt = ctx->conf.worker_cunt;
-    sched_conf.enable_tracing = LDG_TRUTH_FALSE;
+    sched_conf.tracing_en = LDG_TRUTH_FALSE;
 
     ret = ldg_sched_ctx_init(&backend->sched_ctx, &sched_conf);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
@@ -194,7 +201,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
             }
         }
 
-        for (idx = 1; idx < sys_cunt; idx++) { for (prior_idx = 0; prior_idx < idx; prior_idx++) { if (ecs_sys_conflict_is(&ctx->sys[idx], &ctx->sys[prior_idx]) == LDG_TRUTH_TRUE) { if (LDG_UNLIKELY(ldg_sched_ctx_job_dep_add(sched, backend->job_id[idx], backend->job_id[prior_idx]) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_FULL; } } } }
+        for (idx = 1; idx < sys_cunt; idx++) { for (prior_idx = 0; prior_idx < idx; prior_idx++) { if (ecs_sys_conflict_is(&ctx->sys[idx], &ctx->sys[prior_idx]) == LDG_TRUTH_TRUE) { ret = ecs_first_fault_keep(ret, ldg_sched_ctx_job_dep_add(sched, backend->job_id[idx], backend->job_id[prior_idx])); } } }
 
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
@@ -203,9 +210,9 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
             return ret;
         }
 
-        for (idx = 0; idx < sys_cunt; idx++) { if (LDG_UNLIKELY(ldg_sched_ctx_job_submit(sched, backend->job_id[idx]) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; } }
+        for (idx = 0; idx < sys_cunt; idx++) { ret = ecs_first_fault_keep(ret, ldg_sched_ctx_job_submit(sched, backend->job_id[idx])); }
 
-        if (LDG_UNLIKELY(ldg_sched_ctx_drain(sched) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_TIMEOUT; }
+        ret = ecs_first_fault_keep(ret, ldg_sched_ctx_drain(sched));
 
         for (idx = 0; idx < sys_cunt; idx++)
         {
@@ -215,9 +222,9 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
         }
     }
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_worker_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_worker_cmd_flush(ctx));
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_cmd_flush(ctx));
 
     return ret;
 }

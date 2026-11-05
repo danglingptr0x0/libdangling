@@ -30,7 +30,9 @@ uint32_t ldg_time_ns_delay(uint64_t duration)
 
     while (nanosleep(&span, &rest) != 0)
     {
-        if (errno != EINTR) { return LDG_ERR_INTERRUPTED; }
+        if (errno == EINVAL) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+        if (errno != EINTR) { return LDG_ERR_INVALID; }
 
         span = rest;
     }
@@ -56,15 +58,32 @@ uint64_t ldg_time_epoch_ns_get(void)
     return ((uint64_t)ts.tv_sec * LDG_NS_PER_SEC + (uint64_t)ts.tv_nsec);
 }
 
-uint32_t ldg_time_monotonic_get(double *out)
+uint32_t ldg_time_monotonic_get(uint64_t *out)
 {
-    struct timespec ts = { 0 };
+    struct timespec ts = LDG_STRUCT_ZERO_INIT;
 
     if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
+    *out = 0;
+
     if (LDG_UNLIKELY(clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0)) { return LDG_ERR_TIME_NOT_CALIBRATED; }
 
-    *out = (double)ts.tv_sec + (double)ts.tv_nsec / (double)LDG_NS_PER_SEC;
+    *out = ((uint64_t)ts.tv_sec * LDG_MS_PER_SEC) + ((uint64_t)ts.tv_nsec / LDG_NS_PER_MS);
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_time_monotonic_ns_get(uint64_t *out)
+{
+    struct timespec ts = LDG_STRUCT_ZERO_INIT;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0;
+
+    if (LDG_UNLIKELY(clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0)) { return LDG_ERR_TIME_NOT_CALIBRATED; }
+
+    *out = ((uint64_t)ts.tv_sec * LDG_NS_PER_SEC) + (uint64_t)ts.tv_nsec;
 
     return LDG_ERR_AOK;
 }

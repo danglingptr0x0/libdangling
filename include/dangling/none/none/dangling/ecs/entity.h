@@ -9,6 +9,7 @@
 #define LDG_ECS_ENTITY_IDX_RESERVED 0
 #define LDG_ECS_ENTITY_CAP_DEFAULT 1024
 #define LDG_ECS_DENSE_NULL 0xFFFFFFFFU
+#define LDG_ECS_ENTITY_CATEGORY_NONE 0
 
 typedef struct ldg_ecs_entity_slot
 {

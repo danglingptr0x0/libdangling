@@ -6,7 +6,7 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
 
-uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
+uint32_t ldg_net_gql_ctx_create(ldg_net_gql_ctx_t *ctx, const char *endpoint_url)
 {
     uint64_t url_len = 0;
     uint32_t ret = 0;
@@ -14,7 +14,7 @@ uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
 
     if (LDG_UNLIKELY(!ctx || !endpoint_url)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_gql_ctx_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_net_gql_ctx_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     url_len = (uint64_t)strlen(endpoint_url) + LDG_STR_TERM_SIZE;
 
@@ -31,7 +31,7 @@ uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
         return ret;
     }
 
-    ret = ldg_curl_easy_ctx_create(&ctx->curl_ctx);
+    ret = ldg_net_curl_easy_ctx_create(&ctx->curl_ctx);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mem_dealloc(ctx->endpoint_url);
@@ -42,40 +42,40 @@ uint32_t ldg_gql_ctx_create(ldg_gql_ctx_t *ctx, const char *endpoint_url)
     return LDG_ERR_AOK;
 }
 
-void ldg_gql_ctx_destroy(ldg_gql_ctx_t *ctx)
+void ldg_net_gql_ctx_destroy(ldg_net_gql_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx)) { return; }
 
-    ldg_curl_easy_ctx_destroy(&ctx->curl_ctx);
+    ldg_net_curl_easy_ctx_destroy(&ctx->curl_ctx);
 
     if (ctx->endpoint_url) { ldg_mem_dealloc(ctx->endpoint_url); }
 
-    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_gql_ctx_t)) != LDG_ERR_AOK)) { return; }
+    if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_net_gql_ctx_t)) != LDG_ERR_AOK)) { return; }
 }
 
-uint32_t ldg_gql_exec(ldg_gql_ctx_t *ctx, const char *body, void *hdrs, ldg_curl_resp_t *resp)
+uint32_t ldg_net_gql_exec(ldg_net_gql_ctx_t *ctx, const char *body, void *hdrs, ldg_net_curl_resp_t *resp)
 {
     uint32_t ret = 0;
     void *gql_hdrs = 0x0;
 
     if (LDG_UNLIKELY(!ctx || !body || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = ldg_curl_hdr_append(&gql_hdrs, "Content-Type: application/json");
+    ret = ldg_net_curl_hdr_append(&gql_hdrs, "Content-Type: application/json");
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (hdrs)
     {
-        ret = ldg_curl_hdr_cpy(hdrs, &gql_hdrs);
+        ret = ldg_net_curl_hdr_cpy(hdrs, &gql_hdrs);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
-            ldg_curl_hdr_destroy(&gql_hdrs);
+            ldg_net_curl_hdr_destroy(&gql_hdrs);
             return ret;
         }
     }
 
-    ret = ldg_curl_easy_post(&ctx->curl_ctx, ctx->endpoint_url, body, gql_hdrs, resp);
+    ret = ldg_net_curl_easy_post(&ctx->curl_ctx, ctx->endpoint_url, body, gql_hdrs, resp);
 
-    ldg_curl_hdr_destroy(&gql_hdrs);
+    ldg_net_curl_hdr_destroy(&gql_hdrs);
 
     return ret;
 }

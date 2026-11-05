@@ -32,17 +32,27 @@ typedef enum ldg_thread_pool_affinity
     LDG_THREAD_POOL_AFFINITY_MASK
 } ldg_thread_pool_affinity_t;
 
+typedef enum ldg_thread_pool_priority
+{
+    LDG_THREAD_POOL_PRIORITY_NONE = 0,
+    LDG_THREAD_POOL_PRIORITY_IDLE,
+    LDG_THREAD_POOL_PRIORITY_LOW,
+    LDG_THREAD_POOL_PRIORITY_NORMAL,
+    LDG_THREAD_POOL_PRIORITY_HIGH,
+    LDG_THREAD_POOL_PRIORITY_REALTIME
+} ldg_thread_pool_priority_t;
+
 typedef struct ldg_thread_pool_worker
 {
     uint64_t handle;
+    ldg_thread_pool_worker_func_t func;
+    void *func_arg;
+    void *pool;
     uint32_t id;
     uint32_t core_id;
     volatile uint8_t state;
     volatile uint8_t should_stop;
-    ldg_thread_pool_worker_func_t func;
-    void *func_arg;
-    void *pool;
-    uint8_t pudding[16];
+    uint8_t pudding[22];
 } LDG_ALIGNED ldg_thread_pool_worker_t;
 
 typedef struct ldg_thread_pool
@@ -52,9 +62,10 @@ typedef struct ldg_thread_pool
     uint64_t affinity_mask;
     uint32_t affinity;
     uint32_t worker_cunt;
+    uint32_t priority;
     volatile uint8_t is_running;
     uint8_t is_init;
-    uint8_t pudding[38];
+    uint8_t pudding[34];
 } LDG_ALIGNED ldg_thread_pool_t;
 
 LDG_EXPORT uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt);
@@ -64,5 +75,6 @@ LDG_EXPORT uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool);
 LDG_EXPORT uint64_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool);
 LDG_EXPORT uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg);
 LDG_EXPORT uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_affinity_t policy, uint64_t mask);
+LDG_EXPORT uint32_t ldg_thread_pool_priority_set(ldg_thread_pool_t *pool, ldg_thread_pool_priority_t lvl);
 
 #endif

@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #include <dangling/str/str.h>
 
@@ -40,6 +41,7 @@
 #define LDG_SYS_PROC_NICE_LOW_EDGE 5
 #define LDG_SYS_PROC_NICE_IDLE_EDGE 15
 #define LDG_SYS_PROC_MASK_SIZE 8
+#define LDG_SYS_PROC_WAIT_NAP_NS 1000000
 
 #include <dangling/sys/proc.h>
 #include <dangling/mem/secure.h>
@@ -98,7 +100,15 @@ static uint32_t proc_pipe_rd(int32_t fd, ldg_byte_t *buff, uint64_t cap, uint64_
     return LDG_ERR_IO_RD;
 }
 
-static uint32_t proc_reap(ldg_sys_proc_t *proc)
+static void proc_status_record(ldg_sys_proc_t *proc, int32_t status)
+{
+    proc->alive = LDG_TRUTH_FALSE;
+
+    if (WIFEXITED(status)) { proc->exit_code = (uint32_t)WEXITSTATUS(status); }
+    else if (WIFSIGNALED(status)) { proc->exit_code = LDG_SYS_PROC_SIG_SHIFT + (uint32_t)WTERMSIG(status); }
+}
+
+static uint32_t proc_exit_poll(ldg_sys_proc_t *proc)
 {
     int32_t status = 0;
     int32_t res = 0;
@@ -116,10 +126,90 @@ static uint32_t proc_reap(ldg_sys_proc_t *proc)
         return LDG_ERR_AOK;
     }
 
-    proc->alive = LDG_TRUTH_FALSE;
+    proc_status_record(proc, status);
 
-    if (WIFEXITED(status)) { proc->exit_code = (uint32_t)WEXITSTATUS(status); }
-    else if (WIFSIGNALED(status)) { proc->exit_code = LDG_SYS_PROC_SIG_SHIFT + (uint32_t)WTERMSIG(status); }
+    return LDG_ERR_AOK;
+}
+
+static uint32_t proc_exit_blk_wait(ldg_sys_proc_t *proc)
+{
+    int32_t status = 0;
+    int32_t res = 0;
+
+    if (proc->alive != LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+    res = (int32_t)waitpid((int32_t)proc->pid, &status, LDG_SYS_PROC_NO_FLAG);
+    if (LDG_UNLIKELY(res == LDG_SYS_PROC_SYSCALL_FAIL))
+    {
+        if (errno == EINTR) { return LDG_ERR_INTERRUPTED; }
+
+        proc->alive = LDG_TRUTH_FALSE;
+        return LDG_ERR_NOT_FOUND;
+    }
+
+    proc_status_record(proc, status);
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t proc_monotonic_ms_get(uint64_t *out)
+{
+    struct timespec now = LDG_STRUCT_ZERO_INIT;
+
+    if (LDG_UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) != 0)) { return LDG_ERR_INVALID; }
+
+    *out = (uint64_t)now.tv_sec * LDG_MS_PER_SEC + (uint64_t)now.tv_nsec / LDG_NS_PER_MS;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t proc_exit_timed_wait(ldg_sys_proc_t *proc, uint64_t timeout)
+{
+    struct timespec nap = LDG_STRUCT_ZERO_INIT;
+    uint64_t start_ms = 0;
+    uint64_t now_ms = 0;
+    uint32_t ret = 0;
+
+    nap.tv_nsec = LDG_SYS_PROC_WAIT_NAP_NS;
+
+    ret = proc_monotonic_ms_get(&start_ms);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    while (LDG_TRUTH_TRUE)
+    {
+        ret = proc_exit_poll(proc);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        if (proc->alive != LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+        ret = proc_monotonic_ms_get(&now_ms);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        if (now_ms - start_ms >= timeout) { return LDG_ERR_TIMEOUT; }
+
+        if (LDG_UNLIKELY(nanosleep(&nap, 0x0) != 0)) { return LDG_ERR_INTERRUPTED; }
+    }
+}
+
+static uint32_t proc_inherit_spawn(const char *path, const char *const *argv, const char *cwd, ldg_sys_proc_t *out)
+{
+    int32_t pid = 0;
+
+    pid = (int32_t)fork();
+    if (LDG_UNLIKELY(pid == LDG_SYS_PROC_SYSCALL_FAIL)) { return LDG_ERR_BUSY; }
+
+    if (pid == 0)
+    {
+        if (cwd != 0x0) { if (chdir(cwd) != 0) { _exit(LDG_SYS_PROC_EXEC_FAIL); } }
+
+        execv(path, (char *const *)argv);
+
+        _exit(LDG_SYS_PROC_EXEC_FAIL);
+    }
+
+    out->pid = (uint32_t)pid;
+    out->handle = (uint64_t)pid;
+    out->alive = LDG_TRUTH_TRUE;
 
     return LDG_ERR_AOK;
 }
@@ -130,7 +220,7 @@ static void proc_pipe_pair_close(int32_t *pair)
     close(pair[LDG_SYS_PROC_PIPE_WR]);
 }
 
-uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const char *cwd, ldg_sys_proc_t *out)
+uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const char *cwd, uint32_t flags, ldg_sys_proc_t *out)
 {
     int32_t pipe_in[LDG_SYS_PROC_PIPE_CUNT] = LDG_ARR_ZERO_INIT;
     int32_t pipe_out[LDG_SYS_PROC_PIPE_CUNT] = LDG_ARR_ZERO_INIT;
@@ -148,6 +238,10 @@ uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const cha
     out->pipe_out = LDG_SYS_PROC_HANDLE_NONE;
     out->pipe_err = LDG_SYS_PROC_HANDLE_NONE;
     out->exit_code = UINT32_MAX;
+
+    if (LDG_UNLIKELY((flags & ~LDG_SYS_PROC_SPAWN_STDIO_INHERIT) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if ((flags & LDG_SYS_PROC_SPAWN_STDIO_INHERIT) != 0) { return proc_inherit_spawn(path, argv, cwd, out); }
 
     if (LDG_UNLIKELY(pipe(pipe_in) != 0)) { return LDG_ERR_IO_OPEN; }
 
@@ -297,10 +391,30 @@ uint32_t ldg_sys_proc_exit_code_get(ldg_sys_proc_t *proc, uint32_t *out_code)
 
     if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
 
-    ret = proc_reap(proc);
+    ret = proc_exit_poll(proc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (proc->alive == LDG_TRUTH_TRUE) { return LDG_ERR_AGAIN; }
+
+    *out_code = proc->exit_code;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_wait(ldg_sys_proc_t *proc, uint64_t timeout, uint32_t *out_code)
+{
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!proc || !out_code)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_code = UINT32_MAX;
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    if (timeout == LDG_SYS_PROC_WAIT_INFINITE) { ret = proc_exit_blk_wait(proc); }
+    else { ret = proc_exit_timed_wait(proc, timeout); }
+
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     *out_code = proc->exit_code;
 
@@ -343,7 +457,7 @@ uint32_t ldg_sys_proc_close(ldg_sys_proc_t *proc)
 
     if (proc->alive == LDG_TRUTH_TRUE)
     {
-        ret = proc_reap(proc);
+        ret = proc_exit_poll(proc);
         if (ret != LDG_ERR_AOK && first == LDG_ERR_AOK) { first = ret; }
     }
 
@@ -361,7 +475,7 @@ static uint8_t proc_digits_only_is(const char *text)
 
     while (text[idx] != LDG_STR_TERM)
     {
-        if (ldg_char_digit_is(text[idx]) != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
+        if (ldg_char_digit_is((uint8_t)text[idx]) != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
 
         idx++;
     }
@@ -415,7 +529,7 @@ static uint32_t proc_parent_get(const char *pid_text)
 
     span = 0;
 
-    while (ldg_char_digit_is(stat[idx]) == LDG_TRUTH_TRUE && span + LDG_SYS_PROC_STEP < LDG_SYS_PROC_DEC_CAP)
+    while (ldg_char_digit_is((uint8_t)stat[idx]) == LDG_TRUTH_TRUE && span + LDG_SYS_PROC_STEP < LDG_SYS_PROC_DEC_CAP)
     {
         text[span] = stat[idx];
         span++;
@@ -539,7 +653,7 @@ uint8_t ldg_sys_proc_alive_is(ldg_sys_proc_t *proc)
 
     if (proc->alive != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
 
-    ret = proc_reap(proc);
+    ret = proc_exit_poll(proc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     if (proc->alive == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }

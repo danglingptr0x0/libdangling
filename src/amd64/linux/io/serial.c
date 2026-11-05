@@ -401,7 +401,7 @@ uint32_t ldg_io_serial_close(ldg_io_serial_t *port)
 uint32_t ldg_io_serial_dtr_set(ldg_io_serial_t *port, uint8_t en)
 {
     int32_t bit = TIOCM_DTR;
-    int32_t req = 0;
+    uint64_t req = 0;
 
     if (LDG_UNLIKELY(!port)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -417,7 +417,7 @@ uint32_t ldg_io_serial_dtr_set(ldg_io_serial_t *port, uint8_t en)
 uint32_t ldg_io_serial_rts_set(ldg_io_serial_t *port, uint8_t en)
 {
     int32_t bit = TIOCM_RTS;
-    int32_t req = 0;
+    uint64_t req = 0;
 
     if (LDG_UNLIKELY(!port)) { return LDG_ERR_FUNC_ARG_NULL; }
 

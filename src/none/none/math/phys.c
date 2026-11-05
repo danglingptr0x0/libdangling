@@ -29,7 +29,7 @@ uint32_t ldg_math_phys_integrate(double *pos, double *prev, const double *accel,
     uint64_t axis = 0;
     double dt2 = 0.0;
     double retain = 0.0;
-    double cur = 0.0;
+    double curr = 0.0;
     double nxt = 0.0;
 
     if (LDG_UNLIKELY(!pos)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -55,9 +55,9 @@ uint32_t ldg_math_phys_integrate(double *pos, double *prev, const double *accel,
 
         for (axis = 0; axis < LDG_MATH_PHYS_DIM; axis++)
         {
-            cur = pos[base + axis];
-            nxt = cur + retain * (cur - prev[base + axis]) + accel[base + axis] * dt2;
-            prev[base + axis] = cur;
+            curr = pos[base + axis];
+            nxt = curr + retain * (curr - prev[base + axis]) + accel[base + axis] * dt2;
+            prev[base + axis] = curr;
             pos[base + axis] = nxt;
         }
     }
@@ -481,7 +481,7 @@ uint32_t ldg_math_phys_xpbd_dist_solve(double *pos, const double *inv_mass, uint
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_math_phys_field_2d_advance(const double *cur, const double *prev, double *next, uint64_t nx, uint64_t ny, double spacing, double wave_speed, double dt, double damping, uint32_t boundary)
+uint32_t ldg_math_phys_field_2d_advance(const double *curr, const double *prev, double *next, uint64_t nx, uint64_t ny, double spacing, double wave_speed, double dt, double damping, uint32_t boundary)
 {
     uint64_t idx_x = 0;
     uint64_t idx_y = 0;
@@ -493,10 +493,10 @@ uint32_t ldg_math_phys_field_2d_advance(const double *cur, const double *prev, d
     double retain = 0.0;
     double accel_factor = 0.0;
     double mur_factor = 0.0;
-    double neighbour_sum = 0.0;
-    double cur_center = 0.0;
+    double neighbor_sum = 0.0;
+    double curr_center = 0.0;
 
-    if (LDG_UNLIKELY(!cur)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!curr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(!prev)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -530,9 +530,9 @@ uint32_t ldg_math_phys_field_2d_advance(const double *cur, const double *prev, d
             low_y = (idx_y == 0) ? (idx_y + 1) : (idx_y - 1);
             high_y = (idx_y == ny - 1) ? (idx_y - 1) : (idx_y + 1);
 
-            cur_center = cur[center];
-            neighbour_sum = cur[idx_y * nx + low_x] + cur[idx_y * nx + high_x] + cur[low_y * nx + idx_x] + cur[high_y * nx + idx_x] - 4.0 * cur_center;
-            next[center] = cur_center + retain * (cur_center - prev[center]) + accel_factor * neighbour_sum;
+            curr_center = curr[center];
+            neighbor_sum = curr[idx_y * nx + low_x] + curr[idx_y * nx + high_x] + curr[low_y * nx + idx_x] + curr[high_y * nx + idx_x] - 4.0 * curr_center;
+            next[center] = curr_center + retain * (curr_center - prev[center]) + accel_factor * neighbor_sum;
         }
     }
 
@@ -541,17 +541,17 @@ uint32_t ldg_math_phys_field_2d_advance(const double *cur, const double *prev, d
         for (idx_y = 1; idx_y < ny - 1; idx_y++)
         {
             center = idx_y * nx;
-            next[center] = cur[idx_y * nx + 1] + mur_factor * (next[idx_y * nx + 1] - cur[center]);
+            next[center] = curr[idx_y * nx + 1] + mur_factor * (next[idx_y * nx + 1] - curr[center]);
             center = idx_y * nx + (nx - 1);
-            next[center] = cur[idx_y * nx + (nx - 2)] + mur_factor * (next[idx_y * nx + (nx - 2)] - cur[center]);
+            next[center] = curr[idx_y * nx + (nx - 2)] + mur_factor * (next[idx_y * nx + (nx - 2)] - curr[center]);
         }
 
         for (idx_x = 1; idx_x < nx - 1; idx_x++)
         {
             center = idx_x;
-            next[center] = cur[nx + idx_x] + mur_factor * (next[nx + idx_x] - cur[center]);
+            next[center] = curr[nx + idx_x] + mur_factor * (next[nx + idx_x] - curr[center]);
             center = (ny - 1) * nx + idx_x;
-            next[center] = cur[(ny - 2) * nx + idx_x] + mur_factor * (next[(ny - 2) * nx + idx_x] - cur[center]);
+            next[center] = curr[(ny - 2) * nx + idx_x] + mur_factor * (next[(ny - 2) * nx + idx_x] - curr[center]);
         }
 
         next[0] = 0.5 * (next[1] + next[nx]);
@@ -668,7 +668,7 @@ uint32_t ldg_math_phys_field_2d_src_add(double *field, uint64_t nx, uint64_t ny,
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_math_phys_field_3d_advance(const double *cur, const double *prev, double *next, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double damping, uint32_t boundary)
+uint32_t ldg_math_phys_field_3d_advance(const double *curr, const double *prev, double *next, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double damping, uint32_t boundary)
 {
     uint64_t idx_x = 0;
     uint64_t idx_y = 0;
@@ -684,10 +684,10 @@ uint32_t ldg_math_phys_field_3d_advance(const double *cur, const double *prev, d
     double retain = 0.0;
     double accel_factor = 0.0;
     double mur_factor = 0.0;
-    double neighbour_sum = 0.0;
-    double cur_center = 0.0;
+    double neighbor_sum = 0.0;
+    double curr_center = 0.0;
 
-    if (LDG_UNLIKELY(!cur)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!curr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(!prev)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -726,9 +726,9 @@ uint32_t ldg_math_phys_field_3d_advance(const double *cur, const double *prev, d
                 low_z = (idx_z == 0) ? (idx_z + 1) : (idx_z - 1);
                 high_z = (idx_z == nz - 1) ? (idx_z - 1) : (idx_z + 1);
 
-                cur_center = cur[center];
-                neighbour_sum = cur[idx_z * plane + idx_y * nx + low_x] + cur[idx_z * plane + idx_y * nx + high_x] + cur[idx_z * plane + low_y * nx + idx_x] + cur[idx_z * plane + high_y * nx + idx_x] + cur[low_z * plane + idx_y * nx + idx_x] + cur[high_z * plane + idx_y * nx + idx_x] - 6.0 * cur_center;
-                next[center] = cur_center + retain * (cur_center - prev[center]) + accel_factor * neighbour_sum;
+                curr_center = curr[center];
+                neighbor_sum = curr[idx_z * plane + idx_y * nx + low_x] + curr[idx_z * plane + idx_y * nx + high_x] + curr[idx_z * plane + low_y * nx + idx_x] + curr[idx_z * plane + high_y * nx + idx_x] + curr[low_z * plane + idx_y * nx + idx_x] + curr[high_z * plane + idx_y * nx + idx_x] - 6.0 * curr_center;
+                next[center] = curr_center + retain * (curr_center - prev[center]) + accel_factor * neighbor_sum;
             }
         }
     }
@@ -738,27 +738,27 @@ uint32_t ldg_math_phys_field_3d_advance(const double *cur, const double *prev, d
         for (idx_z = 1; idx_z < nz - 1; idx_z++) { for (idx_y = 1; idx_y < ny - 1; idx_y++)
             {
                 center = idx_z * plane + idx_y * nx;
-                next[center] = cur[idx_z * plane + idx_y * nx + 1] + mur_factor * (next[idx_z * plane + idx_y * nx + 1] - cur[center]);
+                next[center] = curr[idx_z * plane + idx_y * nx + 1] + mur_factor * (next[idx_z * plane + idx_y * nx + 1] - curr[center]);
                 center = idx_z * plane + idx_y * nx + (nx - 1);
-                next[center] = cur[idx_z * plane + idx_y * nx + (nx - 2)] + mur_factor * (next[idx_z * plane + idx_y * nx + (nx - 2)] - cur[center]);
+                next[center] = curr[idx_z * plane + idx_y * nx + (nx - 2)] + mur_factor * (next[idx_z * plane + idx_y * nx + (nx - 2)] - curr[center]);
             }
         }
 
         for (idx_z = 1; idx_z < nz - 1; idx_z++) { for (idx_x = 1; idx_x < nx - 1; idx_x++)
             {
                 center = idx_z * plane + idx_x;
-                next[center] = cur[idx_z * plane + nx + idx_x] + mur_factor * (next[idx_z * plane + nx + idx_x] - cur[center]);
+                next[center] = curr[idx_z * plane + nx + idx_x] + mur_factor * (next[idx_z * plane + nx + idx_x] - curr[center]);
                 center = idx_z * plane + (ny - 1) * nx + idx_x;
-                next[center] = cur[idx_z * plane + (ny - 2) * nx + idx_x] + mur_factor * (next[idx_z * plane + (ny - 2) * nx + idx_x] - cur[center]);
+                next[center] = curr[idx_z * plane + (ny - 2) * nx + idx_x] + mur_factor * (next[idx_z * plane + (ny - 2) * nx + idx_x] - curr[center]);
             }
         }
 
         for (idx_y = 1; idx_y < ny - 1; idx_y++) { for (idx_x = 1; idx_x < nx - 1; idx_x++)
             {
                 center = idx_y * nx + idx_x;
-                next[center] = cur[plane + idx_y * nx + idx_x] + mur_factor * (next[plane + idx_y * nx + idx_x] - cur[center]);
+                next[center] = curr[plane + idx_y * nx + idx_x] + mur_factor * (next[plane + idx_y * nx + idx_x] - curr[center]);
                 center = (nz - 1) * plane + idx_y * nx + idx_x;
-                next[center] = cur[(nz - 2) * plane + idx_y * nx + idx_x] + mur_factor * (next[(nz - 2) * plane + idx_y * nx + idx_x] - cur[center]);
+                next[center] = curr[(nz - 2) * plane + idx_y * nx + idx_x] + mur_factor * (next[(nz - 2) * plane + idx_y * nx + idx_x] - curr[center]);
             }
         }
 
@@ -1365,7 +1365,7 @@ typedef struct ldg_math_phys_history_hdr
     ldg_math_phys_body_desc_t fragment_desc[LDG_MATH_PHYS_FRAGMENT_MAX];
     uint64_t fragment_child[LDG_MATH_PHYS_FRAGMENT_MAX];
     uint32_t fragment_kind[LDG_MATH_PHYS_FRAGMENT_MAX];
-    double wall_anchor;
+    uint64_t wall_anchor;
     uint64_t hd;
     uint64_t cunt;
     uint8_t anchor_set;
@@ -1400,14 +1400,14 @@ static ldg_math_phys_history_hdr_t* ldg_math_phys_history_hdr_get(const ldg_math
 static ldg_math_phys_history_meta_t* ldg_math_phys_history_meta_get(const ldg_math_phys_ctx_t *ctx, uint32_t frame_idx)
 {
     uint8_t *base = (uint8_t *)ctx->history;
-    return (ldg_math_phys_history_meta_t *)(base + sizeof(ldg_math_phys_history_hdr_t)) + frame_idx;
+    return (ldg_math_phys_history_meta_t *)(void *)(base + sizeof(ldg_math_phys_history_hdr_t)) + frame_idx;
 }
 
 static ldg_math_phys_history_slot_t* ldg_math_phys_history_slot_get(const ldg_math_phys_ctx_t *ctx, uint32_t frame_idx)
 {
     uint8_t *base = (uint8_t *)ctx->history;
     uint64_t offset = sizeof(ldg_math_phys_history_hdr_t) + (uint64_t)ctx->conf.history_depth * sizeof(ldg_math_phys_history_meta_t);
-    return (ldg_math_phys_history_slot_t *)(base + offset) + (uint64_t)frame_idx * ctx->world->conf.entity_cap;
+    return (ldg_math_phys_history_slot_t *)(void *)(base + offset) + (uint64_t)frame_idx * ctx->world->conf.entity_cap;
 }
 
 static uint32_t ldg_math_phys_dt_get(const ldg_math_phys_ctx_t *ctx, double *out)
@@ -1843,7 +1843,7 @@ typedef struct ldg_math_phys_field_hdr
     uint64_t ny;
     uint64_t nz;
     uint64_t cell_cunt;
-    uint64_t cur_idx;
+    uint64_t curr_idx;
     uint64_t prev_idx;
 } ldg_math_phys_field_hdr_t;
 
@@ -1856,7 +1856,7 @@ static double* ldg_math_phys_field_buff_get(const ldg_math_phys_region_t *region
 {
     uint8_t *base = (uint8_t *)region_ptr->field;
     ldg_math_phys_field_hdr_t *hdr = (ldg_math_phys_field_hdr_t *)region_ptr->field;
-    return (double *)(base + sizeof(ldg_math_phys_field_hdr_t)) + buff_idx * hdr->cell_cunt;
+    return (double *)(void *)(base + sizeof(ldg_math_phys_field_hdr_t)) + buff_idx * hdr->cell_cunt;
 }
 
 static double* ldg_math_phys_field_snapshot_get(const ldg_math_phys_region_t *region_ptr, uint32_t frame_idx)
@@ -1918,7 +1918,7 @@ typedef struct ldg_math_phys_em_hdr
     double plane_sign;
     double plane_pol_sign;
     double plane_hpol_sign;
-    double drive_cur;
+    double drive_curr;
     double drive_prev;
     double dt_sub;
     uint64_t plane_axis;
@@ -1968,6 +1968,7 @@ typedef struct ldg_math_phys_em_hdr
     uint8_t pudding[7];
 } ldg_math_phys_em_hdr_t;
 
+#define LDG_MATH_PHYS_LIMB_HI_IDX 1
 #define LDG_MATH_PHYS_OPTIC_SRC_CAP 32
 #define LDG_MATH_PHYS_OPTIC_BIN_MAX 64
 #define LDG_MATH_PHYS_OPTIC_LEDGER_STRIDE 4
@@ -2010,7 +2011,7 @@ static ldg_math_phys_water_hdr_t* ldg_math_phys_water_hdr_get(const ldg_math_phy
 
 static double* ldg_math_phys_water_particle_get(const ldg_math_phys_region_t *region_ptr)
 {
-    return (double *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_water_hdr_t));
+    return (double *)(void *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_water_hdr_t));
 }
 
 static double* ldg_math_phys_water_vel_get(const ldg_math_phys_region_t *region_ptr, uint64_t slot)
@@ -2040,7 +2041,7 @@ static uint16_t* ldg_math_phys_water_mask_get(const ldg_math_phys_region_t *regi
 static uint16_t* ldg_math_phys_water_scratch_get(const ldg_math_phys_region_t *region_ptr)
 {
     ldg_math_phys_water_hdr_t *hdr = ldg_math_phys_water_hdr_get(region_ptr);
-    return (uint16_t *)((uint8_t *)ldg_math_phys_water_mask_get(region_ptr) + LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t)));
+    return (uint16_t *)(void *)((uint8_t *)ldg_math_phys_water_mask_get(region_ptr) + LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t)));
 }
 
 static uint32_t ldg_math_phys_water_size_get(uint64_t cell_cunt, uint64_t face_max, uint64_t *out)
@@ -2087,7 +2088,7 @@ static ldg_math_phys_thermo_hdr_t* ldg_math_phys_thermo_hdr_get(const ldg_math_p
 
 static double* ldg_math_phys_thermo_coeff_get(const ldg_math_phys_region_t *region_ptr)
 {
-    return (double *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_thermo_hdr_t));
+    return (double *)(void *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_thermo_hdr_t));
 }
 
 static double* ldg_math_phys_thermo_em_coeff_get(const ldg_math_phys_region_t *region_ptr)
@@ -2219,7 +2220,7 @@ static ldg_math_phys_em_hdr_t* ldg_math_phys_em_hdr_get(const ldg_math_phys_regi
 
 static double* ldg_math_phys_em_coeff_get(const ldg_math_phys_region_t *region_ptr)
 {
-    return (double *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_em_hdr_t));
+    return (double *)(void *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_em_hdr_t));
 }
 
 static ldg_uint128_t* ldg_math_phys_em_stamp_get(const ldg_math_phys_region_t *region_ptr)
@@ -2555,13 +2556,13 @@ static double* ldg_math_phys_em_port_tap_ring_get(const ldg_math_phys_region_t *
 static uint16_t* ldg_math_phys_em_conductor_get(const ldg_math_phys_region_t *region_ptr)
 {
     ldg_math_phys_em_hdr_t *hdr = ldg_math_phys_em_hdr_get(region_ptr);
-    return (uint16_t *)((uint8_t *)region_ptr->field + hdr->conductor_offset);
+    return (uint16_t *)(void *)((uint8_t *)region_ptr->field + hdr->conductor_offset);
 }
 
 static double* ldg_math_phys_em_potential_get(const ldg_math_phys_region_t *region_ptr)
 {
     ldg_math_phys_em_hdr_t *hdr = ldg_math_phys_em_hdr_get(region_ptr);
-    return (double *)((uint8_t *)region_ptr->field + hdr->conductor_offset + LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t)));
+    return (double *)(void *)((uint8_t *)region_ptr->field + hdr->conductor_offset + LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t)));
 }
 
 static double* ldg_math_phys_em_electrostatic_resid_get(const ldg_math_phys_region_t *region_ptr)
@@ -2607,7 +2608,7 @@ typedef struct ldg_math_phys_acoustic_hdr
 {
     double dt_sub;
     double pml_freq;
-    double drive_cur;
+    double drive_curr;
     double drive_prev;
     double plane_sign;
     uint64_t plane_axis;
@@ -2749,7 +2750,7 @@ static ldg_math_phys_acoustic_hdr_t* ldg_math_phys_acoustic_hdr_get(const ldg_ma
 
 static double* ldg_math_phys_acoustic_coeff_get(const ldg_math_phys_region_t *region_ptr)
 {
-    return (double *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_acoustic_hdr_t));
+    return (double *)(void *)((uint8_t *)region_ptr->field + sizeof(ldg_math_phys_acoustic_hdr_t));
 }
 
 static ldg_uint128_t* ldg_math_phys_acoustic_stamp_get(const ldg_math_phys_region_t *region_ptr)
@@ -2786,7 +2787,7 @@ static double* ldg_math_phys_acoustic_snapshot_get(const ldg_math_phys_region_t 
 {
     ldg_math_phys_acoustic_hdr_t *hdr = ldg_math_phys_acoustic_hdr_get(region_ptr);
     uint64_t mtl_bytes = LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t));
-    return (double *)((uint8_t *)ldg_math_phys_acoustic_mtl_get(region_ptr) + mtl_bytes) + slot * LDG_MATH_PHYS_ACOUSTIC_SNAPSHOT_STRIDE * hdr->cell_cunt;
+    return (double *)(void *)((uint8_t *)ldg_math_phys_acoustic_mtl_get(region_ptr) + mtl_bytes) + slot * LDG_MATH_PHYS_ACOUSTIC_SNAPSHOT_STRIDE * hdr->cell_cunt;
 }
 
 static double* ldg_math_phys_acoustic_stretch_get(const ldg_math_phys_region_t *region_ptr)
@@ -3550,11 +3551,11 @@ static uint32_t ldg_math_phys_step_acoustic_advance(ldg_math_phys_ctx_t *ctx, ld
         if (hdr->plane_armed)
         {
             ldg_math_phys_acoustic_plane_pressure_fix(region_ptr);
-            drive_val = hdr->drive_prev + (hdr->drive_cur - hdr->drive_prev) * ((double)(sub_idx + 1) / (double)hdr->subcycle_cunt);
+            drive_val = hdr->drive_prev + (hdr->drive_curr - hdr->drive_prev) * ((double)(sub_idx + 1) / (double)hdr->subcycle_cunt);
             ldg_math_phys_acoustic_plane_aux_p_advance(region_ptr, drive_val);
         }
     }
-    hdr->drive_prev = hdr->drive_cur;
+    hdr->drive_prev = hdr->drive_curr;
     hdr->tick_cuntr++;
     if (hdr->tick_cuntr % hdr->energy_stride == 0)
     {
@@ -3657,7 +3658,7 @@ static uint32_t ldg_math_phys_step_em_advance(ldg_math_phys_ctx_t *ctx, ldg_math
         if (hdr->plane_armed)
         {
             ldg_math_phys_em_plane_electric_fix(region_ptr);
-            drive_val = hdr->drive_prev + (hdr->drive_cur - hdr->drive_prev) * ((double)(sub_idx + 1) / (double)hdr->subcycle_cunt);
+            drive_val = hdr->drive_prev + (hdr->drive_curr - hdr->drive_prev) * ((double)(sub_idx + 1) / (double)hdr->subcycle_cunt);
             ldg_math_phys_em_plane_aux_e_advance(region_ptr, drive_val);
         }
 
@@ -3674,7 +3675,7 @@ static uint32_t ldg_math_phys_step_em_advance(ldg_math_phys_ctx_t *ctx, ldg_math
             ldg_math_phys_em_plane_aux_h_advance(region_ptr);
         }
     }
-    hdr->drive_prev = hdr->drive_cur;
+    hdr->drive_prev = hdr->drive_curr;
     hdr->tick_cuntr++;
     if (hdr->tick_cuntr % hdr->energy_stride == 0)
     {
@@ -3753,7 +3754,7 @@ uint32_t ldg_math_phys_region_tick_advance(ldg_math_phys_ctx_t *ctx, uint32_t re
     ldg_math_phys_field_hdr_t *hdr = 0x0;
     ldg_math_phys_region_t *region_ptr = 0x0;
     ldg_math_phys_conserved_t quantized = LDG_STRUCT_ZERO_INIT;
-    double *cur_buff = 0x0;
+    double *curr_buff = 0x0;
     double *prev_buff = 0x0;
     double *next_buff = 0x0;
     double *snapshot = 0x0;
@@ -3772,18 +3773,18 @@ uint32_t ldg_math_phys_region_tick_advance(ldg_math_phys_ctx_t *ctx, uint32_t re
     if (region_ptr->desc.field_kind == LDG_MATH_PHYS_FIELD_KIND_ACOUSTIC) { return ldg_math_phys_step_acoustic_advance(ctx, region_ptr); }
 
     hdr = ldg_math_phys_field_hdr_get(region_ptr);
-    next_idx = 3 - hdr->cur_idx - hdr->prev_idx;
-    cur_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->cur_idx);
+    next_idx = 3 - hdr->curr_idx - hdr->prev_idx;
+    curr_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->curr_idx);
     prev_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->prev_idx);
     next_buff = ldg_math_phys_field_buff_get(region_ptr, next_idx);
-    if (hdr->nz == 1) { err = ldg_math_phys_field_2d_advance(cur_buff, prev_buff, next_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, region_ptr->desc.damping, region_ptr->desc.boundary); }
-    else { err = ldg_math_phys_field_3d_advance(cur_buff, prev_buff, next_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, region_ptr->desc.damping, region_ptr->desc.boundary); }
+    if (hdr->nz == 1) { err = ldg_math_phys_field_2d_advance(curr_buff, prev_buff, next_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, region_ptr->desc.damping, region_ptr->desc.boundary); }
+    else { err = ldg_math_phys_field_3d_advance(curr_buff, prev_buff, next_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, region_ptr->desc.damping, region_ptr->desc.boundary); }
 
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
 
-    hdr->prev_idx = hdr->cur_idx;
-    hdr->cur_idx = next_idx;
-    err = ldg_math_phys_field_energy_get(next_buff, cur_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, &energy_val);
+    hdr->prev_idx = hdr->curr_idx;
+    hdr->curr_idx = next_idx;
+    err = ldg_math_phys_field_energy_get(next_buff, curr_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, region_ptr->desc.wave_speed, dt, &energy_val);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
     err = ldg_math_phys_double_to_conserved_convert(energy_val, ldg_math_phys_region_exponent_get(region_ptr, LDG_MATH_PHYS_QUANTITY_ENERGY), &quantized);
@@ -3821,7 +3822,7 @@ static uint32_t ldg_math_phys_step_field_advance(ldg_math_phys_ctx_t *ctx, doubl
 static uint32_t ldg_math_phys_field_grad_get(const ldg_math_phys_region_t *region_ptr, const double *pos, double *out_grad)
 {
     ldg_math_phys_field_hdr_t *hdr = 0x0;
-    double *cur_buff = 0x0;
+    double *curr_buff = 0x0;
     double probe[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
     double bound = 0.0;
     double lo_pos = 0.0;
@@ -3833,7 +3834,7 @@ static uint32_t ldg_math_phys_field_grad_get(const ldg_math_phys_region_t *regio
     uint32_t axis = 0;
     uint32_t axis_cunt = 0;
     hdr = ldg_math_phys_field_hdr_get(region_ptr);
-    cur_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->cur_idx);
+    curr_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->curr_idx);
     half = region_ptr->desc.spacing * 0.5;
     axis_cunt = (hdr->nz == 1) ? 2 : 3;
     for (axis = 0; axis < LDG_MATH_PHYS_DIM; axis++)
@@ -3853,14 +3854,14 @@ static uint32_t ldg_math_phys_field_grad_get(const ldg_math_phys_region_t *regio
         if (!(hi_pos > lo_pos)) { continue; }
 
         probe[axis] = lo_pos;
-        if (hdr->nz == 1) { err = ldg_math_phys_field_2d_sample_get(cur_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, probe[0], probe[1], &lo_val); }
-        else { err = ldg_math_phys_field_3d_sample_get(cur_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, probe[0], probe[1], probe[2], &lo_val); }
+        if (hdr->nz == 1) { err = ldg_math_phys_field_2d_sample_get(curr_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, probe[0], probe[1], &lo_val); }
+        else { err = ldg_math_phys_field_3d_sample_get(curr_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, probe[0], probe[1], probe[2], &lo_val); }
 
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
 
         probe[axis] = hi_pos;
-        if (hdr->nz == 1) { err = ldg_math_phys_field_2d_sample_get(cur_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, probe[0], probe[1], &hi_val); }
-        else { err = ldg_math_phys_field_3d_sample_get(cur_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, probe[0], probe[1], probe[2], &hi_val); }
+        if (hdr->nz == 1) { err = ldg_math_phys_field_2d_sample_get(curr_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, probe[0], probe[1], &hi_val); }
+        else { err = ldg_math_phys_field_3d_sample_get(curr_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, probe[0], probe[1], probe[2], &hi_val); }
 
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
 
@@ -3878,7 +3879,7 @@ static uint32_t ldg_math_phys_step_couple_apply(ldg_math_phys_ctx_t *ctx, double
     ldg_math_phys_conserved_t delta[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
     ldg_math_phys_conserved_t neg_val = LDG_STRUCT_ZERO_INIT;
     ldg_math_phys_conserved_t sum_val = LDG_STRUCT_ZERO_INIT;
-    double *cur_buff = 0x0;
+    double *curr_buff = 0x0;
     double grad[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
     double impulse[LDG_MATH_PHYS_DIM] = LDG_ARR_ZERO_INIT;
     uint64_t entity = 0;
@@ -3931,9 +3932,9 @@ static uint32_t ldg_math_phys_step_couple_apply(ldg_math_phys_ctx_t *ctx, double
 
         if (ldg_math_abs_get(hdr->emit) > 0.0)
         {
-            cur_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->cur_idx);
-            if (hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(cur_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, motion.pos[0], motion.pos[1], hdr->emit * dt * dt); }
-            else { err = ldg_math_phys_field_3d_src_add(cur_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, motion.pos[0], motion.pos[1], motion.pos[2], hdr->emit * dt * dt); }
+            curr_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->curr_idx);
+            if (hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(curr_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, motion.pos[0], motion.pos[1], hdr->emit * dt * dt); }
+            else { err = ldg_math_phys_field_3d_src_add(curr_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, motion.pos[0], motion.pos[1], motion.pos[2], hdr->emit * dt * dt); }
 
             if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
         }
@@ -4222,7 +4223,7 @@ static uint32_t ldg_math_phys_merge_sum_get(const ldg_math_phys_ctx_t *ctx, cons
 static uint32_t ldg_math_phys_field_point_energy_xfer(const ldg_math_phys_region_t *region_ptr, const double *pos, double energy, double dt, uint8_t withdraw)
 {
     ldg_math_phys_field_hdr_t *hdr = 0x0;
-    double *cur_buff = 0x0;
+    double *curr_buff = 0x0;
     double *prev_buff = 0x0;
     double cell_vol = 0.0;
     double grad_coef = 0.0;
@@ -4238,7 +4239,7 @@ static uint32_t ldg_math_phys_field_point_energy_xfer(const ldg_math_phys_region
     uint32_t axis = 0;
     uint32_t axis_cunt = 0;
     hdr = ldg_math_phys_field_hdr_get(region_ptr);
-    cur_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->cur_idx);
+    curr_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->curr_idx);
     prev_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->prev_idx);
     spacing = region_ptr->desc.spacing;
     axis_cunt = (hdr->nz == 1) ? 2 : 3;
@@ -4254,20 +4255,20 @@ static uint32_t ldg_math_phys_field_point_energy_xfer(const ldg_math_phys_region
     cell_vol = (hdr->nz == 1) ? (spacing * spacing) : (spacing * spacing * spacing);
     grad_coef = cell_vol * region_ptr->desc.wave_speed * region_ptr->desc.wave_speed / (2.0 * spacing * spacing);
     quad_a = cell_vol / (2.0 * dt * dt);
-    quad_b = cell_vol * (cur_buff[center] - prev_buff[center]) / (dt * dt);
+    quad_b = cell_vol * (curr_buff[center] - prev_buff[center]) / (dt * dt);
     for (axis = 0; axis < axis_cunt && axis < LDG_MATH_PHYS_DIM; axis++)
     {
         stride = (axis == 0) ? 1 : ((axis == 1) ? hdr->nx : hdr->nx * hdr->ny);
         if (cell[axis] + 1 < dim[axis])
         {
             quad_a += grad_coef;
-            quad_b += 2.0 * grad_coef * (cur_buff[center] - cur_buff[center + stride]);
+            quad_b += 2.0 * grad_coef * (curr_buff[center] - curr_buff[center + stride]);
         }
 
         if (cell[axis] > 0)
         {
             quad_a += grad_coef;
-            quad_b += 2.0 * grad_coef * (cur_buff[center] - cur_buff[center - stride]);
+            quad_b += 2.0 * grad_coef * (curr_buff[center] - curr_buff[center - stride]);
         }
     }
     if (withdraw)
@@ -4280,7 +4281,7 @@ static uint32_t ldg_math_phys_field_point_energy_xfer(const ldg_math_phys_region
     if (quad_b >= 0.0) { amplitude = ((0.0 - quad_b) + ldg_math_sqrt_get(disc)) / (2.0 * quad_a); }
     else { amplitude = ((0.0 - quad_b) - ldg_math_sqrt_get(disc)) / (2.0 * quad_a); }
 
-    cur_buff[center] += amplitude;
+    curr_buff[center] += amplitude;
     return LDG_ERR_AOK;
 }
 
@@ -4370,7 +4371,8 @@ LDG_EXPORT uint32_t ldg_math_phys_conf_default_get(ldg_math_phys_conf_t *out)
     out->history_depth = LDG_MATH_PHYS_HISTORY_DEPTH_DEFAULT;
     out->comp_id_base = LDG_MATH_PHYS_COMP_ID_BASE_DEFAULT;
     out->taxon_id_base = LDG_MATH_PHYS_TAXON_ID_BASE_DEFAULT;
-    out->pacing = 0.0;
+    out->pacing.num = LDG_MATH_PHYS_PACING_NUM_BATCH;
+    out->pacing.den = LDG_MATH_RATIONAL_WHOLE_DEN;
     out->tick_budget.limb[0] = UINT64_C(1) << LDG_MATH_PHYS_TICK_BUDGET_DEFAULT_SHIFT;
     return LDG_ERR_AOK;
 }
@@ -4415,7 +4417,7 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
 
     if (LDG_UNLIKELY(conf->taxon_id_base + LDG_MATH_PHYS_TIER_CUNT > world->conf.taxon_cap)) { return LDG_ERR_MATH_PHYS_CONF_INVALID; }
 
-    if (LDG_UNLIKELY(!ldg_math_finite_is(conf->pacing) || conf->pacing < 0.0)) { return LDG_ERR_MATH_PHYS_CONF_INVALID; }
+    if (LDG_UNLIKELY(conf->pacing.num < 0 || conf->pacing.den == 0)) { return LDG_ERR_MATH_PHYS_CONF_INVALID; }
 
     if (LDG_UNLIKELY(conf->tick_budget.limb[0] == 0 && conf->tick_budget.limb[1] == 0)) { return LDG_ERR_MATH_PHYS_CONF_INVALID; }
 
@@ -4424,7 +4426,9 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
 
     ctx->conf = *conf;
     ctx->world = world;
-    ctx->pacing = conf->pacing;
+    err = ldg_math_rational_set(conf->pacing.num, conf->pacing.den, &ctx->pacing);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
     for (idx = 0; idx < LDG_MATH_PHYS_PARTICLE_CUNT; idx++) { ldg_math_phys_particle_seed_set(&ctx->particle[idx], idx); }
     err = ldg_mem_alloc(sizeof(ldg_math_phys_region_t) * conf->region_cap, &blk);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
@@ -4601,7 +4605,7 @@ static void ldg_math_phys_optic_ordinate_fill(double *ordinate, uint64_t polar_c
 {
     double node = 0.0;
     double node_prev = 0.0;
-    double legendre_cur = 0.0;
+    double legendre_curr = 0.0;
     double legendre_prev = 0.0;
     double legendre_next = 0.0;
     double slope = 0.0;
@@ -4619,17 +4623,17 @@ static void ldg_math_phys_optic_ordinate_fill(double *ordinate, uint64_t polar_c
         node = ldg_math_cos_get(LDG_MATH_PI * ((double)node_idx + 0.75) / ((double)node_cunt + 0.5));
         for (iter_idx = 0; iter_idx < 16; iter_idx++)
         {
-            legendre_cur = node;
+            legendre_curr = node;
             legendre_prev = 1.0;
             for (degree = 2; degree <= node_cunt; degree++)
             {
-                legendre_next = ((2.0 * (double)degree - 1.0) * node * legendre_cur - ((double)degree - 1.0) * legendre_prev) / (double)degree;
-                legendre_prev = legendre_cur;
-                legendre_cur = legendre_next;
+                legendre_next = ((2.0 * (double)degree - 1.0) * node * legendre_curr - ((double)degree - 1.0) * legendre_prev) / (double)degree;
+                legendre_prev = legendre_curr;
+                legendre_curr = legendre_next;
             }
-            slope = (double)node_cunt * (node * legendre_cur - legendre_prev) / (node * node - 1.0);
+            slope = (double)node_cunt * (node * legendre_curr - legendre_prev) / (node * node - 1.0);
             node_prev = node;
-            node = node - legendre_cur / slope;
+            node = node - legendre_curr / slope;
             if (ldg_math_abs_get(node - node_prev) < 1.0e-15) { break; }
         }
         weight = 2.0 / ((1.0 - node * node) * slope * slope);
@@ -4923,7 +4927,7 @@ LDG_EXPORT uint32_t ldg_math_phys_region_add(ldg_math_phys_ctx_t *ctx, const ldg
                     hdr->ny = cell_y;
                     hdr->nz = cell_z;
                     hdr->cell_cunt = cell_cunt;
-                    hdr->cur_idx = 0;
+                    hdr->curr_idx = 0;
                     hdr->prev_idx = 1;
                 }
                 else if (desc->field_kind == LDG_MATH_PHYS_FIELD_KIND_EM)
@@ -4962,7 +4966,7 @@ LDG_EXPORT uint32_t ldg_math_phys_region_add(ldg_math_phys_ctx_t *ctx, const ldg
                     em_hdr->face_max = face_max;
                     vacuum_desc.epsilon_r = 1.0;
                     vacuum_desc.mu_r = 1.0;
-                    ldg_math_phys_em_mtl_coeff_set((double *)((uint8_t *)field_blk + sizeof(ldg_math_phys_em_hdr_t)), &vacuum_desc, dt_sub);
+                    ldg_math_phys_em_mtl_coeff_set((double *)(void *)((uint8_t *)field_blk + sizeof(ldg_math_phys_em_hdr_t)), &vacuum_desc, dt_sub);
                     ctx->region[idx].field = field_blk;
                     ldg_math_phys_em_stretch_set(ldg_math_phys_em_stretch_get(&ctx->region[idx]), cell_x, cell_y, cell_z, desc->pml_depth, dt_sub, desc->spacing);
                     if (desc->conductor_cap > 0) { for (cell = 0; cell < cell_cunt; cell++) { ldg_math_phys_em_conductor_get(&ctx->region[idx])[cell] = UINT16_MAX; } }
@@ -6387,15 +6391,16 @@ LDG_EXPORT uint32_t ldg_math_phys_region_accel_set(ldg_math_phys_ctx_t *ctx, uin
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_math_phys_pacing_set(ldg_math_phys_ctx_t *ctx, double ratio)
+LDG_EXPORT uint32_t ldg_math_phys_pacing_set(ldg_math_phys_ctx_t *ctx, const ldg_math_rational_t *ratio)
 {
-    if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!ctx || !ratio)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_MATH_PHYS_NOT_INIT; }
 
-    if (LDG_UNLIKELY(!ldg_math_finite_is(ratio) || ratio < 0.0)) { return LDG_ERR_MATH_PHYS_PACING_INVALID; }
+    if (LDG_UNLIKELY(ratio->num < 0 || ratio->den == 0)) { return LDG_ERR_MATH_PHYS_PACING_INVALID; }
 
-    ctx->pacing = ratio;
+    if (LDG_UNLIKELY(ldg_math_rational_set(ratio->num, ratio->den, &ctx->pacing) != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_PACING_INVALID; }
+
     if (ctx->history != 0x0) { ldg_math_phys_history_hdr_get(ctx)->anchor_set = 0; }
 
     return LDG_ERR_AOK;
@@ -6857,7 +6862,7 @@ LDG_EXPORT uint32_t ldg_math_phys_src_add(ldg_math_phys_ctx_t *ctx, uint32_t reg
     ldg_math_phys_acoustic_hdr_t *acoustic_hdr = 0x0;
     ldg_math_phys_thermo_hdr_t *thermo_hdr = 0x0;
     ldg_math_phys_region_t *region_ptr = 0x0;
-    double *cur_buff = 0x0;
+    double *curr_buff = 0x0;
     double *temp_grid = 0x0;
     const double *hold_grid = 0x0;
     const double *coeff_row = 0x0;
@@ -6923,9 +6928,9 @@ LDG_EXPORT uint32_t ldg_math_phys_src_add(ldg_math_phys_ctx_t *ctx, uint32_t reg
         acoustic_hdr = ldg_math_phys_acoustic_hdr_get(region_ptr);
         if (LDG_UNLIKELY(acoustic_hdr->mtl_cunt == 0)) { return LDG_ERR_MATH_PHYS_NOT_INIT; }
 
-        cur_buff = ldg_math_phys_acoustic_drive_get(region_ptr);
-        if (acoustic_hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(cur_buff, acoustic_hdr->nx, acoustic_hdr->ny, region_ptr->desc.spacing, pos[0], pos[1], amount); }
-        else { err = ldg_math_phys_field_3d_src_add(cur_buff, acoustic_hdr->nx, acoustic_hdr->ny, acoustic_hdr->nz, region_ptr->desc.spacing, pos[0], pos[1], pos[2], amount); }
+        curr_buff = ldg_math_phys_acoustic_drive_get(region_ptr);
+        if (acoustic_hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(curr_buff, acoustic_hdr->nx, acoustic_hdr->ny, region_ptr->desc.spacing, pos[0], pos[1], amount); }
+        else { err = ldg_math_phys_field_3d_src_add(curr_buff, acoustic_hdr->nx, acoustic_hdr->ny, acoustic_hdr->nz, region_ptr->desc.spacing, pos[0], pos[1], pos[2], amount); }
 
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
 
@@ -6933,9 +6938,9 @@ LDG_EXPORT uint32_t ldg_math_phys_src_add(ldg_math_phys_ctx_t *ctx, uint32_t reg
     }
 
     hdr = ldg_math_phys_field_hdr_get(region_ptr);
-    cur_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->cur_idx);
-    if (hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(cur_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, pos[0], pos[1], amount); }
-    else { err = ldg_math_phys_field_3d_src_add(cur_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, pos[0], pos[1], pos[2], amount); }
+    curr_buff = ldg_math_phys_field_buff_get(region_ptr, hdr->curr_idx);
+    if (hdr->nz == 1) { err = ldg_math_phys_field_2d_src_add(curr_buff, hdr->nx, hdr->ny, region_ptr->desc.spacing, pos[0], pos[1], amount); }
+    else { err = ldg_math_phys_field_3d_src_add(curr_buff, hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, pos[0], pos[1], pos[2], amount); }
 
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
 
@@ -7536,7 +7541,7 @@ static uint32_t ldg_math_phys_acoustic_plane_wave_set(ldg_math_phys_ctx_t *ctx, 
     }
     hdr->plane_axis = axis_u;
     hdr->plane_sign = (dir_val > 0.0) ? 1.0 : (0.0 - 1.0);
-    hdr->drive_cur = 0.0;
+    hdr->drive_curr = 0.0;
     hdr->drive_prev = 0.0;
     p_aux = ldg_math_phys_acoustic_aux_get(&ctx->region[region]);
     err = ldg_mem_secure_zero(p_aux, 2 * hdr->aux_cunt * sizeof(double));
@@ -7611,7 +7616,7 @@ LDG_EXPORT uint32_t ldg_math_phys_plane_wave_set(ldg_math_phys_ctx_t *ctx, uint3
     hdr->plane_sign = (dir_val > 0.0) ? 1.0 : (0.0 - 1.0);
     hdr->plane_pol_sign = (pol_val > 0.0) ? 1.0 : (0.0 - 1.0);
     hdr->plane_hpol_sign = hdr->plane_sign * hdr->plane_pol_sign * ldg_math_phys_em_cycle_sign_get(axis_u, axis_p);
-    hdr->drive_cur = 0.0;
+    hdr->drive_curr = 0.0;
     hdr->drive_prev = 0.0;
     e_aux = ldg_math_phys_em_aux_get(&ctx->region[region]);
     err = ldg_mem_secure_zero(e_aux, 2 * hdr->aux_cunt * sizeof(double));
@@ -7638,7 +7643,7 @@ LDG_EXPORT uint32_t ldg_math_phys_plane_wave_drive(ldg_math_phys_ctx_t *ctx, uin
         acoustic_hdr = ldg_math_phys_acoustic_hdr_get(&ctx->region[region]);
         if (LDG_UNLIKELY(!acoustic_hdr->plane_armed)) { return LDG_ERR_NOT_INIT; }
 
-        acoustic_hdr->drive_cur = amplitude;
+        acoustic_hdr->drive_curr = amplitude;
         return LDG_ERR_AOK;
     }
 
@@ -7650,7 +7655,7 @@ LDG_EXPORT uint32_t ldg_math_phys_plane_wave_drive(ldg_math_phys_ctx_t *ctx, uin
     hdr = ldg_math_phys_em_hdr_get(&ctx->region[region]);
     if (LDG_UNLIKELY(!hdr->plane_armed)) { return LDG_ERR_NOT_INIT; }
 
-    hdr->drive_cur = amplitude;
+    hdr->drive_curr = amplitude;
     return LDG_ERR_AOK;
 }
 
@@ -9288,11 +9293,15 @@ LDG_EXPORT uint32_t ldg_math_phys_advance(ldg_math_phys_ctx_t *ctx, const ldg_ui
 {
     ldg_math_phys_history_hdr_t *hdr = 0x0;
     ldg_uint128_t sim_span = LDG_STRUCT_ZERO_INIT;
-    double wall_now = 0.0;
-    double budget = 0.0;
-    double sim_sec = 0.0;
-    double raw = 0.0;
-    uint32_t err = 0;
+    ldg_uint128_t den_scaled = LDG_STRUCT_ZERO_INIT;
+    ldg_uint128_t wall_scaled = LDG_STRUCT_ZERO_INIT;
+    ldg_uint128_t lhs = LDG_STRUCT_ZERO_INIT;
+    ldg_uint128_t rhs = LDG_STRUCT_ZERO_INIT;
+    ldg_uint256_t sim_side = LDG_STRUCT_ZERO_INIT;
+    ldg_uint256_t wall_side = LDG_STRUCT_ZERO_INIT;
+    ldg_uint256_t wall_wide = LDG_STRUCT_ZERO_INIT;
+    uint64_t wall_now = 0;
+    uint32_t ret = 0;
     uint32_t ord = 0;
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -9301,40 +9310,58 @@ LDG_EXPORT uint32_t ldg_math_phys_advance(ldg_math_phys_ctx_t *ctx, const ldg_ui
     if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_MATH_PHYS_NOT_INIT; }
 
     hdr = ldg_math_phys_history_hdr_get(ctx);
-    if (ctx->pacing > 0.0 && !hdr->anchor_set)
+    if (ctx->pacing.num > 0 && !hdr->anchor_set)
     {
-        err = ldg_time_monotonic_get(&hdr->wall_anchor);
-        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+        ret = ldg_time_monotonic_get(&hdr->wall_anchor);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         hdr->clock_anchor = ctx->clock;
-        hdr->anchor_set = 1;
+        hdr->anchor_set = LDG_TRUTH_TRUE;
     }
+
+    lhs.limb[0] = ctx->pacing.den;
+    rhs.limb[0] = LDG_MS_PER_SEC;
+    ret = ldg_arith_uint128_mul(&lhs, &rhs, &den_scaled);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     for (;;)
     {
-        err = ldg_arith_uint128_cmp(&ctx->clock, until, &ord);
-        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+        ret = ldg_arith_uint128_cmp(&ctx->clock, until, &ord);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         if (ord != LDG_ARITH_ORD_LT) { return LDG_ERR_AOK; }
 
-        if (ctx->pacing > 0.0)
+        if (ctx->pacing.num > 0)
         {
-            err = ldg_time_monotonic_get(&wall_now);
-            if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+            ret = ldg_time_monotonic_get(&wall_now);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-            budget = ctx->pacing * (wall_now - hdr->wall_anchor);
-            err = ldg_arith_uint128_sub(&ctx->clock, &hdr->clock_anchor, &sim_span);
-            if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+            if (LDG_UNLIKELY(wall_now < hdr->wall_anchor)) { return LDG_ERR_RANGE; }
 
-            err = ldg_arith_uint128_to_double_convert(&sim_span, &raw);
-            if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+            lhs.limb[0] = (uint64_t)ctx->pacing.num;
+            rhs.limb[0] = wall_now - hdr->wall_anchor;
+            ret = ldg_arith_uint128_mul(&lhs, &rhs, &wall_scaled);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-            sim_sec = ldg_math_pwr2_scale_get(raw, 0 - LDG_MATH_PHYS_TIME_FRACTION);
-            if (sim_sec >= budget) { return LDG_ERR_AOK; }
+            wall_wide.limb[0] = wall_scaled.limb[0];
+            wall_wide.limb[LDG_MATH_PHYS_LIMB_HI_IDX] = wall_scaled.limb[LDG_MATH_PHYS_LIMB_HI_IDX];
+            ret = ldg_arith_uint256_shl(&wall_wide, LDG_MATH_PHYS_TIME_FRACTION, &wall_side);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+            ret = ldg_arith_uint128_sub(&ctx->clock, &hdr->clock_anchor, &sim_span);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+            ret = ldg_arith_uint128_to_uint256_mul(&sim_span, &den_scaled, &sim_side);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+            ret = ldg_arith_uint256_cmp(&sim_side, &wall_side, &ord);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+            if (ord != LDG_ARITH_ORD_LT) { return LDG_ERR_AOK; }
         }
 
-        err = ldg_math_phys_step(ctx);
-        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+        ret = ldg_math_phys_step(ctx);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 }
 
@@ -9711,7 +9738,7 @@ static uint64_t ldg_math_phys_atmosphere_grid_cunt_get(const ldg_math_phys_atmos
 
 static double* ldg_math_phys_atmosphere_table_rayleigh_get(const ldg_math_phys_ctx_t *ctx)
 {
-    return (double *)((uint8_t *)ctx->atmosphere + sizeof(ldg_math_phys_atmosphere_hdr_t));
+    return (double *)(void *)((uint8_t *)ctx->atmosphere + sizeof(ldg_math_phys_atmosphere_hdr_t));
 }
 
 static double* ldg_math_phys_atmosphere_table_ozone_get(const ldg_math_phys_ctx_t *ctx)
@@ -10108,7 +10135,7 @@ uint32_t ldg_math_phys_atmosphere_cpu_solve(ldg_math_phys_ctx_t *ctx)
     double *ping = 0x0;
     double *pong = 0x0;
     double *prev = 0x0;
-    double *cur = 0x0;
+    double *curr = 0x0;
     uint64_t grid_total = 0;
     uint64_t ground_total = 0;
     uint64_t idx = 0;
@@ -10141,7 +10168,7 @@ uint32_t ldg_math_phys_atmosphere_cpu_solve(ldg_math_phys_ctx_t *ctx)
     err = ldg_math_phys_atmosphere_irradiance_fill(&table, 0x0, 0, delta_irradiance);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-    cur = ping;
+    curr = ping;
     for (order = 2; order <= hdr->order_cunt; order++)
     {
         err = ldg_math_phys_atmosphere_gather_fill(&table, prev, delta_irradiance, gather);
@@ -10151,12 +10178,12 @@ uint32_t ldg_math_phys_atmosphere_cpu_solve(ldg_math_phys_ctx_t *ctx)
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
         for (idx = 0; idx < ground_total; idx++) { ground[idx] += delta_irradiance[idx]; }
-        err = ldg_math_phys_atmosphere_order_fill(hdr, table.rayleigh, table.ozone, gather, cur);
+        err = ldg_math_phys_atmosphere_order_fill(hdr, table.rayleigh, table.ozone, gather, curr);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        for (idx = 0; idx < grid_total; idx++) { multi[idx] += cur[idx]; }
-        prev = cur;
-        cur = prev == ping ? pong : ping;
+        for (idx = 0; idx < grid_total; idx++) { multi[idx] += curr[idx]; }
+        prev = curr;
+        curr = prev == ping ? pong : ping;
     }
     err = ldg_math_phys_atmosphere_irradiance_fill(&table, prev, hdr->order_cunt, delta_irradiance);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }

@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #include <dangling/io/path.h>
@@ -19,7 +21,8 @@
 #define LDG_SYS_NOTIFY_LEVEL_NORMAL_ARG "normal"
 #define LDG_SYS_NOTIFY_LEVEL_CRIT_ARG "critical"
 #define LDG_SYS_NOTIFY_ICON_FLAG "-i"
-#define LDG_SYS_NOTIFY_ARGV_ICON_MAX 8
+#define LDG_SYS_NOTIFY_ARGV_ICON_MAX 9
+#define LDG_SYS_NOTIFY_OPT_END "--"
 #define LDG_SYS_SELF_EXE_LINK "/proc/self/exe"
 #define LDG_SYS_APPS_DIR "applications"
 #define LDG_SYS_SCHEME_MIME_PREFIX "x-scheme-handler/"
@@ -27,6 +30,10 @@
 #define LDG_SYS_DESKTOP_EXT ".desktop"
 #define LDG_SYS_EXIT_OK 0
 #define LDG_SYS_EXIT_EXEC_FAIL 127
+#define LDG_SYS_EXIT_FORK_FAIL 126
+#define LDG_SYS_PIPE_END_CUNT 2
+#define LDG_SYS_PIPE_RD 0
+#define LDG_SYS_PIPE_WR 1
 #define LDG_SYS_WAIT_NO_FLAG 0
 #define LDG_SYS_URL_SCHEME_MAX 32
 #define LDG_SYS_APP_NAME_MAX 128
@@ -36,7 +43,6 @@
 #define LDG_SYS_DIR_MODE 0755
 #define LDG_SYS_FILE_MODE 0644
 #define LDG_SYS_ARGV_MAX 5
-#define LDG_SYS_NOTIFY_ARGV_MAX 6
 #define LDG_SYS_MEMINFO_PATH "/proc/meminfo"
 #define LDG_SYS_MEMINFO_AVAIL_KEY "MemAvailable:"
 #define LDG_SYS_MEMINFO_LINE_MAX 256
@@ -45,7 +51,6 @@
 #define LDG_SYS_CACHE_LEVEL_PATH "/sys/devices/system/cpu/cpu%u32/cache/index%u32/level"
 #define LDG_SYS_CACHE_WIDTH_PATH "/sys/devices/system/cpu/cpu%u32/cache/index%u32/size"
 #define LDG_SYS_CPU_PERF_LIST_PATH "/sys/devices/cpu_core/cpus"
-#define LDG_SYS_CPU_EFFICIENT_LIST_PATH "/sys/devices/cpu_atom/cpus"
 #define LDG_SYS_CACHE_IDX_MAX 10
 #define LDG_SYS_SYSFS_TEXT_MAX 64
 #define LDG_SYS_CPU_CLASS_BASE 0
@@ -53,7 +58,7 @@
 #define LDG_SYS_SCALE_KIB 'K'
 #define LDG_SYS_SCALE_MIB 'M'
 #define LDG_SYS_LIST_RANGE_SEP '-'
-#define LDG_SYS_LIST_ITEM_SEP ','
+#define LDG_SYS_CURSOR_STEP 1
 
 #include <dangling/sys/info.h>
 #include <dangling/core/err.h>
@@ -135,10 +140,10 @@ static uint64_t sys_digits_take(const char *text, uint64_t *cursor)
 {
     uint64_t val = 0;
 
-    while (ldg_char_digit_is(text[*cursor]) == LDG_TRUTH_TRUE)
+    while (ldg_char_digit_is((uint8_t)text[*cursor]) == LDG_TRUTH_TRUE)
     {
         val = (val * LDG_BASE_DEC) + (uint64_t)(text[*cursor] - LDG_SYS_ASCII_ZERO);
-        *cursor = *cursor + LDG_SYS_CPU_CLASS_PERF;
+        *cursor = *cursor + LDG_SYS_CURSOR_STEP;
     }
 
     return val;
@@ -155,9 +160,9 @@ static uint8_t sys_cpu_list_holds_is(const char *path, uint32_t cpu_idx)
 
     while (text[cursor] != LDG_STR_TERM)
     {
-        if (ldg_char_digit_is(text[cursor]) != LDG_TRUTH_TRUE)
+        if (ldg_char_digit_is((uint8_t)text[cursor]) != LDG_TRUTH_TRUE)
         {
-            cursor = cursor + LDG_SYS_CPU_CLASS_PERF;
+            cursor = cursor + LDG_SYS_CURSOR_STEP;
             continue;
         }
 
@@ -166,7 +171,7 @@ static uint8_t sys_cpu_list_holds_is(const char *path, uint32_t cpu_idx)
 
         if (text[cursor] == LDG_SYS_LIST_RANGE_SEP)
         {
-            cursor = cursor + LDG_SYS_CPU_CLASS_PERF;
+            cursor = cursor + LDG_SYS_CURSOR_STEP;
             high = sys_digits_take(text, &cursor);
         }
 
@@ -229,14 +234,7 @@ uint32_t ldg_sys_cpu_class_get(uint32_t cpu_idx, uint32_t *out)
 
     *out = LDG_SYS_CPU_CLASS_BASE;
 
-    if (sys_cpu_list_holds_is(LDG_SYS_CPU_PERF_LIST_PATH, cpu_idx) == LDG_TRUTH_TRUE)
-    {
-        *out = LDG_SYS_CPU_CLASS_PERF;
-
-        return LDG_ERR_AOK;
-    }
-
-    if (sys_cpu_list_holds_is(LDG_SYS_CPU_EFFICIENT_LIST_PATH, cpu_idx) == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+    if (sys_cpu_list_holds_is(LDG_SYS_CPU_PERF_LIST_PATH, cpu_idx) == LDG_TRUTH_TRUE) { *out = LDG_SYS_CPU_CLASS_PERF; }
 
     return LDG_ERR_AOK;
 }
@@ -308,9 +306,9 @@ uint32_t ldg_sys_mem_avail_get(uint64_t *out)
 
         for (idx = key_len; line[idx] != LDG_STR_TERM; idx++)
         {
-            if (ldg_char_digit_is(line[idx]) != LDG_TRUTH_TRUE) { continue; }
+            if (ldg_char_digit_is((uint8_t)line[idx]) != LDG_TRUTH_TRUE) { continue; }
 
-            while (ldg_char_digit_is(line[idx]) == LDG_TRUTH_TRUE)
+            while (ldg_char_digit_is((uint8_t)line[idx]) == LDG_TRUTH_TRUE)
             {
                 kib = (kib * LDG_BASE_DEC) + (uint64_t)(line[idx] - LDG_SYS_ASCII_ZERO);
                 idx++;
@@ -365,27 +363,76 @@ static uint8_t sys_url_scheme_allowed_is(const char *url)
     return LDG_TRUTH_FALSE;
 }
 
+static void sys_fd_close(int32_t fd)
+{
+    if (close(fd) != 0) { return; }
+}
+
 static uint32_t sys_detached_spawn(char *const *argv)
 {
+    int32_t pipe_fd[LDG_SYS_PIPE_END_CUNT] = LDG_ARR_ZERO_INIT;
     int64_t inter = 0;
     int64_t grandchild = 0;
+    int64_t got = 0;
+    int32_t status = 0;
+    int32_t code = 0;
+
+    if (LDG_UNLIKELY(pipe(pipe_fd) != 0)) { return LDG_ERR_IO_OPEN; }
+
+    if (LDG_UNLIKELY(fcntl(pipe_fd[LDG_SYS_PIPE_RD], F_SETFD, FD_CLOEXEC) != 0 || fcntl(pipe_fd[LDG_SYS_PIPE_WR], F_SETFD, FD_CLOEXEC) != 0))
+    {
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_WR]);
+        return LDG_ERR_IO_OPEN;
+    }
 
     inter = (int64_t)fork();
-    if (LDG_UNLIKELY(inter < 0)) { return LDG_ERR_AGAIN; }
+    if (LDG_UNLIKELY(inter < 0))
+    {
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_WR]);
+        return LDG_ERR_AGAIN;
+    }
 
     if (inter == 0)
     {
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+
         grandchild = (int64_t)fork();
+        if (grandchild < 0) { _exit(LDG_SYS_EXIT_FORK_FAIL); }
+
         if (grandchild == 0)
         {
             execvp(argv[0], argv);
+            code = (int32_t)errno;
+
+            if (write(pipe_fd[LDG_SYS_PIPE_WR], &code, sizeof(code)) < 0) { _exit(LDG_SYS_EXIT_EXEC_FAIL); }
+
             _exit(LDG_SYS_EXIT_EXEC_FAIL);
         }
 
         _exit(LDG_SYS_EXIT_OK);
     }
 
-    if (LDG_UNLIKELY(waitpid((pid_t)inter, 0x0, LDG_SYS_WAIT_NO_FLAG) < 0)) { return LDG_ERR_IO_RD; }
+    sys_fd_close(pipe_fd[LDG_SYS_PIPE_WR]);
+
+    if (LDG_UNLIKELY(waitpid((pid_t)inter, &status, LDG_SYS_WAIT_NO_FLAG) < 0))
+    {
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+        return LDG_ERR_IO_RD;
+    }
+
+    if (LDG_UNLIKELY(!WIFEXITED(status) || WEXITSTATUS(status) != LDG_SYS_EXIT_OK))
+    {
+        sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+        return LDG_ERR_AGAIN;
+    }
+
+    got = (int64_t)read(pipe_fd[LDG_SYS_PIPE_RD], &code, sizeof(code));
+
+    sys_fd_close(pipe_fd[LDG_SYS_PIPE_RD]);
+
+    if (LDG_UNLIKELY(got > 0)) { return LDG_ERR_IO_NOT_FOUND; }
 
     return LDG_ERR_AOK;
 }
@@ -412,17 +459,36 @@ static uint8_t sys_url_scheme_valid_is(const char *scheme)
 
     if (scheme[0] == LDG_STR_TERM) { return LDG_TRUTH_FALSE; }
 
-    if (ldg_char_alpha_is(scheme[0]) != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
+    if (ldg_char_alpha_is((uint8_t)scheme[0]) != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
 
     for (idx = 0; scheme[idx] != LDG_STR_TERM; idx++)
     {
         if (idx >= LDG_SYS_URL_SCHEME_MAX) { return LDG_TRUTH_FALSE; }
 
-        if (ldg_char_alnum_is(scheme[idx]) == LDG_TRUTH_TRUE) { continue; }
+        if (ldg_char_alnum_is((uint8_t)scheme[idx]) == LDG_TRUTH_TRUE) { continue; }
 
         if (scheme[idx] == '+' || scheme[idx] == '-' || scheme[idx] == '.') { continue; }
 
         return LDG_TRUTH_FALSE;
+    }
+
+    return LDG_TRUTH_TRUE;
+}
+
+static uint8_t sys_desktop_val_safe_is(const char *val, uint64_t max, uint8_t is_exec)
+{
+    uint64_t idx = 0;
+    uint8_t ch = 0;
+
+    for (idx = 0; val[idx] != LDG_STR_TERM; idx++)
+    {
+        if (idx >= max) { return LDG_TRUTH_FALSE; }
+
+        ch = (uint8_t)val[idx];
+
+        if (ch < LDG_ASCII_PRINTABLE_MIN || ch > LDG_ASCII_PRINTABLE_MAX || ch == LDG_ASCII_BSLASH) { return LDG_TRUTH_FALSE; }
+
+        if (is_exec == LDG_TRUTH_TRUE && (ch == LDG_ASCII_QUOTE || ch == '`' || ch == '$' || ch == '%')) { return LDG_TRUTH_FALSE; }
     }
 
     return LDG_TRUTH_TRUE;
@@ -494,6 +560,10 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
+    if (sys_desktop_val_safe_is(exec_buff, LDG_SYS_EXEC_BUFF_MAX, LDG_TRUTH_TRUE) != LDG_TRUTH_TRUE) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (app_name != 0x0 && sys_desktop_val_safe_is(app_name, LDG_SYS_APP_NAME_MAX, LDG_TRUTH_FALSE) != LDG_TRUTH_TRUE) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     ret = ldg_io_path_data_get(data_dir, sizeof(data_dir));
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -513,7 +583,7 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
 
     if (LDG_UNLIKELY(snprintf(mime_type, sizeof(mime_type), "%.*s%.*s", (int32_t)sizeof(LDG_SYS_SCHEME_MIME_PREFIX), LDG_SYS_SCHEME_MIME_PREFIX, (int32_t)LDG_SYS_URL_SCHEME_MAX, scheme) < 0)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(snprintf(content, sizeof(content), "[Desktop Entry]\nType=Application\nName=%.*s\nExec=%.*s %%u\nNoDisplay=true\nTerminal=false\nMimeType=%.*s;\n", (int32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme, (int32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (int32_t)LDG_SYS_PATH_BUFF_MAX, mime_type) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(snprintf(content, sizeof(content), "[Desktop Entry]\nType=Application\nName=%.*s\nExec=\"%.*s\" %%u\nNoDisplay=true\nTerminal=false\nMimeType=%.*s;\n", (int32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme, (int32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (int32_t)LDG_SYS_PATH_BUFF_MAX, mime_type) < 0)) { return LDG_ERR_IO_FMT; }
 
     ret = sys_desktop_wr(desktop_path, content);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -648,6 +718,8 @@ uint32_t ldg_sys_notify(const char *title, const char *body, ldg_sys_notify_leve
         idx++;
     }
 
+    argv[idx] = (char *)LDG_SYS_NOTIFY_OPT_END;
+    idx++;
     argv[idx] = (char *)title;
     idx++;
     argv[idx] = (char *)((body != 0x0) ? body : "");
@@ -657,6 +729,9 @@ uint32_t ldg_sys_notify(const char *title, const char *body, ldg_sys_notify_leve
 
 uint32_t ldg_sys_notify_close(void)
 {
+    g_sys_notify.icon_set = LDG_TRUTH_FALSE;
+    g_sys_notify.icon[0] = LDG_STR_TERM;
+
     return LDG_ERR_AOK;
 }
 

@@ -1,2 +1,2 @@
 # Contributing
-Can't presently review contributions, but a CLA is underway to make it possible!
+No contributions will be accepted, reviewed, or looked at, and all will be deleted upon discovery.

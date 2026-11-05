@@ -8,6 +8,7 @@
 #include <dangling/ecs/ecs.h>
 #include <dangling/math/math.h>
 #include <dangling/math/quaternion.h>
+#include <dangling/math/rational.h>
 
 #define LDG_MATH_PHYS_DIM 3
 #define LDG_MATH_PHYS_REGION_WORLD UINT32_MAX
@@ -148,7 +149,7 @@ typedef enum ldg_math_phys_particle_id
 typedef struct ldg_math_phys_conf
 {
     ldg_uint128_t tick_budget;
-    double pacing;
+    ldg_math_rational_t pacing;
     void *pool;
     uint32_t region_cap;
     uint32_t constraint_cap;
@@ -413,6 +414,7 @@ typedef struct ldg_math_phys_sweep_hit
 #define LDG_MATH_PHYS_CONSERVED_SPLIT_EXP_NEG (-LDG_MATH_PHYS_CONSERVED_SPLIT_EXP)
 #define LDG_MATH_PHYS_AGGREGATE_ID_BASE UINT32_C(0x80000000)
 #define LDG_MATH_PHYS_TIME_FRACTION 64
+#define LDG_MATH_PHYS_PACING_NUM_BATCH 0
 #define LDG_MATH_PHYS_TICK_BUDGET_DEFAULT_SHIFT 58
 #define LDG_MATH_PHYS_FIELD_DIM_MIN 3
 #define LDG_MATH_PHYS_FRAGMENT_MAX 6
@@ -536,7 +538,7 @@ typedef struct ldg_math_phys_ctx
     void *atmosphere;
     void *compute;
     ldg_uint128_t clock;
-    double pacing;
+    ldg_math_rational_t pacing;
     uint64_t body_cunt;
     uint8_t is_init;
     uint8_t pudding[7];
@@ -643,7 +645,7 @@ LDG_EXPORT uint32_t ldg_math_phys_plane_wave_drive(ldg_math_phys_ctx_t *ctx, uin
 LDG_EXPORT uint32_t ldg_math_phys_field_em_sample_get(const ldg_math_phys_ctx_t *ctx, uint32_t region, const double *pos, const ldg_uint128_t *time, double *out_electric, double *out_magnetic);
 LDG_EXPORT uint32_t ldg_math_phys_field_em_slice_get(const ldg_math_phys_ctx_t *ctx, uint32_t region, const ldg_math_phys_slice_desc_t *desc, const ldg_uint128_t *time, double *out_electric, double *out_magnetic);
 LDG_EXPORT uint32_t ldg_math_phys_field_em_vol_get(const ldg_math_phys_ctx_t *ctx, uint32_t region, uint32_t vol_stride, double *out);
-LDG_EXPORT uint32_t ldg_math_phys_pacing_set(ldg_math_phys_ctx_t *ctx, double ratio);
+LDG_EXPORT uint32_t ldg_math_phys_pacing_set(ldg_math_phys_ctx_t *ctx, const ldg_math_rational_t *ratio);
 LDG_EXPORT uint32_t ldg_math_phys_step(ldg_math_phys_ctx_t *ctx);
 LDG_EXPORT uint32_t ldg_math_phys_advance(ldg_math_phys_ctx_t *ctx, const ldg_uint128_t *until);
 LDG_EXPORT uint32_t ldg_math_phys_time_get(const ldg_math_phys_ctx_t *ctx, ldg_uint128_t *out);

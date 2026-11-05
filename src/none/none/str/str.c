@@ -425,10 +425,13 @@ uint32_t ldg_str_rbrcpy(char *dst, const char *src, uint64_t abssize)
     while (src_len < abssize && src[src_len] != LDG_STR_TERM && (uint8_t)src[src_len] <= LDG_ASCII_MAX) { src_len++; }
     if (LDG_UNLIKELY(src_len >= abssize)) { return LDG_ERR_STR_TRUNC; }
 
+    if (LDG_UNLIKELY(src[src_len] != LDG_STR_TERM)) { return LDG_ERR_STR_INVALID; }
+
     overlap = (dst < src + src_len) && (src < dst + abssize);
 
-    if (overlap) { str_overlap_copy(dst, src, src_len); }
-    else { if (ldg_mem_secure_cpy(dst, src, src_len) != LDG_ERR_AOK) { return LDG_ERR_MEM_BAD; } }
+    if (src_len == 0) { overlap = LDG_TRUTH_FALSE; }
+    else if (overlap) { str_overlap_copy(dst, src, src_len); }
+    else if (ldg_mem_secure_cpy(dst, src, src_len) != LDG_ERR_AOK) { return LDG_ERR_MEM_BAD; }
 
     if (LDG_UNLIKELY(ldg_mem_secure_zero(dst + src_len, abssize - src_len) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 

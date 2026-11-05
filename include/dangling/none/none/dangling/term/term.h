@@ -45,6 +45,7 @@
 #define LDG_TERM_IMG_FMT_PNG 100
 #define LDG_TERM_IMG_FMT_RGB 24
 #define LDG_TERM_IMG_FMT_RGBA 32
+#define LDG_TERM_IMG_ID_TRANSIENT_BASE 0xF0000000U
 
 #define LDG_TERM_ATTR_NONE 0x00U
 #define LDG_TERM_ATTR_BOLD 0x01U
@@ -118,6 +119,12 @@ typedef struct ldg_term
     ldg_term_cell_t *cell;
     ldg_term_cell_t *alt_cell;
     ldg_term_cell_t *scrollback;
+    ldg_term_img_t *img;
+    ldg_term_placement_t *placement;
+    uint8_t *img_pixel;
+    uint8_t *tab_stop;
+    uint8_t *line_attr;
+    uint8_t *buff;
     uint32_t col_cunt;
     uint32_t row_cunt;
     uint32_t col_cap;
@@ -135,9 +142,18 @@ typedef struct ldg_term
     uint32_t margin_rhs;
     uint32_t dirty_top;
     uint32_t dirty_bottom;
-    uint8_t cur_attr;
-    uint8_t cur_fg[LDG_TERM_RGB_CUNT];
-    uint8_t cur_bg[LDG_TERM_RGB_CUNT];
+    uint32_t link_cunt;
+    uint32_t link_active;
+    uint32_t cwd_len;
+    uint32_t mark_kind;
+    uint32_t buff_cap;
+    uint32_t img_cap;
+    uint32_t img_max;
+    uint32_t placement_max;
+    uint32_t img_used;
+    uint8_t curr_attr;
+    uint8_t curr_fg[LDG_TERM_RGB_CUNT];
+    uint8_t curr_bg[LDG_TERM_RGB_CUNT];
     uint8_t saved_attr;
     uint8_t saved_fg[LDG_TERM_RGB_CUNT];
     uint8_t saved_bg[LDG_TERM_RGB_CUNT];
@@ -154,29 +170,13 @@ typedef struct ldg_term
     uint8_t insert_mode;
     uint8_t newline_mode;
     uint8_t reverse_screen;
-    uint8_t pudding[1];
-    ldg_term_img_t *img;
-    ldg_term_placement_t *placement;
-    uint8_t *img_pixel;
-    uint8_t *tab_stop;
-    uint8_t *line_attr;
-    uint8_t *buff;
+    uint8_t sync_output;
+    uint8_t margin_side;
     uint8_t palette[LDG_TERM_PALETTE_CUNT][LDG_TERM_RGB_CUNT];
     uint8_t role_color[LDG_TERM_COLOR_ROLE_CUNT][LDG_TERM_RGB_CUNT];
     char link_uri[LDG_TERM_LINK_MAX][LDG_TERM_LINK_URI_MAX];
     char cwd[LDG_TERM_CWD_MAX];
-    uint32_t link_cunt;
-    uint32_t link_active;
-    uint32_t cwd_len;
-    uint32_t mark_kind;
-    uint32_t buff_cap;
-    uint8_t sync_output;
-    uint8_t margin_side;
-    uint8_t pudding_tail[2];
-    uint32_t img_cap;
-    uint32_t img_max;
-    uint32_t placement_max;
-    uint32_t img_used;
+    uint8_t pudding[6];
 } ldg_term_t;
 
 LDG_EXPORT uint32_t ldg_term_conf_default_get(ldg_term_conf_t *out);

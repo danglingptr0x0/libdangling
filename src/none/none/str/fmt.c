@@ -4,6 +4,7 @@
 #include <dangling/str/fmt.h>
 #include <dangling/str/str.h>
 #include <dangling/math/math.h>
+#include <dangling/math/rational.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 
@@ -19,10 +20,15 @@
 #define LDG_STR_FMT_PTR_PREFIX_LEN 2
 #define LDG_STR_FMT_FRACTION_CAP 17
 #define LDG_STR_FMT_ROUND_BIAS 0.5
+#define LDG_STR_FMT_SCALE_UNIT 1U
 #define LDG_STR_FMT_NO_PREFIX 0
 #define LDG_STR_FMT_EMPTY_PREFIX ""
 #define LDG_STR_FMT_MARKER_LEN 3
 #define LDG_STR_FMT_UINT64_LIMIT 18446744073709551616.0
+#define LDG_STR_FMT_RATIO_SEP '/'
+#define LDG_STR_FMT_FP64_WHOLE_DIGIT_MAX 309
+#define LDG_STR_FMT_PRECISION_MARK_LEN 1
+#define LDG_STR_FMT_FP64_BODY_CAP (LDG_STR_FMT_FP64_WHOLE_DIGIT_MAX + LDG_STR_FMT_PRECISION_MARK_LEN + LDG_STR_FMT_FRACTION_CAP)
 
 typedef struct ldg_str_fmt_sink
 {
@@ -46,6 +52,12 @@ static void fmt_byte_put(ldg_str_fmt_sink_t *sink, char byte)
     if (sink->len < sink->cap) { sink->dst[sink->len] = byte; }
 
     sink->len++;
+}
+
+static void fmt_sink_term(ldg_str_fmt_sink_t *sink)
+{
+    if (sink->len < sink->cap) { sink->dst[sink->len] = LDG_STR_TERM; }
+    else if (sink->cap > 0) { sink->dst[sink->cap - LDG_STR_FMT_SIGN_LEN] = LDG_STR_TERM; }
 }
 
 static void fmt_pad_put(ldg_str_fmt_sink_t *sink, char byte, uint32_t cunt)
@@ -144,7 +156,7 @@ static void fmt_text_emit(ldg_str_fmt_sink_t *sink, const char *text, const ldg_
 
 static void fmt_fp64_emit(ldg_str_fmt_sink_t *sink, double val, const ldg_str_fmt_field_t *field)
 {
-    char body[LDG_STR_FMT_DIGIT_CAP] = LDG_ARR_ZERO_INIT;
+    char body[LDG_STR_FMT_FP64_BODY_CAP] = LDG_ARR_ZERO_INIT;
     char digits[LDG_STR_FMT_DIGIT_CAP] = LDG_ARR_ZERO_INIT;
     const char *sign = "-";
     uint32_t sign_len = 0;
@@ -154,9 +166,10 @@ static void fmt_fp64_emit(ldg_str_fmt_sink_t *sink, double val, const ldg_str_fm
     uint32_t precision = LDG_STR_FMT_PRECISION_DEFAULT;
     uint32_t tail_zero = 0;
     uint64_t whole = 0;
+    uint64_t scaled = 0;
+    uint64_t scale_whole = LDG_STR_FMT_SCALE_UNIT;
     double magnitude = 0.0;
     double fraction = 0.0;
-    double scale = 0.0;
 
     if (field->precision_given == LDG_TRUTH_TRUE) { precision = field->precision; }
 
@@ -189,7 +202,19 @@ static void fmt_fp64_emit(ldg_str_fmt_sink_t *sink, double val, const ldg_str_fm
     whole = (uint64_t)ldg_math_trunc_get(magnitude);
     fraction = magnitude - (double)whole;
 
+    for (idx = 0; idx < precision; idx++) { scale_whole *= LDG_BASE_DEC; }
+
+    scaled = (uint64_t)(fraction * (double)scale_whole + LDG_STR_FMT_ROUND_BIAS);
+
+    if (scaled >= scale_whole && whole < UINT64_MAX)
+    {
+        whole++;
+        scaled -= scale_whole;
+    }
+
     digit_cunt = fmt_uint_digits_get(whole, LDG_BASE_DEC, LDG_TRUTH_FALSE, digits);
+
+    if (LDG_UNLIKELY(digit_cunt + tail_zero > LDG_STR_FMT_FP64_WHOLE_DIGIT_MAX)) { return; }
 
     for (idx = 0; idx < digit_cunt; idx++) { body[body_len + idx] = digits[digit_cunt - idx - LDG_STR_FMT_SIGN_LEN]; }
 
@@ -206,12 +231,7 @@ static void fmt_fp64_emit(ldg_str_fmt_sink_t *sink, double val, const ldg_str_fm
         body[body_len] = LDG_STR_FMT_PRECISION_MARK;
         body_len++;
 
-        scale = 1.0;
-        for (idx = 0; idx < precision; idx++) { scale *= (double)LDG_BASE_DEC; }
-
-        whole = (uint64_t)(fraction * scale + LDG_STR_FMT_ROUND_BIAS);
-
-        digit_cunt = fmt_uint_digits_get(whole, LDG_BASE_DEC, LDG_TRUTH_FALSE, digits);
+        digit_cunt = fmt_uint_digits_get(scaled, LDG_BASE_DEC, LDG_TRUTH_FALSE, digits);
 
         for (idx = digit_cunt; idx < precision; idx++)
         {
@@ -223,6 +243,48 @@ static void fmt_fp64_emit(ldg_str_fmt_sink_t *sink, double val, const ldg_str_fm
 
         body_len += digit_cunt;
     }
+
+    fmt_body_emit(sink, body, body_len, sign, sign_len, field);
+}
+
+static void fmt_rational_emit(ldg_str_fmt_sink_t *sink, const ldg_math_rational_t *val, const ldg_str_fmt_field_t *field)
+{
+    char digits[LDG_STR_FMT_DIGIT_CAP] = LDG_ARR_ZERO_INIT;
+    char body[LDG_STR_FMT_DIGIT_CAP] = LDG_ARR_ZERO_INIT;
+    const char *sign = "-";
+    uint64_t mag = 0;
+    uint32_t sign_len = 0;
+    uint32_t body_len = 0;
+    uint32_t digit_cunt = 0;
+    uint32_t idx = 0;
+
+    if (!val)
+    {
+        fmt_text_emit(sink, 0x0, field);
+        return;
+    }
+
+    mag = (uint64_t)val->num;
+
+    if (val->num < 0)
+    {
+        mag = (uint64_t)(-(val->num + LDG_STR_FMT_SIGN_LEN)) + LDG_STR_FMT_SIGN_LEN;
+        sign_len = LDG_STR_FMT_SIGN_LEN;
+    }
+
+    digit_cunt = fmt_uint_digits_get(mag, LDG_BASE_DEC, LDG_TRUTH_FALSE, digits);
+
+    for (idx = 0; idx < digit_cunt; idx++) { body[body_len + idx] = digits[digit_cunt - idx - LDG_STR_FMT_SIGN_LEN]; }
+
+    body_len += digit_cunt;
+    body[body_len] = LDG_STR_FMT_RATIO_SEP;
+    body_len++;
+
+    digit_cunt = fmt_uint_digits_get(val->den, LDG_BASE_DEC, LDG_TRUTH_FALSE, digits);
+
+    for (idx = 0; idx < digit_cunt; idx++) { body[body_len + idx] = digits[digit_cunt - idx - LDG_STR_FMT_SIGN_LEN]; }
+
+    body_len += digit_cunt;
 
     fmt_body_emit(sink, body, body_len, sign, sign_len, field);
 }
@@ -340,6 +402,13 @@ uint32_t ldg_str_variable_fmt(char *dst, uint64_t cap, uint64_t *out_len, const 
             continue;
         }
 
+        if (spec == 'r')
+        {
+            fmt_rational_emit(&sink, va_arg(args, const ldg_math_rational_t *), &field);
+            pos++;
+            continue;
+        }
+
         if (spec == 'p')
         {
             fmt_uint_emit(&sink, (uint64_t)(uintptr_t)va_arg(args, void *), LDG_BASE_HEX, LDG_TRUTH_FALSE, LDG_STR_FMT_PTR_PREFIX, LDG_STR_FMT_PTR_PREFIX_LEN, &field);
@@ -373,8 +442,12 @@ uint32_t ldg_str_variable_fmt(char *dst, uint64_t cap, uint64_t *out_len, const 
                 continue;
             }
 
-            return LDG_ERR_STR_FMT;
+            fmt_sink_term(&sink);
+
+            return LDG_ERR_STR_FMT_WIDTH;
         }
+
+        fmt_sink_term(&sink);
 
         return LDG_ERR_STR_FMT;
     }

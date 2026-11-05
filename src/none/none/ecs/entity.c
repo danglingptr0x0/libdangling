@@ -112,6 +112,7 @@ LDG_EXPORT uint32_t ldg_ecs_entity_create(ldg_ecs_entity_store_t *store, uint64_
         idx = (uint32_t)(store->dense[pos] & 0xFFFFFFFFULL);
         store->slot[idx].alive = LDG_TRUTH_TRUE;
         store->slot[idx].dense_pos = pos;
+        store->slot[idx].category = LDG_ECS_ENTITY_CATEGORY_NONE;
         handle = ((uint64_t)store->slot[idx].generation << 32) | (uint64_t)idx;
         store->dense[pos] = handle;
         store->alive_cunt++;
@@ -190,6 +191,7 @@ LDG_EXPORT uint32_t ldg_ecs_entity_recycle_bulk(ldg_ecs_entity_store_t *store, u
         idx = (uint32_t)(store->dense[pos] & 0xFFFFFFFFULL);
         store->slot[idx].alive = LDG_TRUTH_TRUE;
         store->slot[idx].dense_pos = pos;
+        store->slot[idx].category = LDG_ECS_ENTITY_CATEGORY_NONE;
         handle = ((uint64_t)store->slot[idx].generation << 32) | (uint64_t)idx;
         store->dense[pos] = handle;
         out[revived] = handle;

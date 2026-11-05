@@ -45,6 +45,7 @@ LDG_EXPORT uint8_t ldg_mem_locked_is(void);
 LDG_EXPORT uint32_t ldg_mem_alloc(uint64_t size, void **out);
 LDG_EXPORT uint32_t ldg_mem_realloc(void *ptr, uint64_t size, void **out);
 LDG_EXPORT uint32_t ldg_mem_dealloc(void *ptr);
+uint32_t ldg_mem_fd_alloc(uint64_t size, void **out);
 
 LDG_EXPORT uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t cap, ldg_mem_pool_t **out);
 LDG_EXPORT uint32_t ldg_mem_pool_alloc(ldg_mem_pool_t *pool, uint64_t size, void **out);

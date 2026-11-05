@@ -11,7 +11,6 @@
 #define LDG_INFLATE_ADLER_BASE 65521
 #define LDG_INFLATE_ADLER_NMAX 5552
 #define LDG_INFLATE_ZLIB_CM_DEFLATE 8
-#define LDG_INFLATE_NOINLINE __attribute__((noinline))
 
 typedef struct inflate_state
 {
@@ -117,7 +116,7 @@ static uint32_t inflate_construct(uint16_t *cunt, uint16_t *sym, const uint8_t *
     return LDG_ERR_AOK;
 }
 
-static LDG_INFLATE_NOINLINE uint32_t inflate_codes(inflate_state_t *st, const uint16_t *len_cunt, const uint16_t *len_sym, const uint16_t *dist_cunt, const uint16_t *dist_sym)
+static uint32_t inflate_codes(inflate_state_t *st, const uint16_t *len_cunt, const uint16_t *len_sym, const uint16_t *dist_cunt, const uint16_t *dist_sym)
 {
     const uint16_t len_base[29] = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258 };
     const uint16_t len_extra[29] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0 };
@@ -209,7 +208,7 @@ static uint32_t inflate_stored(inflate_state_t *st)
     return LDG_ERR_AOK;
 }
 
-static LDG_INFLATE_NOINLINE uint32_t inflate_fixed(inflate_state_t *st, uint16_t *len_cunt, uint16_t *len_sym, uint16_t *dist_cunt, uint16_t *dist_sym)
+static uint32_t inflate_fixed(inflate_state_t *st, uint16_t *len_cunt, uint16_t *len_sym, uint16_t *dist_cunt, uint16_t *dist_sym)
 {
     uint8_t code_len[LDG_INFLATE_MAX_LIT] = LDG_ARR_ZERO_INIT;
     uint32_t idx = 0;
@@ -235,7 +234,7 @@ static LDG_INFLATE_NOINLINE uint32_t inflate_fixed(inflate_state_t *st, uint16_t
     return inflate_codes(st, len_cunt, len_sym, dist_cunt, dist_sym);
 }
 
-static LDG_INFLATE_NOINLINE uint32_t inflate_dynamic(inflate_state_t *st, uint16_t *len_cunt, uint16_t *len_sym, uint16_t *dist_cunt, uint16_t *dist_sym)
+static uint32_t inflate_dynamic(inflate_state_t *st, uint16_t *len_cunt, uint16_t *len_sym, uint16_t *dist_cunt, uint16_t *dist_sym)
 {
     const uint16_t order[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
     uint8_t code_len[LDG_INFLATE_MAX_LIT + LDG_INFLATE_MAX_DIST] = LDG_ARR_ZERO_INIT;

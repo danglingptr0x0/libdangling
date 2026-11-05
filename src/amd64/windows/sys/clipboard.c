@@ -59,6 +59,7 @@ uint32_t ldg_sys_clipboard_get(ldg_byte_t *out, uint64_t cap, uint64_t *out_len)
     HANDLE blk = 0x0;
     const ldg_byte_t *raw = 0x0;
     uint64_t idx = 0;
+    uint64_t blk_size = 0;
     uint32_t ret = LDG_ERR_AOK;
 
     if (LDG_UNLIKELY(!out || !out_len)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -85,13 +86,15 @@ uint32_t ldg_sys_clipboard_get(ldg_byte_t *out, uint64_t cap, uint64_t *out_len)
         return LDG_ERR_MEM_BAD;
     }
 
-    while (raw[idx] != LDG_STR_TERM && idx < cap)
+    blk_size = (uint64_t)GlobalSize(blk);
+
+    while (idx < blk_size && idx < cap && raw[idx] != LDG_STR_TERM)
     {
         out[idx] = raw[idx];
         idx++;
     }
 
-    if (raw[idx] != LDG_STR_TERM) { ret = LDG_ERR_FULL; }
+    if (idx < blk_size && raw[idx] != LDG_STR_TERM) { ret = LDG_ERR_FULL; }
 
     if (LDG_UNLIKELY(!GlobalUnlock(blk) && GetLastError() != NO_ERROR)) { ret = LDG_ERR_MEM_BAD; }
 

@@ -18,6 +18,12 @@
 #define LDG_SYS_PROC_TAB_CHAR '\t'
 #define LDG_SYS_PROC_KILL_CODE 137
 #define LDG_SYS_PROC_STEP 1
+#define LDG_SYS_PROC_CREATE_NO_FLAG 0
+#define LDG_SYS_PROC_BATCH_EXT_LEN 4
+#define LDG_SYS_PROC_BATCH_EXT_BAT ".bat"
+#define LDG_SYS_PROC_BATCH_EXT_CMD ".cmd"
+#define LDG_SYS_PROC_BATCH_META "\"%&|<>^!\r\n"
+#define LDG_SYS_PROC_DOT_CHAR '.'
 
 #include <dangling/sys/proc.h>
 #include <dangling/mem/secure.h>
@@ -120,6 +126,47 @@ static uint32_t proc_arg_append(char *cmd, uint64_t cap, uint64_t *pos, const ch
     return LDG_ERR_AOK;
 }
 
+static uint8_t proc_ext_match_is(const char *ext, const char *want)
+{
+    uint64_t idx = 0;
+    char ch = 0;
+
+    for (idx = 0; idx < LDG_SYS_PROC_BATCH_EXT_LEN; idx++)
+    {
+        ch = ext[idx];
+
+        if (ch >= LDG_SYS_PROC_UPPER_LOW && ch <= LDG_SYS_PROC_UPPER_HIGH) { ch = (char)(ch + LDG_SYS_PROC_CASE_SHIFT); }
+
+        if (ch != want[idx]) { return LDG_TRUTH_FALSE; }
+    }
+
+    return LDG_TRUTH_TRUE;
+}
+
+static uint8_t proc_batch_is(const char *path)
+{
+    uint64_t len = 0;
+
+    len = (uint64_t)strlen(path);
+
+    while (len > 0 && (path[len - LDG_SYS_PROC_STEP] == LDG_SYS_PROC_DOT_CHAR || path[len - LDG_SYS_PROC_STEP] == LDG_SYS_PROC_SPACE_CHAR)) { len -= LDG_SYS_PROC_STEP; }
+
+    if (len < LDG_SYS_PROC_BATCH_EXT_LEN) { return LDG_TRUTH_FALSE; }
+
+    if (proc_ext_match_is(path + len - LDG_SYS_PROC_BATCH_EXT_LEN, LDG_SYS_PROC_BATCH_EXT_BAT) == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
+
+    return proc_ext_match_is(path + len - LDG_SYS_PROC_BATCH_EXT_LEN, LDG_SYS_PROC_BATCH_EXT_CMD);
+}
+
+static uint8_t proc_batch_argv_safe_is(const char *const *argv)
+{
+    uint64_t idx = 0;
+
+    for (idx = 0; idx < LDG_SYS_PROC_ARG_MAX && argv[idx] != 0x0; idx++) { if (strpbrk(argv[idx], LDG_SYS_PROC_BATCH_META) != 0x0) { return LDG_TRUTH_FALSE; } }
+
+    return LDG_TRUTH_TRUE;
+}
+
 static uint32_t proc_cmd_build(const char *const *argv, char *cmd, uint64_t cap)
 {
     uint64_t pos = 0;
@@ -219,7 +266,25 @@ static uint32_t proc_wide_convert(const char *src, WCHAR *out, int32_t cap)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const char *cwd, ldg_sys_proc_t *out)
+static uint32_t proc_inherit_spawn(WCHAR *path, WCHAR *cmd, WCHAR *cwd, ldg_sys_proc_t *out)
+{
+    STARTUPINFOW start = LDG_STRUCT_ZERO_INIT;
+    PROCESS_INFORMATION info = LDG_STRUCT_ZERO_INIT;
+
+    start.cb = sizeof(STARTUPINFOW);
+
+    if (LDG_UNLIKELY(!CreateProcessW(path, cmd, 0x0, 0x0, FALSE, LDG_SYS_PROC_CREATE_NO_FLAG, 0x0, cwd, &start, &info))) { return LDG_ERR_IO_NOT_FOUND; }
+
+    CloseHandle(info.hThread);
+
+    out->handle = (uint64_t)(uintptr_t)info.hProcess;
+    out->pid = (uint32_t)info.dwProcessId;
+    out->alive = LDG_TRUTH_TRUE;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const char *cwd, uint32_t flags, ldg_sys_proc_t *out)
 {
     SECURITY_ATTRIBUTES sec = LDG_STRUCT_ZERO_INIT;
     STARTUPINFOW start = LDG_STRUCT_ZERO_INIT;
@@ -247,6 +312,10 @@ uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const cha
     out->pipe_err = LDG_SYS_PROC_HANDLE_NONE;
     out->exit_code = UINT32_MAX;
 
+    if (LDG_UNLIKELY((flags & ~LDG_SYS_PROC_SPAWN_STDIO_INHERIT) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (proc_batch_is(path) == LDG_TRUTH_TRUE && proc_batch_argv_safe_is(argv) != LDG_TRUTH_TRUE) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     ret = proc_cmd_build(argv, cmd, LDG_SYS_PROC_CMD_MAX);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -261,6 +330,8 @@ uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const cha
         ret = proc_wide_convert(cwd, wide_cwd, LDG_SYS_PROC_PATH_MAX);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
+
+    if ((flags & LDG_SYS_PROC_SPAWN_STDIO_INHERIT) != 0) { return proc_inherit_spawn(wide_path, wide_cmd, (cwd != 0x0) ? wide_cwd : 0x0, out); }
 
     sec.nLength = sizeof(SECURITY_ATTRIBUTES);
     sec.bInheritHandle = TRUE;
@@ -386,6 +457,36 @@ uint32_t ldg_sys_proc_exit_code_get(ldg_sys_proc_t *proc, uint32_t *out_code)
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (proc->alive == LDG_TRUTH_TRUE) { return LDG_ERR_AGAIN; }
+
+    *out_code = proc->exit_code;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_wait(ldg_sys_proc_t *proc, uint64_t timeout, uint32_t *out_code)
+{
+    DWORD wait_ms = INFINITE;
+    DWORD res = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!proc || !out_code)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_code = UINT32_MAX;
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    if (timeout != LDG_SYS_PROC_WAIT_INFINITE) { wait_ms = (timeout >= (uint64_t)INFINITE) ? (INFINITE - LDG_SYS_PROC_STEP) : (DWORD)timeout; }
+
+    if (proc->alive == LDG_TRUTH_TRUE)
+    {
+        res = WaitForSingleObject((HANDLE)(uintptr_t)proc->handle, wait_ms);
+        if (res == WAIT_TIMEOUT) { return LDG_ERR_TIMEOUT; }
+
+        if (LDG_UNLIKELY(res != WAIT_OBJECT_0)) { return LDG_ERR_INVALID; }
+
+        ret = proc_state_refresh(proc);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
 
     *out_code = proc->exit_code;
 

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 5.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 6.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(STD_NO_INSTR ON CACHE BOOL "" FORCE)
 endif()
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "misc32")
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "dangcsa64")
     set(STD_NO_INSTR ON CACHE BOOL "" FORCE)
     set(STD_DEBUG ON CACHE BOOL "" FORCE)
 endif()
@@ -16,7 +16,7 @@ if(NOT LDG_STD_FILE)
     message(STATUS "std: not found; building with CMake defaults")
 endif()
 
-if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "i386" AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "misc32")
+if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "i386" AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "dangcsa64")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 set(CMAKE_C_VISIBILITY_PRESET hidden)
@@ -27,12 +27,10 @@ endif()
 
 include(GNUInstallDirs)
 
-option(LDG_WITH_AUDIO "Build audio subsystem (auto-detects pw or ALSA)" ON)
+option(LDG_WITH_AUDIO "Build audio subsystem (auto-detects pw)" ON)
 option(LDG_WITH_NET "Build net subsystem (requires libcurl)" ON)
 option(LDG_WITH_FMT "Build fmt config subsys" ON)
 option(LDG_WITH_GPU "Build GPU compute subsystem (requires Vulkan)" ON)
-option(LDG_WITH_STEAMWORKS "Build Steamworks subsystem (requires vendored steamworks_sdk)" ON)
-option(LDG_WITH_STEAMWORKS_APP_TKT "Link sdkencryptedappticket for server-side ticket decrypt" ON)
 
 if(NOT CMAKE_SYSTEM_PROCESSOR)
     if(CMAKE_C_COMPILER MATCHES "x86_64")
@@ -44,8 +42,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     set(LDG_ARCH "amd64")
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
     set(LDG_ARCH "i386")
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "misc32")
-    set(LDG_ARCH "MISC")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "dangcsa64")
+    set(LDG_ARCH "dangcsa")
 else()
     message(FATAL_ERROR "unsupported arch: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
@@ -56,20 +54,23 @@ if(LDG_ARCH STREQUAL "i386")
     set(LDG_WITH_NET OFF)
     set(LDG_WITH_FMT OFF)
     set(LDG_WITH_GPU OFF)
-    set(LDG_WITH_STEAMWORKS OFF)
     set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -masm=intel -march=i386 -mno-mmx -mno-sse -mno-sse2 -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-stack-clash-protection -fcf-protection=none -fno-analyzer -fno-builtin -fshort-enums -fpack-struct=1 -fno-omit-frame-pointer -fno-strict-aliasing -fno-delete-null-pointer-checks -fno-common -U_POSIX_C_SOURCE -U_FORTIFY_SOURCE")
-elseif(LDG_ARCH STREQUAL "MISC")
+elseif(LDG_ARCH STREQUAL "dangcsa")
     set(LDG_PLATFORM "DANGLING")
     set(LDG_WITH_AUDIO OFF)
     set(LDG_WITH_NET OFF)
     set(LDG_WITH_FMT OFF)
     set(LDG_WITH_GPU OFF)
-    set(LDG_WITH_STEAMWORKS OFF)
     string(REPLACE " -fstack-clash-protection" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     string(REPLACE " -fcf-protection=full" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     string(REPLACE " -fstack-protector-strong" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffreestanding -nostdlibinc -fPIC -fno-stack-protector -fno-builtin -fshort-enums -fno-omit-frame-pointer -fno-strict-aliasing -fno-delete-null-pointer-checks -fno-common -U_POSIX_C_SOURCE -U_FORTIFY_SOURCE")
+    get_directory_property(LDG_DIR_DEFS COMPILE_DEFINITIONS)
+    list(REMOVE_ITEM LDG_DIR_DEFS _POSIX_C_SOURCE=200809L)
+    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${LDG_DIR_DEFS}")
+    set(CMAKE_ASM_COMPILER_TARGET ${CMAKE_C_COMPILER_TARGET})
+    enable_language(ASM)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(LDG_PLATFORM "linux")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -112,6 +113,7 @@ if(LDG_WITH_NET)
         endif()
         if(CURL_FOUND OR CURL_LIBRARIES)
             list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/curl.c)
+            set_source_files_properties(${LDG_PLATFORM_DIR}/net/curl.c PROPERTIES COMPILE_OPTIONS "-Wno-disabled-macro-expansion;-Wno-used-but-marked-unused")
             list(APPEND LDG_OPT_SOURCES src/none/none/net/gql.c)
             list(APPEND LDG_OPT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS})
             list(APPEND LDG_OPT_LIBRARIES ${CURL_LIBRARIES})
@@ -128,44 +130,14 @@ else()
     message(STATUS "net: off")
 endif()
 
-if(LDG_WITH_STEAMWORKS AND (LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows"))
-    set(LDG_STEAMWORKS_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/steamworks_sdk/sdk")
+if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows" OR LDG_ARCH STREQUAL "dangcsa")
+    list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/sock.c)
     if(LDG_PLATFORM STREQUAL "windows")
-        set(LDG_STEAMWORKS_API_LIB "${LDG_STEAMWORKS_SDK_DIR}/redistributable_bin/win64/steam_api64.lib")
-        set(LDG_STEAMWORKS_TKT_LIB "${LDG_STEAMWORKS_SDK_DIR}/public/steam/lib/win64/sdkencryptedappticket64.lib")
-    else()
-        set(LDG_STEAMWORKS_API_LIB "${LDG_STEAMWORKS_SDK_DIR}/redistributable_bin/linux64/libsteam_api.so")
-        set(LDG_STEAMWORKS_TKT_LIB "${LDG_STEAMWORKS_SDK_DIR}/public/steam/lib/linux64/libsdkencryptedappticket.so")
+        list(APPEND LDG_OPT_LIBRARIES ws2_32)
     endif()
-    if(EXISTS ${LDG_STEAMWORKS_API_LIB})
-        list(APPEND LDG_OPT_SOURCES
-            src/none/none/net/steamworks.c
-            src/none/none/net/steamworks_lobby.c
-            src/none/none/net/steamworks_lboard.c
-            src/none/none/net/steamworks_econ.c
-            src/none/none/net/steamworks_inventory.c
-            src/none/none/net/steamworks_cloud.c
-            src/none/none/net/steamworks_wshop.c
-            src/none/none/net/steamworks_srv_browser.c
-            src/none/none/net/steamworks_tkt.c
-            src/none/none/net/steamworks_srv.c
-        )
-        list(APPEND LDG_OPT_LIBRARIES ${LDG_STEAMWORKS_API_LIB})
-        list(APPEND LDG_OPT_DEFINES LDG_NET_STEAMWORKS)
-        message(STATUS "steamworks: on; sdk vendored; steam_api linked")
-        if(LDG_WITH_STEAMWORKS_APP_TKT AND EXISTS ${LDG_STEAMWORKS_TKT_LIB})
-            list(APPEND LDG_OPT_SOURCES src/none/none/net/steamworks_srv_tkt.c)
-            list(APPEND LDG_OPT_LIBRARIES ${LDG_STEAMWORKS_TKT_LIB})
-            list(APPEND LDG_OPT_DEFINES LDG_NET_STEAMWORKS_APP_TKT)
-            message(STATUS "steamworks app tkt: on; sdkencryptedappticket linked")
-        else()
-            message(STATUS "steamworks app tkt: off")
-        endif()
-    else()
-        message(STATUS "steamworks: off; steamworks_sdk not present")
-    endif()
+    message(STATUS "sock: on")
 else()
-    message(STATUS "steamworks: off")
+    message(STATUS "sock: off; platform has no tcp stack")
 endif()
 
 if(LDG_WITH_FMT)
@@ -185,7 +157,6 @@ if(LDG_WITH_AUDIO)
         message(STATUS "audio: wasapi")
     else()
         pkg_check_modules(PIPEWIRE libpipewire-0.3)
-        pkg_check_modules(ALSA alsa)
 
         if(PIPEWIRE_FOUND)
             set(LDG_AUDIO_BACKEND "pipewire")
@@ -194,16 +165,9 @@ if(LDG_WITH_AUDIO)
             list(APPEND LDG_OPT_LIBRARIES ${PIPEWIRE_LIBRARIES})
             list(APPEND LDG_OPT_DEFINES LDG_AUDIO_PIPEWIRE)
             message(STATUS "audio: pipewire")
-        elseif(ALSA_FOUND)
-            set(LDG_AUDIO_BACKEND "alsa")
-            list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/audio/alsa.c)
-            list(APPEND LDG_OPT_INCLUDE_DIRS ${ALSA_INCLUDE_DIRS})
-            list(APPEND LDG_OPT_LIBRARIES ${ALSA_LIBRARIES})
-            list(APPEND LDG_OPT_DEFINES LDG_AUDIO_ALSA)
-            message(STATUS "audio: alsa")
         else()
             set(LDG_AUDIO_BACKEND "none")
-            message(STATUS "audio: none; libpipewire-0.3 or alsa not found")
+            message(STATUS "audio: none; libpipewire-0.3 not found")
         endif()
     endif()
 else()
@@ -212,7 +176,7 @@ else()
 endif()
 
 if(NOT LDG_AUDIO_BACKEND STREQUAL "none")
-    list(APPEND LDG_OPT_SOURCES src/none/none/audio/play.c)
+    list(APPEND LDG_OPT_SOURCES src/none/none/audio/play.c src/none/none/audio/mix.c)
 endif()
 
 set(LDG_WINRT_INCLUDE_DIR "" CACHE PATH "Windows SDK winrt include directory holding windows.media.control.h")
@@ -288,6 +252,8 @@ if(LDG_WITH_GPU)
                 list(APPEND LDG_SPIRV_WORD_LIST "0x${LDG_SPIRV_B3}${LDG_SPIRV_B2}${LDG_SPIRV_B1}${LDG_SPIRV_B0}U")
             endforeach()
             string(REPLACE ";" ", " LDG_SPIRV_WORD_TEXT "${LDG_SPIRV_WORD_LIST}")
+            string(APPEND LDG_SPIRV_EMBED_BODY "extern const uint32_t ldg_math_phys_spirv_${LDG_SPIRV_NAME}[];\n")
+            string(APPEND LDG_SPIRV_EMBED_BODY "extern const uint64_t ldg_math_phys_spirv_${LDG_SPIRV_NAME}_size;\n")
             string(APPEND LDG_SPIRV_EMBED_BODY "const uint32_t ldg_math_phys_spirv_${LDG_SPIRV_NAME}[] = { ${LDG_SPIRV_WORD_TEXT} };\n")
             string(APPEND LDG_SPIRV_EMBED_BODY "const uint64_t ldg_math_phys_spirv_${LDG_SPIRV_NAME}_size = ${LDG_SPIRV_BYTE_CUNT}ULL;\n\n")
         endforeach()
@@ -312,9 +278,16 @@ else()
     set(LDG_MATH_SCALAR_SOURCE src/none/none/math/scalar.c)
 endif()
 
+if(LDG_ARCH STREQUAL "i386")
+    set(LDG_MATH_FIELD_SOURCE src/i386/none/math/field.c)
+else()
+    set(LDG_MATH_FIELD_SOURCE src/none/none/math/field.c)
+endif()
+
 set(LDG_SOURCES
         ${LDG_MEM_CPY_SOURCE}
         ${LDG_MATH_SCALAR_SOURCE}
+        ${LDG_MATH_FIELD_SOURCE}
         src/none/none/mem/frame.c
         src/none/none/compute/compute.c
         src/none/none/math/phys/compute/compute.c
@@ -324,15 +297,29 @@ set(LDG_SOURCES
         src/none/none/str/fmt.c
         src/none/none/str/base64.c
         src/none/none/math/rand.c
+        src/none/none/math/ntt.c
+        src/none/none/math/ext.c
+        src/none/none/math/proof.c
+        src/none/none/math/transcript.c
+        src/none/none/math/merkle.c
+        src/none/none/math/fri.c
+        src/none/none/math/air.c
+        src/none/none/math/stark.c
+        src/none/none/hash/blake2b.c
+        src/none/none/hash/poseidon2.c
         src/none/none/time/cal.c
         src/none/none/io/line.c
+        src/none/none/logging/logging.c
         src/none/none/sort/sort.c
         src/none/none/parse/parse.c
         src/none/none/compress/inflate.c
         src/none/none/compress/deflate.c
         src/none/none/proto/emiru.c
         src/none/none/proto/emiemi.c
-        src/none/none/arch/MISC/MISC.c
+        src/none/none/proto/cw.c
+        src/none/none/arch/dangcsa/dangcsa.c
+        src/none/none/arch/dangcsa/dlu.c
+        src/none/none/arch/dangcsa/trace.c
         src/none/none/ecs/entity.c
         src/none/none/ecs/comp.c
         src/none/none/ecs/taxon.c
@@ -345,8 +332,21 @@ set(LDG_SOURCES
 if(NOT LDG_ARCH STREQUAL "i386")
     list(APPEND LDG_SOURCES
         src/none/none/math/astar.c
+        src/none/none/math/rational.c
         src/none/none/term/term.c
         src/none/none/term/vt.c
+        src/none/none/term/render.c
+        src/none/none/term/emit.c
+        src/none/none/term/key.c
+        src/none/none/term/sesh.c
+        src/none/none/term/input.c
+        src/none/none/term/layout.c
+        src/none/none/term/focus.c
+        src/none/none/term/svg.c
+        src/none/none/term/caption.c
+        src/none/none/term/fx.c
+        src/none/none/fmt/svg.c
+        src/none/none/fmt/bmp.c
         src/none/none/math/sparse.c
         src/none/none/math/sparse_lu.c
         src/none/none/math/krylov.c
@@ -383,6 +383,54 @@ if(NOT LDG_ARCH STREQUAL "i386")
         src/none/none/math/stat/td.c
         src/none/none/math/stat/tile.c
         src/none/none/math/stat/vfa.c
+        src/none/none/math/stat/autograd.c
+        src/none/none/math/stat/ppo.c
+        src/none/none/math/stat/layer/param.c
+        src/none/none/math/stat/layer/dense.c
+        src/none/none/math/stat/layer/norm.c
+        src/none/none/math/stat/layer/rms.c
+        src/none/none/math/stat/layer/gru.c
+        src/none/none/math/stat/layer/lstm.c
+        src/none/none/math/stat/layer/attn.c
+        src/none/none/math/stat/layer/synapse.c
+        src/none/none/math/stat/layer/neuron.c
+        src/none/none/math/stat/layer/conv.c
+        src/none/none/math/stat/layer/linreg.c
+        src/none/none/math/stat/layer/svm.c
+        src/none/none/math/stat/layer/cosine.c
+        src/none/none/math/stat/layer/euclid.c
+        src/none/none/math/stat/layer/pool.c
+        src/none/none/math/stat/layer/embedding.c
+        src/none/none/math/stat/layer/dropout.c
+        src/none/none/math/stat/layer/transformer.c
+        src/none/none/math/stat/layer/sequence.c
+        src/none/none/math/stat/trait.c
+        src/none/none/math/stat/kmeans.c
+        src/none/none/math/stat/linkage.c
+        src/none/none/math/stat/pca.c
+        src/none/none/math/stat/mds.c
+        src/none/none/math/stat/nearest.c
+        src/none/none/math/stat/dirichlet.c
+        src/none/none/math/stat/rng.c
+        src/none/none/math/stat/markov.c
+        src/none/none/math/stat/density.c
+        src/none/none/math/stat/association.c
+        src/none/none/math/stat/hypothesis.c
+        src/none/none/math/stat/evaluation.c
+        src/none/none/math/stat/cusum.c
+        src/none/none/math/stat/calibration.c
+        src/none/none/math/stat/sentencepiece.c
+        src/none/none/math/crypto/sha2.c
+        src/none/none/math/crypto/bignum.c
+        src/none/none/math/crypto/rsa.c
+        src/none/none/math/crypto/ecdsa.c
+        src/none/none/math/crypto/x509.c
+        src/none/none/math/crypto/hmac.c
+        src/none/none/math/crypto/chacha.c
+        src/none/none/math/crypto/x25519.c
+        src/none/none/math/stat/adam.c
+        src/none/none/math/stat/mask.c
+        src/none/none/math/stat/model.c
         src/none/none/sys/progress.c
         src/none/none/time/timer.c
         src/none/none/sched/trace.c
@@ -409,9 +457,13 @@ if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
         ${LDG_PLATFORM_DIR}/io/midi.c
         ${LDG_PLATFORM_DIR}/io/pty.c
         ${LDG_PLATFORM_DIR}/sys/uuid.c
+        ${LDG_PLATFORM_DIR}/sys/entropy.c
         ${LDG_PLATFORM_DIR}/sys/tty.c
         ${LDG_PLATFORM_DIR}/sys/info.c
         ${LDG_PLATFORM_DIR}/sys/proc.c
+        ${LDG_PLATFORM_DIR}/sys/cpuset.c
+        ${LDG_PLATFORM_DIR}/sys/lib.c
+        ${LDG_PLATFORM_DIR}/cpp/cpp.c
         ${LDG_PLATFORM_DIR}/sys/window.c
         ${LDG_PLATFORM_DIR}/hw/sensor.c
         ${LDG_PLATFORM_DIR}/sys/clipboard.c
@@ -426,18 +478,23 @@ elseif(LDG_PLATFORM STREQUAL "DANGLING")
     )
     if(LDG_ARCH STREQUAL "i386")
         list(APPEND LDG_SOURCES ${LDG_PLATFORM_DIR}/thread/sync.c)
-    elseif(LDG_ARCH STREQUAL "MISC")
+    elseif(LDG_ARCH STREQUAL "dangcsa")
         list(APPEND LDG_SOURCES
             ${LDG_PLATFORM_DIR}/arch/arith.c
             ${LDG_PLATFORM_DIR}/io/console.c
             ${LDG_PLATFORM_DIR}/time/time.c
             ${LDG_PLATFORM_DIR}/mem/rt.c
             ${LDG_PLATFORM_DIR}/sys/handover.c
+            ${LDG_PLATFORM_DIR}/sys/lib.c
+            ${LDG_PLATFORM_DIR}/sys/tty.c
+            ${LDG_PLATFORM_DIR}/sys/entropy.c
             ${LDG_PLATFORM_DIR}/thread/yield.c
             ${LDG_PLATFORM_DIR}/io/file.c
             ${LDG_PLATFORM_DIR}/io/dir.c
             ${LDG_PLATFORM_DIR}/io/path.c
+            ${LDG_PLATFORM_DIR}/sys/rst.asm
         )
+        set_source_files_properties(${LDG_PLATFORM_DIR}/sys/rst.asm PROPERTIES LANGUAGE ASM COMPILE_OPTIONS "-x;assembler")
     endif()
 endif()
 
@@ -484,7 +541,7 @@ endif()
 
 set(LDG_FMT_CONF_INSTALL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/dangling/uncrustify.cfg")
 
-if(LDG_ARCH STREQUAL "i386" OR LDG_ARCH STREQUAL "MISC")
+if(LDG_ARCH STREQUAL "i386" OR LDG_ARCH STREQUAL "dangcsa")
     set(LDG_TARGETS dangling_static)
 else()
     set(LDG_TARGETS dangling_shared dangling_static)
@@ -508,6 +565,16 @@ foreach(LDG_TARGET ${LDG_TARGETS})
             -Wl,--version-script=${LDG_VERSION_SCRIPT}
             -Wl,--as-needed
         )
+    endif()
+
+    if(LDG_TARGET STREQUAL "dangling_shared" AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set_target_properties(${LDG_TARGET} PROPERTIES
+            STD_YESREALLYDONOTSTRIPTHISWINDOWSBINARY ON
+            IMPORT_PREFIX "lib"
+            IMPORT_SUFFIX ".dll.a"
+        )
+        target_link_options(${LDG_TARGET} PRIVATE "LINKER:--out-implib,${CMAKE_CURRENT_BINARY_DIR}/libdangling.dll.a")
+        target_link_libraries(${LDG_TARGET} PRIVATE -Wl,-Bstatic -lwinpthread -lssp -Wl,-Bdynamic)
     endif()
 
     target_include_directories(${LDG_TARGET} PUBLIC
@@ -536,7 +603,7 @@ foreach(LDG_TARGET ${LDG_TARGETS})
         target_link_libraries(${LDG_TARGET} PUBLIC Threads::Threads)
     endif()
     if(LDG_PLATFORM STREQUAL "linux")
-        target_link_libraries(${LDG_TARGET} PUBLIC m)
+        target_link_libraries(${LDG_TARGET} PUBLIC m ${CMAKE_DL_LIBS})
     endif()
     if(LDG_PLATFORM STREQUAL "windows")
         target_link_libraries(${LDG_TARGET} PUBLIC kernel32 bcrypt ws2_32 advapi32 shell32 user32 setupapi winmm)
@@ -552,7 +619,30 @@ foreach(LDG_TARGET ${LDG_TARGETS})
     endif()
 endforeach()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND TARGET dangling_shared)
+    if(NOT CMAKE_NM)
+        message(FATAL_ERROR "nm not found; required to gen libdangling.def")
+    endif()
+    set(LDG_DEF "${CMAKE_CURRENT_BINARY_DIR}/libdangling.def")
+    add_custom_command(
+        OUTPUT ${LDG_DEF}
+        COMMAND ${CMAKE_COMMAND}
+            -DMAP=${CMAKE_CURRENT_SOURCE_DIR}/libdangling.map
+            -DNM=${CMAKE_NM}
+            -DARCHIVE=$<TARGET_FILE:dangling_static>
+            -DOUTPUT=${LDG_DEF}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/def_gen.cmake
+        DEPENDS dangling_static ${CMAKE_CURRENT_SOURCE_DIR}/libdangling.map ${CMAKE_CURRENT_SOURCE_DIR}/cmake/def_gen.cmake
+        COMMENT "gen libdangling.def from libdangling.map"
+    )
+    add_custom_target(dangling_def_gen DEPENDS ${LDG_DEF})
+    add_dependencies(dangling_shared dangling_def_gen)
+    set_target_properties(dangling_shared PROPERTIES LINK_DEPENDS ${LDG_DEF})
+    target_link_options(dangling_shared PRIVATE ${LDG_DEF})
+endif()
+
 install(TARGETS ${LDG_TARGETS}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
@@ -646,8 +736,4 @@ if(COMMAND std_invalidate_test_state)
     else()
         std_invalidate_test_state(dangling_static)
     endif()
-endif()
-
-if(COMMAND qemu_add_run_target)
-    qemu_add_run_target()
 endif()

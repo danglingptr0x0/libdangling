@@ -7,17 +7,19 @@
 #include <dangling/core/bits.h>
 #include <dangling/core/macros.h>
 
-#define LDG_MEM_FRAME_WORD_BITS ((uint64_t)sizeof(uint64_t) * LDG_BYTE_BITS)
+#define LDG_MEM_FRAME_WORD_BITS ((uint64_t)sizeof(uintptr_t) * LDG_BYTE_BITS)
 #define LDG_MEM_FRAME_WORD_BIAS (LDG_MEM_FRAME_WORD_BITS - 1)
 #define LDG_MEM_FRAME_ALIGN_BIAS ((uint64_t)LDG_MEM_FRAME_WIDTH - 1)
-#define LDG_MEM_FRAME_BIT_MASK ((uint64_t)LDG_BIT(0))
+#define LDG_MEM_FRAME_BIT_MASK ((uintptr_t)LDG_BIT(0))
 #define LDG_MEM_FRAME_BITMAP_CUNT 2
+#define LDG_MEM_FRAME_WORD_FULL UINTPTR_MAX
+#define LDG_MEM_FRAME_STEP 1
 #define LDG_MEM_FRAME_OCCUPIED_FILL LDG_BYTE_MASK
 
 typedef struct ldg_mem_frame_state
 {
-    uint64_t *occupancy;
-    uint64_t *run_start;
+    uintptr_t *occupancy;
+    uintptr_t *run_start;
     uint64_t base;
     uint64_t frame_cunt;
     uint64_t free_cunt;
@@ -33,22 +35,22 @@ static ldg_mem_frame_state_t* frame_state_get(void)
     return &state;
 }
 
-static uint8_t frame_bit_is(const uint64_t *bitmap, uint64_t idx)
+static uint8_t frame_bit_is(const uintptr_t *bitmap, uint64_t idx)
 {
-    uint64_t word = 0;
-    uint64_t shift = 0;
+    uintptr_t word = 0;
+    uint32_t shift = 0;
 
     if (LDG_UNLIKELY(!bitmap)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     word = bitmap[idx / LDG_MEM_FRAME_WORD_BITS];
-    shift = idx % LDG_MEM_FRAME_WORD_BITS;
+    shift = (uint32_t)(idx % LDG_MEM_FRAME_WORD_BITS);
 
     if (((word >> shift) & LDG_MEM_FRAME_BIT_MASK) == LDG_MEM_FRAME_BIT_MASK) { return LDG_TRUTH_TRUE; }
 
     return LDG_TRUTH_FALSE;
 }
 
-static uint32_t frame_bit_set(uint64_t *bitmap, uint64_t idx)
+static uint32_t frame_bit_set(uintptr_t *bitmap, uint64_t idx)
 {
     if (LDG_UNLIKELY(!bitmap)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -57,7 +59,7 @@ static uint32_t frame_bit_set(uint64_t *bitmap, uint64_t idx)
     return LDG_ERR_AOK;
 }
 
-static uint32_t frame_bit_clear(uint64_t *bitmap, uint64_t idx)
+static uint32_t frame_bit_clear(uintptr_t *bitmap, uint64_t idx)
 {
     if (LDG_UNLIKELY(!bitmap)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -66,9 +68,33 @@ static uint32_t frame_bit_clear(uint64_t *bitmap, uint64_t idx)
     return LDG_ERR_AOK;
 }
 
+static uint32_t frame_popcount_get(uintptr_t word)
+{
+    uint32_t cunt = 0;
+
+    while (word != 0)
+    {
+        word &= word - LDG_MEM_FRAME_BIT_MASK;
+        cunt++;
+    }
+
+    return cunt;
+}
+
+static uint8_t frame_word_spans_is(uint64_t idx, uint64_t last)
+{
+    if ((idx % LDG_MEM_FRAME_WORD_BITS) != 0) { return LDG_TRUTH_FALSE; }
+
+    if ((last - idx) < LDG_MEM_FRAME_WORD_BITS) { return LDG_TRUTH_FALSE; }
+
+    return LDG_TRUTH_TRUE;
+}
+
 static uint32_t frame_range_occupy(ldg_mem_frame_state_t *state, uint64_t first, uint64_t cunt)
 {
     uint64_t idx = 0;
+    uint64_t last = 0;
+    uint32_t taken = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!state)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -77,16 +103,34 @@ static uint32_t frame_range_occupy(ldg_mem_frame_state_t *state, uint64_t first,
 
     if (LDG_UNLIKELY(cunt > state->frame_cunt - first)) { return LDG_ERR_BOUNDS; }
 
-    for (idx = first; idx < first + cunt; idx++)
+    last = first + cunt;
+    idx = first;
+
+    while (idx < last)
     {
-        if (frame_bit_is(state->occupancy, idx) == LDG_TRUTH_TRUE) { continue; }
+        if (frame_word_spans_is(idx, last) == LDG_TRUTH_TRUE)
+        {
+            taken = (uint32_t)LDG_MEM_FRAME_WORD_BITS - frame_popcount_get(state->occupancy[idx / LDG_MEM_FRAME_WORD_BITS]);
 
-        ret = frame_bit_set(state->occupancy, idx);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+            if (LDG_UNLIKELY((uint64_t)taken > state->free_cunt)) { return LDG_ERR_MEM_CORRUPTION; }
 
-        if (LDG_UNLIKELY(state->free_cunt == 0)) { return LDG_ERR_MEM_CORRUPTION; }
+            state->occupancy[idx / LDG_MEM_FRAME_WORD_BITS] = LDG_MEM_FRAME_WORD_FULL;
+            state->free_cunt -= taken;
+            idx += LDG_MEM_FRAME_WORD_BITS;
+            continue;
+        }
 
-        state->free_cunt--;
+        if (frame_bit_is(state->occupancy, idx) != LDG_TRUTH_TRUE)
+        {
+            ret = frame_bit_set(state->occupancy, idx);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+            if (LDG_UNLIKELY(state->free_cunt == 0)) { return LDG_ERR_MEM_CORRUPTION; }
+
+            state->free_cunt--;
+        }
+
+        idx++;
     }
 
     return LDG_ERR_AOK;
@@ -95,6 +139,7 @@ static uint32_t frame_range_occupy(ldg_mem_frame_state_t *state, uint64_t first,
 static uint32_t frame_range_release(ldg_mem_frame_state_t *state, uint64_t first, uint64_t cunt)
 {
     uint64_t idx = 0;
+    uint64_t last = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!state)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -103,14 +148,28 @@ static uint32_t frame_range_release(ldg_mem_frame_state_t *state, uint64_t first
 
     if (LDG_UNLIKELY(cunt > state->frame_cunt - first)) { return LDG_ERR_BOUNDS; }
 
-    for (idx = first; idx < first + cunt; idx++)
+    last = first + cunt;
+    idx = first;
+
+    while (idx < last)
     {
-        if (frame_bit_is(state->occupancy, idx) != LDG_TRUTH_TRUE) { continue; }
+        if (frame_word_spans_is(idx, last) == LDG_TRUTH_TRUE)
+        {
+            state->free_cunt += frame_popcount_get(state->occupancy[idx / LDG_MEM_FRAME_WORD_BITS]);
+            state->occupancy[idx / LDG_MEM_FRAME_WORD_BITS] = LDG_TRUTH_FALSE;
+            idx += LDG_MEM_FRAME_WORD_BITS;
+            continue;
+        }
 
-        ret = frame_bit_clear(state->occupancy, idx);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+        if (frame_bit_is(state->occupancy, idx) == LDG_TRUTH_TRUE)
+        {
+            ret = frame_bit_clear(state->occupancy, idx);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        state->free_cunt++;
+            state->free_cunt++;
+        }
+
+        idx++;
     }
 
     return LDG_ERR_AOK;
@@ -153,6 +212,13 @@ static uint32_t frame_free_run_find(const ldg_mem_frame_state_t *state, uint64_t
 
     for (idx = first; idx < limit; idx++)
     {
+        if (frame_word_spans_is(idx, limit) == LDG_TRUTH_TRUE && state->occupancy[idx / LDG_MEM_FRAME_WORD_BITS] == LDG_MEM_FRAME_WORD_FULL)
+        {
+            run = 0;
+            idx += LDG_MEM_FRAME_WORD_BITS - LDG_MEM_FRAME_STEP;
+            continue;
+        }
+
         if (frame_bit_is(state->occupancy, idx) == LDG_TRUTH_TRUE)
         {
             run = 0;
@@ -224,7 +290,7 @@ uint32_t ldg_mem_frame_init(const ldg_mem_extent_t *extent, uint32_t cunt)
 
     frame_cunt = (aligned_end - aligned_base) / LDG_MEM_FRAME_WIDTH;
     word_cunt = (frame_cunt + LDG_MEM_FRAME_WORD_BIAS) / LDG_MEM_FRAME_WORD_BITS;
-    bitmap_width = word_cunt * (uint64_t)sizeof(uint64_t) * LDG_MEM_FRAME_BITMAP_CUNT;
+    bitmap_width = word_cunt * (uint64_t)sizeof(uintptr_t) * LDG_MEM_FRAME_BITMAP_CUNT;
     meta_cunt = (bitmap_width + LDG_MEM_FRAME_ALIGN_BIAS) / LDG_MEM_FRAME_WIDTH;
     meta_base = UINT64_MAX;
 
@@ -245,17 +311,17 @@ uint32_t ldg_mem_frame_init(const ldg_mem_extent_t *extent, uint32_t cunt)
 
     if (LDG_UNLIKELY(meta_base == UINT64_MAX)) { return LDG_ERR_FULL; }
 
-    state->occupancy = (uint64_t *)(uintptr_t)meta_base;
+    state->occupancy = (uintptr_t *)(uintptr_t)meta_base;
     state->run_start = state->occupancy + word_cunt;
     state->base = aligned_base;
     state->frame_cunt = frame_cunt;
     state->free_cunt = 0;
     state->cursor = 0;
 
-    ret = ldg_mem_fill(state->occupancy, LDG_MEM_FRAME_OCCUPIED_FILL, word_cunt * (uint64_t)sizeof(uint64_t));
+    ret = ldg_mem_fill(state->occupancy, LDG_MEM_FRAME_OCCUPIED_FILL, word_cunt * (uint64_t)sizeof(uintptr_t));
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_mem_zero(state->run_start, word_cunt * (uint64_t)sizeof(uint64_t));
+    ret = ldg_mem_zero(state->run_start, word_cunt * (uint64_t)sizeof(uintptr_t));
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     for (idx = 0; idx < cunt; idx++)

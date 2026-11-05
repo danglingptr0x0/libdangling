@@ -4,7 +4,7 @@
 
 #include "field.h"
 
-uint32_t ldg_math_phys_field_energy_get(const double *cur, const double *prev, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double *out)
+uint32_t ldg_math_phys_field_energy_get(const double *curr, const double *prev, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double *out)
 {
     double kinetic_sum = 0.0;
     double grad_sum = 0.0;
@@ -15,7 +15,7 @@ uint32_t ldg_math_phys_field_energy_get(const double *cur, const double *prev, u
     uint64_t idx_y = 0;
     uint64_t idx_z = 0;
     uint64_t center = 0;
-    if (LDG_UNLIKELY(!cur)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!curr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(!prev)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -37,23 +37,23 @@ uint32_t ldg_math_phys_field_energy_get(const double *cur, const double *prev, u
             for (idx_x = 0; idx_x < nx; idx_x++)
             {
                 center = (idx_z * ny + idx_y) * nx + idx_x;
-                rate = (cur[center] - prev[center]) / dt;
+                rate = (curr[center] - prev[center]) / dt;
                 kinetic_sum += 0.5 * rate * rate;
                 if (idx_x + 1 < nx)
                 {
-                    diff = (cur[center + 1] - cur[center]) / spacing;
+                    diff = (curr[center + 1] - curr[center]) / spacing;
                     grad_sum += 0.5 * diff * diff;
                 }
 
                 if (idx_y + 1 < ny)
                 {
-                    diff = (cur[center + nx] - cur[center]) / spacing;
+                    diff = (curr[center + nx] - curr[center]) / spacing;
                     grad_sum += 0.5 * diff * diff;
                 }
 
                 if (idx_z + 1 < nz)
                 {
-                    diff = (cur[center + ny * nx] - cur[center]) / spacing;
+                    diff = (curr[center + ny * nx] - curr[center]) / spacing;
                     grad_sum += 0.5 * diff * diff;
                 }
             }

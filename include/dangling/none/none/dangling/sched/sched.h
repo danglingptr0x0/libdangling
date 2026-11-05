@@ -9,13 +9,14 @@
 #include <dangling/time/perf.h>
 #include <dangling/time/timer.h>
 #include <dangling/thread/pool.h>
+#include <dangling/thread/sync.h>
 #include <dangling/sched/event.h>
 #include <dangling/sched/job.h>
 #include <dangling/sched/trace.h>
 
 #define LDG_SCHED_WORKER_MAX 64
-#define LDG_SCHED_FIXED_DT 0.016666666666666666
-#define LDG_SCHED_SPIN_DT_MAX 0.25
+#define LDG_SCHED_FIXED_RATE 60U
+#define LDG_SCHED_SPIN_DT_MAX 250U
 
 #define LDG_SCHED_WORKER_CUNT_DEFAULT 4
 #define LDG_SCHED_DRAIN_WAVE_MAX 4096
@@ -76,11 +77,10 @@ typedef struct ldg_sched_svm_feat
 
 typedef struct ldg_sched_conf
 {
-    double fixed_dt;
-    double spin_budget_ms;
-    double plot_weight_crit;
-    double plot_weight_remaining;
-    double plot_weight_deadline;
+    ldg_math_rational_t spin_budget;
+    ldg_math_rational_t plot_weight_crit;
+    ldg_math_rational_t plot_weight_remaining;
+    ldg_math_rational_t plot_weight_deadline;
     double svm_cost;
     double svm_epsilon;
     double bayes_prior_m;
@@ -92,15 +92,18 @@ typedef struct ldg_sched_conf
     ldg_sched_prio_cb_t prio_cb;
     uint32_t est_strat;
     uint32_t worker_cunt;
-    uint8_t enable_tracing;
-    uint8_t pudding[7];
+    uint32_t fixed_rate;
+    uint8_t tracing_en;
+    uint8_t pudding[3];
 } ldg_sched_conf_t;
 
 typedef struct ldg_sched_step_ctx
 {
-    double dt;
-    double time;
+    uint64_t dt;
+    uint64_t time;
     uint64_t spin;
+    uint32_t fixed_rate;
+    uint8_t pudding[4];
 } ldg_sched_step_ctx_t;
 
 typedef struct ldg_sched_ctx
@@ -115,15 +118,22 @@ typedef struct ldg_sched_ctx
     ldg_thread_pool_t pool;
     ldg_time_ctx_t time_ctx;
     ldg_math_astar_ctx_t *astar;
-    double fixed_accumulator;
+    uint64_t fixed_accumulator;
     ldg_sched_event_desc_t phase_events[LDG_SCHED_PHASE_MAX];
     ldg_sched_job_id_t job_order[LDG_SCHED_JOB_MAX];
     ldg_sched_conf_t conf;
+    ldg_mut_t work_mut;
+    ldg_cond_t work_cond;
+    ldg_cond_t done_cond;
+    ldg_cond_t spin_cond;
     volatile uint32_t should_stop;
     volatile uint32_t active_jobs;
     volatile uint32_t exec_stop;
+    volatile uint32_t work_seq;
+    volatile uint32_t spin_wake;
     uint8_t is_init;
-    uint8_t pudding[51];
+    uint8_t wait_init;
+    uint8_t pudding[18];
 } LDG_ALIGNED ldg_sched_ctx_t;
 
 LDG_EXPORT uint32_t ldg_sched_conf_default_get(ldg_sched_conf_t *conf);
@@ -147,10 +157,10 @@ LDG_EXPORT uint32_t ldg_sched_ctx_job_dep_add(ldg_sched_ctx_t *ctx, ldg_sched_jo
 LDG_EXPORT uint32_t ldg_sched_ctx_job_class_set(ldg_sched_ctx_t *ctx, ldg_sched_job_id_t id, uint16_t job_class);
 LDG_EXPORT uint32_t ldg_sched_ctx_est_strat_set(ldg_sched_ctx_t *ctx, uint32_t est_strat);
 LDG_EXPORT uint32_t ldg_sched_ctx_est_strat_get(ldg_sched_ctx_t *ctx, uint32_t *out);
-LDG_EXPORT uint32_t ldg_sched_ctx_job_deadline_set(ldg_sched_ctx_t *ctx, ldg_sched_job_id_t id, double deadline);
+LDG_EXPORT uint32_t ldg_sched_ctx_job_deadline_set(ldg_sched_ctx_t *ctx, ldg_sched_job_id_t id, uint64_t deadline);
 LDG_EXPORT uint32_t ldg_sched_ctx_trace_push(ldg_sched_ctx_t *ctx, ldg_sched_trace_type_t type, uint32_t data0, uint64_t data1);
-LDG_EXPORT uint32_t ldg_sched_ctx_dt_get(ldg_sched_ctx_t *ctx, double *out);
-LDG_EXPORT uint32_t ldg_sched_ctx_time_get(ldg_sched_ctx_t *ctx, double *out);
+LDG_EXPORT uint32_t ldg_sched_ctx_dt_get(ldg_sched_ctx_t *ctx, uint64_t *out);
+LDG_EXPORT uint32_t ldg_sched_ctx_time_get(ldg_sched_ctx_t *ctx, uint64_t *out);
 LDG_EXPORT uint64_t ldg_sched_ctx_spin_get(ldg_sched_ctx_t *ctx);
 
 #endif

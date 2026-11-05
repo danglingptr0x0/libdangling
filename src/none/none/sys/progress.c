@@ -4,6 +4,8 @@
 #include <dangling/mem/cpy.h>
 #include <dangling/core/macros.h>
 
+#define PROGRESS_SUFFIX_CAP 3
+
 static uint32_t progress_char_append(uint8_t *out, uint64_t cap, uint64_t *pos, uint8_t ch)
 {
     if (LDG_UNLIKELY(*pos >= cap)) { return LDG_ERR_STR_TRUNC; }
@@ -93,9 +95,9 @@ static uint32_t progress_pad2_append(uint8_t *out, uint64_t cap, uint64_t *pos, 
 
 static uint32_t progress_num_append(uint8_t *out, uint64_t cap, uint64_t *pos, uint64_t val, uint32_t unit)
 {
-    const char *const si_suffix[6] = { "", "k", "M", "G", "T", "P" };
-    const char *const iec_suffix[6] = { "", "Ki", "Mi", "Gi", "Ti", "Pi" };
-    const char *const *suffix = 0x0;
+    const char si_suffix[6][PROGRESS_SUFFIX_CAP] = { "", "k", "M", "G", "T", "P" };
+    const char iec_suffix[6][PROGRESS_SUFFIX_CAP] = { "", "Ki", "Mi", "Gi", "Ti", "Pi" };
+    const char (*suffix)[PROGRESS_SUFFIX_CAP] = 0x0;
     uint64_t div = 0;
     uint64_t scaled = 0;
     uint64_t rem = 0;
@@ -184,7 +186,7 @@ static uint64_t progress_pct_bp(const ldg_sys_progress_t *bar)
 
     if (bar->conf.total == 0) { return 0; }
 
-    bp = (bar->cur * (uint64_t)LDG_SYS_PROGRESS_PCT_SCALE) / bar->conf.total;
+    bp = (bar->curr * (uint64_t)LDG_SYS_PROGRESS_PCT_SCALE) / bar->conf.total;
 
     if (bp > LDG_SYS_PROGRESS_PCT_SCALE) { bp = LDG_SYS_PROGRESS_PCT_SCALE; }
 
@@ -279,7 +281,7 @@ static uint32_t progress_spinner_append(ldg_sys_progress_t *bar, uint8_t *out, u
 static void progress_rate_update(ldg_sys_progress_t *bar, uint64_t now)
 {
     uint64_t dt_tick = 0;
-    uint64_t d_cur = 0;
+    uint64_t d_curr = 0;
     double dt_sec = 0.0;
     double tau_sec = 0.0;
     double inst = 0.0;
@@ -289,15 +291,15 @@ static void progress_rate_update(ldg_sys_progress_t *bar, uint64_t now)
 
     if (now <= bar->last_time)
     {
-        bar->last_cur = bar->cur;
+        bar->last_curr = bar->curr;
         return;
     }
 
     dt_tick = now - bar->last_time;
-    d_cur = (bar->cur > bar->last_cur) ? (bar->cur - bar->last_cur) : 0;
+    d_curr = (bar->curr > bar->last_curr) ? (bar->curr - bar->last_curr) : 0;
 
     dt_sec = (double)dt_tick / (double)bar->conf.time_freq;
-    inst = (double)d_cur / dt_sec;
+    inst = (double)d_curr / dt_sec;
 
     if (bar->rate_valid != LDG_TRUTH_TRUE || bar->conf.rate_tau == 0)
     {
@@ -312,7 +314,7 @@ static void progress_rate_update(ldg_sys_progress_t *bar, uint64_t now)
     }
 
     bar->last_time = now;
-    bar->last_cur = bar->cur;
+    bar->last_curr = bar->curr;
 }
 
 LDG_EXPORT uint32_t ldg_sys_progress_conf_default_get(ldg_sys_progress_conf_t *out)
@@ -349,10 +351,10 @@ LDG_EXPORT uint32_t ldg_sys_progress_init(ldg_sys_progress_t *bar, const ldg_sys
     bar->is_init = UINT8_MAX;
 
     bar->conf = *conf;
-    bar->cur = 0;
+    bar->curr = 0;
     bar->start_time = now;
     bar->last_time = now;
-    bar->last_cur = 0;
+    bar->last_curr = 0;
     bar->rate = 0.0;
     bar->spinner_phase = 0;
     bar->rate_valid = LDG_TRUTH_FALSE;
@@ -368,10 +370,10 @@ LDG_EXPORT uint32_t ldg_sys_progress_rst(ldg_sys_progress_t *bar, uint64_t now)
 
     if (LDG_UNLIKELY(bar->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    bar->cur = 0;
+    bar->curr = 0;
     bar->start_time = now;
     bar->last_time = now;
-    bar->last_cur = 0;
+    bar->last_curr = 0;
     bar->rate = 0.0;
     bar->spinner_phase = 0;
     bar->rate_valid = LDG_TRUTH_FALSE;
@@ -386,21 +388,21 @@ LDG_EXPORT uint32_t ldg_sys_progress_advance(ldg_sys_progress_t *bar, uint64_t d
 
     if (LDG_UNLIKELY(bar->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    if (bar->cur > UINT64_MAX - delta) { bar->cur = UINT64_MAX; }
-    else { bar->cur += delta; }
+    if (bar->curr > UINT64_MAX - delta) { bar->curr = UINT64_MAX; }
+    else { bar->curr += delta; }
 
     progress_rate_update(bar, now);
 
     return LDG_ERR_AOK;
 }
 
-LDG_EXPORT uint32_t ldg_sys_progress_cur_set(ldg_sys_progress_t *bar, uint64_t cur, uint64_t now)
+LDG_EXPORT uint32_t ldg_sys_progress_curr_set(ldg_sys_progress_t *bar, uint64_t curr, uint64_t now)
 {
     if (LDG_UNLIKELY(!bar)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(bar->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    bar->cur = cur;
+    bar->curr = curr;
 
     progress_rate_update(bar, now);
 
@@ -424,7 +426,7 @@ LDG_EXPORT uint32_t ldg_sys_progress_finish(ldg_sys_progress_t *bar, uint64_t no
 
     if (LDG_UNLIKELY(bar->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    if (bar->conf.mode == LDG_SYS_PROGRESS_MODE_BAR && bar->conf.total > 0) { bar->cur = bar->conf.total; }
+    if (bar->conf.mode == LDG_SYS_PROGRESS_MODE_BAR && bar->conf.total > 0) { bar->curr = bar->conf.total; }
 
     progress_rate_update(bar, now);
 
@@ -463,7 +465,7 @@ LDG_EXPORT uint32_t ldg_sys_progress_render(ldg_sys_progress_t *bar, uint8_t *ou
         ret = progress_char_append(out, cap, &pos, (uint8_t)' ');
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        ret = progress_num_append(out, cap, &pos, bar->cur, bar->conf.unit);
+        ret = progress_num_append(out, cap, &pos, bar->curr, bar->conf.unit);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         ret = progress_char_append(out, cap, &pos, (uint8_t)' ');
@@ -499,7 +501,7 @@ LDG_EXPORT uint32_t ldg_sys_progress_render(ldg_sys_progress_t *bar, uint8_t *ou
 
         if (bar->conf.flags & LDG_SYS_PROGRESS_FLAG_CUNT)
         {
-            ret = progress_num_append(out, cap, &pos, bar->cur, bar->conf.unit);
+            ret = progress_num_append(out, cap, &pos, bar->curr, bar->conf.unit);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
             ret = progress_char_append(out, cap, &pos, (uint8_t)'/');
@@ -558,9 +560,9 @@ LDG_EXPORT uint64_t ldg_sys_progress_eta_get(const ldg_sys_progress_t *bar)
 
     if (bar->rate_valid != LDG_TRUTH_TRUE || bar->rate <= 0.0 || bar->conf.total == 0) { return UINT64_MAX; }
 
-    if (bar->cur >= bar->conf.total) { return 0; }
+    if (bar->curr >= bar->conf.total) { return 0; }
 
-    remaining = bar->conf.total - bar->cur;
+    remaining = bar->conf.total - bar->curr;
 
     return (uint64_t)((double)remaining / bar->rate + 0.5);
 }
@@ -572,11 +574,11 @@ LDG_EXPORT uint32_t ldg_sys_progress_pct_get(const ldg_sys_progress_t *bar)
     return (uint32_t)progress_pct_bp(bar);
 }
 
-LDG_EXPORT uint64_t ldg_sys_progress_cur_get(const ldg_sys_progress_t *bar)
+LDG_EXPORT uint64_t ldg_sys_progress_curr_get(const ldg_sys_progress_t *bar)
 {
     if (LDG_UNLIKELY(!bar || bar->is_init != LDG_TRUTH_TRUE)) { return UINT64_MAX; }
 
-    return bar->cur;
+    return bar->curr;
 }
 
 LDG_EXPORT uint8_t ldg_sys_progress_done_is(const ldg_sys_progress_t *bar)

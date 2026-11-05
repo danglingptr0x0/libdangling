@@ -13,6 +13,25 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/str/str.h>
 
+#define LDG_IO_PATH_SEP_LEN 1
+#define LDG_IO_PATH_ROOT_LEN 1
+
+static void path_parent_strip(char *resolved, uint64_t *rpos)
+{
+    uint64_t pos = *rpos;
+
+    if (pos > LDG_IO_PATH_ROOT_LEN)
+    {
+        pos--;
+        while (pos > LDG_IO_PATH_ROOT_LEN && resolved[pos - LDG_IO_PATH_SEP_LEN] != '/') { pos--; }
+
+        if (pos > LDG_IO_PATH_ROOT_LEN) { pos--; }
+    }
+
+    resolved[pos] = LDG_STR_TERM;
+    *rpos = pos;
+}
+
 static uint32_t ldg_io_path_errno_translate(void)
 {
     switch (errno)
@@ -513,13 +532,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
 
         if (clen == 2 && component[0] == '.' && component[1] == '.')
         {
-            if (rpos > 1)
-            {
-                rpos--;
-                while (rpos > 1 && resolved[rpos - 1] != '/') { rpos--; }
-            }
-
-            resolved[rpos] = LDG_STR_TERM;
+            path_parent_strip(resolved, &rpos);
             continue;
         }
 
@@ -553,19 +566,20 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
             link_target[link_res] = LDG_STR_TERM;
             llen = (uint64_t)link_res;
 
-            if (LDG_UNLIKELY(memset(tmp, 0, PATH_MAX) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
-
-            if (LDG_UNLIKELY(ldg_mem_secure_cpy(tmp, link_target, llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
-
             if (ppos < plen)
             {
-                if (LDG_UNLIKELY(llen + 1 + (plen - ppos) >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
+                if (LDG_UNLIKELY(llen + LDG_IO_PATH_SEP_LEN + (plen - ppos) >= PATH_MAX)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
 
-                tmp[llen] = '/';
-                if (LDG_UNLIKELY(ldg_mem_secure_cpy(tmp + llen + 1, path + ppos, plen - ppos) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+                link_target[llen] = '/';
+                if (LDG_UNLIKELY(ldg_mem_secure_cpy(link_target + llen + LDG_IO_PATH_SEP_LEN, path + ppos, plen - ppos) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
-                tmp[llen + 1 + (plen - ppos)] = LDG_STR_TERM;
+                llen += LDG_IO_PATH_SEP_LEN + (plen - ppos);
+                link_target[llen] = LDG_STR_TERM;
             }
+
+            if (LDG_UNLIKELY(memset(tmp, LDG_STR_TERM, PATH_MAX) != tmp)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+
+            if (LDG_UNLIKELY(ldg_mem_secure_cpy(tmp, link_target, llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
             path = tmp;
             plen = (uint64_t)strnlen(tmp, PATH_MAX);
@@ -577,16 +591,7 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
                 rpos = 1;
                 resolved[1] = LDG_STR_TERM;
             }
-            else
-            {
-                if (rpos > 1)
-                {
-                    rpos--;
-                    while (rpos > 1 && resolved[rpos - 1] != '/') { rpos--; }
-                }
-
-                resolved[rpos] = LDG_STR_TERM;
-            }
+            else { path_parent_strip(resolved, &rpos); }
         }
     }
 

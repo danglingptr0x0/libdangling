@@ -11,7 +11,6 @@ typedef struct ldg_gpu_gfx_scratch
     VkShaderModuleCreateInfo frag_sm_info;
     VkPipelineShaderStageCreateInfo stages[2];
     VkPipelineVertexInputStateCreateInfo vert_input;
-    VkVertexInputBindingDescription binding;
     VkVertexInputAttributeDescription attrs[LDG_GPU_VERT_ATTR_MAX];
     VkPipelineInputAssemblyStateCreateInfo input_assembly;
     VkPipelineViewportStateCreateInfo viewport_state;
@@ -23,11 +22,13 @@ typedef struct ldg_gpu_gfx_scratch
     VkPipelineDynamicStateCreateInfo dynamic;
     VkDynamicState dynamic_states[2];
     VkGraphicsPipelineCreateInfo gp_info;
+    VkVertexInputBindingDescription binding;
+    uint8_t pudding[4];
 } ldg_gpu_gfx_scratch_t;
 
 LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipeline_desc_t *desc, uint32_t *id)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     ldg_mem_pool_t *scratch = 0x0;
     ldg_gpu_gfx_scratch_t *vk_info = 0x0;
     VkShaderModule vert_module = VK_NULL_HANDLE;
@@ -70,7 +71,7 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
         return ret;
     }
 
-    *vk_info = (ldg_gpu_gfx_scratch_t)LDG_STRUCT_ZERO_INIT;
+    *vk_info = (ldg_gpu_gfx_scratch_t) { .vert_sm_info = { .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO } };
 
     dev = (VkDevice)ctx->dev;
     ret = ldg_mut_lock(&ctx->mut);
@@ -94,7 +95,6 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
         return LDG_ERR_GPU_PIPELINE_FULL;
     }
 
-    vk_info->vert_sm_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     vk_info->vert_sm_info.codeSize = (uint64_t)desc->vert.code_size;
     vk_info->vert_sm_info.pCode = desc->vert.code;
 
@@ -135,7 +135,7 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
     {
         vk_info->attrs[idx].location = desc->vert_attrs[idx].location;
         vk_info->attrs[idx].binding = 0;
-        vk_info->attrs[idx].format = (VkFormat)gpu_fmt_to_vk(desc->vert_attrs[idx].fmt);
+        vk_info->attrs[idx].format = (VkFormat)ldg_gpu_fmt_to_vk(desc->vert_attrs[idx].fmt);
         vk_info->attrs[idx].offset = desc->vert_attrs[idx].offset;
     }
 
@@ -173,7 +173,7 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
     vk_info->depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
 
     vk_info->blend_attach.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    if (desc->blend_enable == LDG_TRUTH_TRUE)
+    if (desc->blend_en == LDG_TRUTH_TRUE)
     {
         vk_info->blend_attach.blendEnable = VK_TRUE;
         vk_info->blend_attach.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

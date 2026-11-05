@@ -30,9 +30,9 @@ typedef struct ldg_emiru_hdr
 
 typedef struct ldg_emiru_decoded
 {
-    const ldg_emiru_hdr_t *hdr;
     const ldg_byte_t *text;
     const ldg_byte_t *data;
+    ldg_emiru_hdr_t hdr;
 } ldg_emiru_decoded_t;
 
 static inline ldg_dword_t ldg_emiru_encoded_size_get(ldg_dword_t text_len, ldg_dword_t data_len)
@@ -53,6 +53,6 @@ LDG_EXPORT uint32_t ldg_emiru_hdr_validate(const ldg_byte_t *buff, ldg_dword_t b
 LDG_EXPORT uint32_t ldg_emiru_decode(const ldg_byte_t *buff, ldg_dword_t buff_len, ldg_emiru_decoded_t *out);
 LDG_EXPORT uint32_t ldg_emiru_encode(const ldg_emiru_hdr_t *hdr, const ldg_byte_t *text, ldg_dword_t text_len, const ldg_byte_t *data, ldg_dword_t data_len, ldg_byte_t *out, ldg_dword_t out_len);
 LDG_EXPORT uint32_t ldg_emiru_img_width_get(const ldg_byte_t *buff, ldg_dword_t buff_len, ldg_dword_t *out);
-LDG_EXPORT uint32_t ldg_emiru_ld(const ldg_byte_t *buff, ldg_dword_t buff_len, ldg_dword_t base, ldg_dword_t *out_entry);
+LDG_EXPORT uint32_t ldg_emiru_ld(const ldg_byte_t *buff, ldg_dword_t buff_len, uint64_t base, uint64_t *out_entry);
 
 #endif

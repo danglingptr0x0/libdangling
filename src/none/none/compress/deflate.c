@@ -49,7 +49,9 @@
 #define LDG_DEFLATE_BTYPE_BITS 2
 #define LDG_DEFLATE_BTYPE_FIXED 1
 #define LDG_DEFLATE_BFINAL_LAST 1
-#define LDG_DEFLATE_BIT_ONE 1
+#define LDG_DEFLATE_CODE_BIT_STEP 1
+#define LDG_DEFLATE_CODE_BIT_MASK 1
+#define LDG_DEFLATE_TRAILER_LAST_BIAS 1
 #define LDG_DEFLATE_LIT_ADVANCE 1
 #define LDG_DEFLATE_EMPTY 0
 
@@ -90,7 +92,7 @@ static uint32_t deflate_code_put(deflate_state_t *st, uint32_t code, uint32_t cu
     uint32_t rev = 0;
     uint32_t idx = 0;
 
-    for (idx = 0; idx < cunt; idx++) { rev = (rev << LDG_DEFLATE_BIT_ONE) | ((code >> idx) & LDG_DEFLATE_BIT_ONE); }
+    for (idx = 0; idx < cunt; idx++) { rev = (rev << LDG_DEFLATE_CODE_BIT_STEP) | ((code >> idx) & LDG_DEFLATE_CODE_BIT_MASK); }
 
     return deflate_bits_put(st, rev, cunt);
 }
@@ -430,7 +432,7 @@ LDG_EXPORT uint32_t ldg_compress_deflate(ldg_compress_deflate_ctx_t *ctx, const 
 
     for (idx = 0; idx < LDG_DEFLATE_ZLIB_TRAILER_SIZE; idx++)
     {
-        shift = (LDG_DEFLATE_ZLIB_TRAILER_SIZE - idx - LDG_DEFLATE_BIT_ONE) * LDG_BYTE_BITS;
+        shift = (LDG_DEFLATE_ZLIB_TRAILER_SIZE - idx - LDG_DEFLATE_TRAILER_LAST_BIAS) * LDG_BYTE_BITS;
         dst[state.out_cnt + idx] = (uint8_t)((adler >> shift) & LDG_BYTE_MASK);
     }
 

@@ -80,7 +80,7 @@ static void pty_reap(ldg_io_pty_t *pty)
     pty->alive = LDG_TRUTH_FALSE;
 }
 
-static void pty_child_enter(const ldg_io_pty_conf_t *conf, int32_t master, int32_t slave)
+__attribute__((noreturn)) static void pty_child_enter(const ldg_io_pty_conf_t *conf, int32_t master, int32_t slave)
 {
     if (setsid() == LDG_IO_PTY_SYSCALL_FAIL) { _exit(LDG_IO_PTY_EXEC_FAIL); }
 

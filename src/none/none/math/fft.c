@@ -1,4 +1,3 @@
-
 #include <dangling/math/fft.h>
 #include <dangling/math/complex.h>
 #include <dangling/math/math.h>
@@ -65,7 +64,7 @@ static void fft_twiddle_fill(ldg_math_complex_t *twiddle, uint64_t cunt, uint64_
     }
 }
 
-LDG_NOINLINE static void fft_combine(ldg_math_complex_t *dst, uint64_t radix, uint64_t sub_len, uint64_t twiddle_stride, const ldg_math_complex_t *twiddle)
+static void fft_combine(ldg_math_complex_t *dst, uint64_t radix, uint64_t sub_len, uint64_t twiddle_stride, const ldg_math_complex_t *twiddle)
 {
     ldg_math_complex_t tmp[LDG_MATH_FFT_FACTOR_CUTOFF] = LDG_ARR_ZERO_INIT;
     uint64_t pos = 0;
@@ -128,7 +127,7 @@ LDG_NOINLINE static void fft_combine(ldg_math_complex_t *dst, uint64_t radix, ui
     }
 }
 
-LDG_NOINLINE static void fft_transform(const ldg_math_complex_t *src, ldg_math_complex_t *dst, uint64_t len, const uint8_t *factor_seq, uint32_t factor_cunt, const ldg_math_complex_t *twiddle)
+static void fft_transform(const ldg_math_complex_t *src, ldg_math_complex_t *dst, uint64_t len, const uint8_t *factor_seq, uint32_t factor_cunt, const ldg_math_complex_t *twiddle)
 {
     uint64_t weight[LDG_MATH_FFT_FACTOR_MAX] = LDG_ARR_ZERO_INIT;
     uint64_t dst_idx = 0;

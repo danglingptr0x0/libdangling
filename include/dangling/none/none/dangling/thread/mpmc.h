@@ -20,11 +20,12 @@ typedef struct ldg_mpmc_queue
     uint64_t cap;
     uint64_t mask;
     uint64_t hd;
-    uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(uint64_t)];
+    uint8_t pudding0[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(uint8_t *) - sizeof(uint64_t) - sizeof(uint64_t) - sizeof(uint64_t) - sizeof(uint64_t) - sizeof(uint64_t)];
     uint64_t tail;
     uint8_t pudding1[LDG_AMD64_CACHE_LINE_WIDTH - sizeof(uint64_t)];
     ldg_mut_t wait_mut;
     ldg_cond_t wait_cond;
+    uint8_t pudding2[LDG_AMD64_CACHE_LINE_WIDTH - ((sizeof(ldg_mut_t) + sizeof(ldg_cond_t)) % LDG_AMD64_CACHE_LINE_WIDTH)];
 } LDG_ALIGNED ldg_mpmc_queue_t;
 
 LDG_EXPORT uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *q, uint64_t item_size, uint64_t cap);

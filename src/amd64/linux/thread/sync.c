@@ -11,8 +11,8 @@
 #include <dangling/mem/secure.h>
 #include <dangling/core/macros.h>
 
+#define LDG_SYNC_NSEC_CARRY_SEC 1
 
-// impl accessors
 static inline pthread_mutex_t* mut_mtx(ldg_mut_t *mut)
 {
     return (pthread_mutex_t *)mut->impl;
@@ -20,7 +20,7 @@ static inline pthread_mutex_t* mut_mtx(ldg_mut_t *mut)
 
 static inline pthread_mutexattr_t* mut_attr(ldg_mut_t *mut)
 {
-    return (pthread_mutexattr_t *)((uint8_t *)mut->impl + sizeof(pthread_mutex_t));
+    return (pthread_mutexattr_t *)(void *)((uint8_t *)mut->impl + sizeof(pthread_mutex_t));
 }
 
 static inline pthread_cond_t* cond_cv(ldg_cond_t *cond)
@@ -30,7 +30,7 @@ static inline pthread_cond_t* cond_cv(ldg_cond_t *cond)
 
 static inline pthread_condattr_t* cond_attr(ldg_cond_t *cond)
 {
-    return (pthread_condattr_t *)((uint8_t *)cond->impl + sizeof(pthread_cond_t));
+    return (pthread_condattr_t *)(void *)((uint8_t *)cond->impl + sizeof(pthread_cond_t));
 }
 
 uint32_t ldg_mut_init(ldg_mut_t *mut, uint8_t shared)
@@ -69,7 +69,9 @@ uint32_t ldg_mut_destroy(ldg_mut_t *mut)
 {
     uint32_t ret = LDG_ERR_AOK;
 
-    if (LDG_UNLIKELY(!mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_mutex_destroy(mut_mtx(mut)) != 0 && ret == LDG_ERR_AOK)) { ret = LDG_ERR_BUSY; }
 
@@ -82,7 +84,9 @@ uint32_t ldg_mut_destroy(ldg_mut_t *mut)
 
 uint32_t ldg_mut_lock(ldg_mut_t *mut)
 {
-    if (LDG_UNLIKELY(!mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_mutex_lock(mut_mtx(mut)) != 0)) { return LDG_ERR_BUSY; }
 
@@ -91,7 +95,9 @@ uint32_t ldg_mut_lock(ldg_mut_t *mut)
 
 uint32_t ldg_mut_unlock(ldg_mut_t *mut)
 {
-    if (LDG_UNLIKELY(!mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_mutex_unlock(mut_mtx(mut)) != 0)) { return LDG_ERR_BUSY; }
 
@@ -102,7 +108,9 @@ uint32_t ldg_mut_trylock(ldg_mut_t *mut)
 {
     int32_t ret = 0;
 
-    if (LDG_UNLIKELY(!mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     ret = (int32_t)pthread_mutex_trylock(mut_mtx(mut));
     if (LDG_LIKELY(ret == 0)) { return LDG_ERR_AOK; }
@@ -156,7 +164,9 @@ uint32_t ldg_cond_destroy(ldg_cond_t *cond)
 {
     uint32_t ret = LDG_ERR_AOK;
 
-    if (LDG_UNLIKELY(!cond || cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!cond)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_cond_destroy(cond_cv(cond)) != 0 && ret == LDG_ERR_AOK)) { ret = LDG_ERR_BUSY; }
 
@@ -169,7 +179,9 @@ uint32_t ldg_cond_destroy(ldg_cond_t *cond)
 
 uint32_t ldg_cond_wait(ldg_cond_t *cond, ldg_mut_t *mut)
 {
-    if (LDG_UNLIKELY(!cond || cond->is_init != LDG_TRUTH_TRUE || !mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!cond || !mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(cond->is_init != LDG_TRUTH_TRUE || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_cond_wait(cond_cv(cond), mut_mtx(mut)) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -181,12 +193,18 @@ uint32_t ldg_cond_timedwait(ldg_cond_t *cond, ldg_mut_t *mut, uint64_t timeout_m
     struct timespec ts = { 0 };
     int32_t ret = 0;
     uint64_t max_add_ms = 0;
+    uint64_t headroom_sec = 0;
 
-    if (LDG_UNLIKELY(!cond || cond->is_init != LDG_TRUTH_TRUE || !mut || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!cond || !mut)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(cond->is_init != LDG_TRUTH_TRUE || mut->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &ts) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    max_add_ms = (uint64_t)(INT64_MAX - ts.tv_sec) * LDG_MS_PER_SEC;
+    headroom_sec = (uint64_t)(INT64_MAX - ts.tv_sec) - LDG_SYNC_NSEC_CARRY_SEC;
+    max_add_ms = UINT64_MAX;
+    if (headroom_sec <= UINT64_MAX / LDG_MS_PER_SEC) { max_add_ms = headroom_sec * LDG_MS_PER_SEC; }
+
     if (LDG_UNLIKELY(timeout_ms > max_add_ms)) { timeout_ms = max_add_ms; }
 
     ts.tv_sec += (time_t)(timeout_ms / LDG_MS_PER_SEC);
@@ -207,7 +225,9 @@ uint32_t ldg_cond_timedwait(ldg_cond_t *cond, ldg_mut_t *mut, uint64_t timeout_m
 
 uint32_t ldg_cond_sig(ldg_cond_t *cond)
 {
-    if (LDG_UNLIKELY(!cond || cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!cond)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_cond_signal(cond_cv(cond)) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -216,7 +236,9 @@ uint32_t ldg_cond_sig(ldg_cond_t *cond)
 
 uint32_t ldg_cond_bcast(ldg_cond_t *cond)
 {
-    if (LDG_UNLIKELY(!cond || cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!cond)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(cond->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(pthread_cond_broadcast(cond_cv(cond)) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -277,7 +299,9 @@ uint32_t ldg_sem_open(ldg_sem_t *sem, const char *name)
 
 uint32_t ldg_sem_destroy(ldg_sem_t *sem)
 {
-    if (LDG_UNLIKELY(!sem || sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!sem)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(sem_close(sem->handle) != 0)) { sem->is_init = LDG_TRUTH_FALSE; return LDG_ERR_FUNC_ARG_INVALID; }
 
@@ -292,7 +316,9 @@ uint32_t ldg_sem_wait(ldg_sem_t *sem)
 {
     uint32_t retries = 0;
 
-    if (LDG_UNLIKELY(!sem || sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!sem)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     while (LDG_UNLIKELY(sem_wait(sem->handle) != 0))
     {
@@ -308,7 +334,9 @@ uint32_t ldg_sem_trywait(ldg_sem_t *sem)
 {
     int32_t ret = 0;
 
-    if (LDG_UNLIKELY(!sem || sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!sem)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     ret = (int32_t)sem_trywait(sem->handle);
     if (LDG_LIKELY(ret == 0)) { return LDG_ERR_AOK; }
@@ -320,7 +348,9 @@ uint32_t ldg_sem_trywait(ldg_sem_t *sem)
 
 uint32_t ldg_sem_post(ldg_sem_t *sem)
 {
-    if (LDG_UNLIKELY(!sem || sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!sem)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(sem->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(sem_post(sem->handle) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 

@@ -13,6 +13,8 @@
 #define LDG_GPU_DEFAULT_SLAB_CUNT 4
 #define LDG_GPU_DEFAULT_SLAB_SIZE (64 * LDG_MIB)
 #define LDG_GPU_PUSH_CONST_SIZE 128
+#define LDG_GPU_BIND_INFO_QWORDS 4
+#define LDG_GPU_BIND_WR_QWORDS 12
 
 #define LDG_GPU_ALIGN_UP(x, a) (((uint64_t)(x) + ((uint64_t)(a) - 1)) & ~((uint64_t)(a) - 1))
 
@@ -136,7 +138,7 @@ typedef struct ldg_gpu_frame_entry
     uint8_t recording;
     uint8_t in_renderpass;
     uint8_t in_use;
-    uint8_t pudding[5];
+    uint8_t pudding[1];
 } ldg_gpu_frame_entry_t;
 
 typedef struct ldg_gpu_ctx
@@ -172,13 +174,13 @@ typedef struct ldg_gpu_ctx
     uint8_t has_swapchain_ext;
     uint8_t has_float64;
     uint8_t mut_init;
-    uint8_t pudding_ctx[7];
+    uint8_t pudding_ctx[11];
     void *batch_ds[LDG_GPU_BATCH_MAX];
     void *async_ds[LDG_GPU_ASYNC_BATCH_MAX][LDG_GPU_BATCH_MAX];
     uint8_t async_ds_used[LDG_GPU_ASYNC_BATCH_MAX];
     uint8_t pudding_async[4];
-    uint8_t bind_info_blk[LDG_GPU_BIND_MAX * 32];
-    uint8_t bind_wr_blk[LDG_GPU_BIND_MAX * 96];
+    uint64_t bind_info_blk[LDG_GPU_BIND_MAX * LDG_GPU_BIND_INFO_QWORDS];
+    uint64_t bind_wr_blk[LDG_GPU_BIND_MAX * LDG_GPU_BIND_WR_QWORDS];
     ldg_gpu_slab_t slabs[LDG_GPU_MEM_SLAB_MAX];
     ldg_gpu_buff_entry_t buffs[LDG_GPU_BUFF_MAX];
     ldg_gpu_pipeline_entry_t pipelines[LDG_GPU_PIPELINE_POOL_MAX];
@@ -189,16 +191,16 @@ typedef struct ldg_gpu_ctx
     ldg_gpu_frame_entry_t frames[LDG_GPU_FRAME_IN_FLIGHT];
     ldg_mut_t mut;
     volatile uint8_t is_init;
-    uint8_t pudding[7];
+    uint8_t pudding[31];
 } LDG_ALIGNED ldg_gpu_ctx_t;
 
-uint32_t gpu_slab_alloc(ldg_gpu_ctx_t *ctx, uint8_t want_dev_local, uint64_t size, uint64_t alignment, uint32_t mem_type_bits, uint32_t *out_slab_idx, uint64_t *out_offset);
-uint32_t gpu_spill_slab_create(ldg_gpu_ctx_t *ctx, uint64_t min_size, uint32_t mem_type_bits);
-uint32_t gpu_cmd_begin_oneshot(ldg_gpu_ctx_t *ctx, void *out_cmd);
-uint32_t gpu_cmd_submit_wait(ldg_gpu_ctx_t *ctx, void *cmd);
-uint32_t gpu_staging_transfer(ldg_gpu_ctx_t *ctx, uint32_t buff_idx, void *host_data, uint64_t size, uint64_t buff_offset, uint8_t to_dev);
+uint32_t ldg_gpu_slab_alloc(ldg_gpu_ctx_t *ctx, uint8_t want_dev_local, uint64_t size, uint64_t alignment, uint32_t mem_type_bits, uint32_t *out_slab_idx, uint64_t *out_offset);
+uint32_t ldg_gpu_spill_slab_create(ldg_gpu_ctx_t *ctx, uint64_t min_size, uint32_t mem_type_bits);
+uint32_t ldg_gpu_cmd_begin_oneshot(ldg_gpu_ctx_t *ctx, void *out_cmd);
+uint32_t ldg_gpu_cmd_submit_wait(ldg_gpu_ctx_t *ctx, void *cmd);
+uint32_t ldg_gpu_staging_xfer(ldg_gpu_ctx_t *ctx, uint32_t buff_idx, const void *host_src, void *host_dst, uint64_t size, uint64_t buff_offset);
 
-uint32_t gpu_fmt_to_vk(uint32_t fmt);
-uint32_t gpu_vk_to_fmt(uint32_t vk_fmt);
+uint32_t ldg_gpu_fmt_to_vk(uint32_t fmt);
+uint32_t ldg_gpu_vk_to_fmt(uint32_t vk_fmt);
 
 #endif

@@ -17,6 +17,7 @@ typedef struct ldg_io_file
 #define LDG_IO_TRUNCATE 0x08
 #define LDG_IO_APPEND 0x10
 #define LDG_IO_EXCLUSIVE 0x20
+#define LDG_IO_DIRECT 0x40
 
 #define LDG_IO_SEEK_START 0
 #define LDG_IO_SEEK_CURRENT 1

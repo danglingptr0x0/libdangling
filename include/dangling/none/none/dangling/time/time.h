@@ -6,7 +6,8 @@
 
 LDG_EXPORT uint64_t ldg_time_epoch_ms_get(void);
 LDG_EXPORT uint64_t ldg_time_epoch_ns_get(void);
-LDG_EXPORT uint32_t ldg_time_monotonic_get(double *out);
+LDG_EXPORT uint32_t ldg_time_monotonic_get(uint64_t *out);
+LDG_EXPORT uint32_t ldg_time_monotonic_ns_get(uint64_t *out);
 LDG_EXPORT uint64_t ldg_time_cycle_get(void);
 LDG_EXPORT uint32_t ldg_time_ns_delay(uint64_t duration);
 

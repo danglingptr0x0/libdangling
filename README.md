@@ -1,11 +1,13 @@
+<a href="https://scan.coverity.com/projects/danglingptr0x0-libdangling"><img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/33363/badge.svg"/></a>
+
 # libdangling
 
-## LDG 5.0.0 is finally here!!
+## LDG 6.0.0 is finally here!!
 added a bunch of stuff needed by my other projects
 
 libdangling is my personal util lib. I grew tired of writing the same things over and over or copying chunks of code, so I wrote this lib to solve that problem. it largely follows C99 and POSIX.1-2008, and it runs on both the AMD64 and the i386. there's a GNU/Linux-native build and a windows (sadly, some of my work requires windows) cross-compile via mingw-w64 (i386 ships a freestanding 32-bit subset). it serves as the canonical source of types, err codes, mem, threading, strings, timing, timers, scheduling, an entity-component-system, net, audio, gpu compute and graphics, math (dense and sparse linear algebra, iterative solvers, graph algorithms), parsing, binary protocols, compression, I/O, and system utilities for all my projects.
 
-conforms to [dangstd 2.17](https://github.com/danglingptr0x0/dangstd).
+all versions prior to 6.0.0 have no support.
 
 ## build
 
@@ -48,7 +50,7 @@ after install, query the lib with `pkg-config --cflags --libs dangling`.
 
 ## API
 
-the API sits at level `DANGLING_5.0`. `libdangling.map` is the authoritative export list: ~1276 syms across five version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. `symbols.txt` documents the surface with signatures and semantics.
+the API sits at level `DANGLING_6.0`. `libdangling.map` is the authoritative export list: ~1645 syms across six version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` ships alongside it.
 
 the ABI ck requires `abi-dumper` and `abi-compliance-checker`:
 
@@ -153,9 +155,9 @@ ldg_mpmc_shutdown(&queue);
 
 ### net
 
-`net/curl.h` houses cURL `multi` (concurrent transfers with progress via `ldg_curl_multi_progress_get(ctx, &out)`) and `easy` (single transfer with a streaming cb) interfaces, and it offers hdr-list helpers. on Windows the backend uses WinHTTP and drops the libcurl and OpenSSL dependency while it keeps the same API.
+`net/curl.h` houses cURL `multi` (concurrent transfers with progress via `ldg_net_curl_multi_progress_get(ctx, &out)`) and `easy` (single transfer with a streaming cb) interfaces, and it offers hdr-list helpers. on Windows the backend uses WinHTTP and drops the libcurl and OpenSSL dependency while it keeps the same API.
 
-`net/gql.h` provides a GraphQL client; `ldg_gql_ctx_create/destroy()` and `ldg_gql_exec()` wrap cURL easy for a JSON POST to a GQL endpoint.
+`net/gql.h` provides a GraphQL client; `ldg_net_gql_ctx_create/destroy()` and `ldg_net_gql_exec()` wrap cURL easy for a JSON POST to a GQL endpoint.
 
 ### audio
 

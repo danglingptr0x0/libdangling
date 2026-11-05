@@ -4,6 +4,11 @@
 
 #include "welford.h"
 
+#define LDG_MATH_STAT_WELFORD_CUNT_STEP 1.0
+#define LDG_MATH_STAT_WELFORD_M4_VAR_COEFF 6.0
+#define LDG_MATH_STAT_WELFORD_M4_SKEW_COEFF 4.0
+#define LDG_MATH_STAT_WELFORD_M3_VAR_COEFF 3.0
+
 void ldg_math_stat_welford_m2_update(uint64_t *cunt, double *mean, double *m2, double val)
 {
     uint64_t old_cunt = 0;
@@ -37,10 +42,10 @@ uint32_t ldg_math_stat_welford_observe(ldg_math_stat_welford_t *acc, double val)
     if (LDG_UNLIKELY(!acc)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     old_cunt = (double)acc->cunt;
-    new_cunt = (double)(acc->cunt + 1);
+    new_cunt = old_cunt + LDG_MATH_STAT_WELFORD_CUNT_STEP;
     delta = val - acc->mean;
-    acc->m4 += delta * delta * delta * delta * old_cunt * (old_cunt * old_cunt - old_cunt + 1.0) / (new_cunt * new_cunt * new_cunt) + 6.0 * delta * delta * acc->m2 * old_cunt / (new_cunt * new_cunt) - 4.0 * delta * acc->m3 / new_cunt;
-    acc->m3 += delta * delta * delta * old_cunt * (old_cunt - 1.0) / (new_cunt * new_cunt) - 3.0 * delta * acc->m2 / new_cunt;
+    acc->m4 += delta * delta * delta * delta * old_cunt * (old_cunt * old_cunt - old_cunt + LDG_MATH_STAT_WELFORD_CUNT_STEP) / (new_cunt * new_cunt * new_cunt) + LDG_MATH_STAT_WELFORD_M4_VAR_COEFF * delta * delta * acc->m2 / (new_cunt * new_cunt) - LDG_MATH_STAT_WELFORD_M4_SKEW_COEFF * delta * acc->m3 / new_cunt;
+    acc->m3 += delta * delta * delta * old_cunt * (old_cunt - LDG_MATH_STAT_WELFORD_CUNT_STEP) / (new_cunt * new_cunt) - LDG_MATH_STAT_WELFORD_M3_VAR_COEFF * delta * acc->m2 / new_cunt;
     ldg_math_stat_welford_m2_update(&acc->cunt, &acc->mean, &acc->m2, val);
     if (val < acc->min) { acc->min = val; }
 

@@ -207,8 +207,8 @@ typedef struct ldg_gpu_gfx_pipeline_desc
     uint8_t cull_mode;
     uint8_t depth_test;
     uint8_t depth_wr;
-    uint8_t blend_enable;
-    uint8_t pudding[3];
+    uint8_t blend_en;
+    uint8_t pudding[7];
 } ldg_gpu_gfx_pipeline_desc_t;
 
 typedef struct ldg_gpu_frame

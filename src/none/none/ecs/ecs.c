@@ -6,6 +6,13 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/ecs/ecs.h>
 
+static uint32_t ecs_first_fault_keep(uint32_t kept, uint32_t code)
+{
+    if (kept != LDG_ERR_AOK) { return kept; }
+
+    return code;
+}
+
 static uint32_t ctx_entity_cascade_destroy(ldg_ecs_ctx_t *ctx, uint64_t entity)
 {
     uint32_t comp_id = 0x0;
@@ -19,7 +26,7 @@ static uint32_t ctx_entity_cascade_destroy(ldg_ecs_ctx_t *ctx, uint64_t entity)
 
         if (ldg_ecs_comp_has(&ctx->comp[comp_id], entity) != LDG_TRUTH_TRUE) { continue; }
 
-        if (LDG_UNLIKELY(ldg_ecs_comp_remove(&ctx->comp[comp_id], entity) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_COMP_ABSENT; }
+        ret = ecs_first_fault_keep(ret, ldg_ecs_comp_remove(&ctx->comp[comp_id], entity));
     }
 
     if (LDG_LIKELY(ldg_ecs_entity_destroy(&ctx->store, entity) == LDG_ERR_AOK)) { ctx->entity_taxon[(uint32_t)(entity & 0xFFFFFFFFULL)] = LDG_ECS_TAXON_ID_INVALID; }
@@ -32,6 +39,8 @@ static uint32_t cmd_buff_apply(ldg_ecs_ctx_t *ctx, ldg_ecs_cmd_buff_t *buff)
 {
     ldg_ecs_cmd_t *rec = 0x0;
     uint64_t created = 0x0;
+    uint64_t entity = 0x0;
+    uint32_t orig_idx = 0x0;
     uint32_t cunt = 0x0;
     uint32_t cmd_idx = 0x0;
     uint32_t step = 0x0;
@@ -42,20 +51,40 @@ static uint32_t cmd_buff_apply(ldg_ecs_ctx_t *ctx, ldg_ecs_cmd_buff_t *buff)
     {
         rec = &buff->cmd[cmd_idx];
         step = LDG_ERR_AOK;
+        entity = rec->entity;
 
-        if (rec->op == LDG_ECS_CMD_OP_ENTITY_CREATE) { step = ldg_ecs_entity_create(&ctx->store, &created); }
-        else if (rec->op == LDG_ECS_CMD_OP_ENTITY_DESTROY) { step = ctx_entity_cascade_destroy(ctx, rec->entity); }
+        if (rec->op != LDG_ECS_CMD_OP_ENTITY_CREATE && (entity & LDG_ECS_CMD_ENTITY_DEFERRED_TAG) != 0)
+        {
+            orig_idx = (uint32_t)(entity & LDG_ECS_CMD_ENTITY_DEFERRED_IDX_MASK);
+            entity = LDG_ECS_ENTITY_NULL;
+
+            if (orig_idx < cmd_idx && buff->cmd[orig_idx].op == LDG_ECS_CMD_OP_ENTITY_CREATE) { entity = buff->cmd[orig_idx].entity; }
+        }
+
+        if (rec->op == LDG_ECS_CMD_OP_ENTITY_CREATE)
+        {
+            step = ldg_ecs_entity_create(&ctx->store, &created);
+            rec->entity = LDG_ECS_ENTITY_NULL;
+
+            if (step == LDG_ERR_AOK)
+            {
+                rec->entity = created;
+                ctx->entity_taxon[(uint32_t)(created & LDG_ECS_CMD_ENTITY_DEFERRED_IDX_MASK)] = LDG_ECS_TAXON_ID_INVALID;
+            }
+        }
+        else if (rec->op == LDG_ECS_CMD_OP_ENTITY_DESTROY) { step = ctx_entity_cascade_destroy(ctx, entity); }
         else if (rec->op == LDG_ECS_CMD_OP_COMP_ADD || rec->op == LDG_ECS_CMD_OP_COMP_REMOVE) { if (rec->comp_id >= ctx->conf.comp_cap || ctx->comp[rec->comp_id].is_reg != LDG_TRUTH_TRUE) { step = LDG_ERR_ECS_COMP_ABSENT; }
-            else if (ldg_ecs_entity_alive_is(&ctx->store, rec->entity) != LDG_TRUTH_TRUE) { step = LDG_ERR_ECS_ENTITY_DEAD; }
-            else if (rec->op == LDG_ECS_CMD_OP_COMP_ADD) { step = ldg_ecs_comp_add(&ctx->comp[rec->comp_id], rec->entity, rec->payload); }
-            else { step = ldg_ecs_comp_remove(&ctx->comp[rec->comp_id], rec->entity); } }
+            else if (ldg_ecs_entity_alive_is(&ctx->store, entity) != LDG_TRUTH_TRUE) { step = LDG_ERR_ECS_ENTITY_DEAD; }
+            else if (rec->op == LDG_ECS_CMD_OP_COMP_ADD && (uint64_t)rec->payload_size != (uint64_t)ctx->comp[rec->comp_id].item_size) { step = LDG_ERR_FUNC_ARG_INVALID; }
+            else if (rec->op == LDG_ECS_CMD_OP_COMP_ADD) { step = ldg_ecs_comp_add(&ctx->comp[rec->comp_id], entity, rec->payload); }
+            else { step = ldg_ecs_comp_remove(&ctx->comp[rec->comp_id], entity); } }
         else { step = LDG_ERR_FUNC_ARG_INVALID; }
 
-        if (LDG_UNLIKELY(step != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = step; }
+        ret = ecs_first_fault_keep(ret, step);
     }
 
     step = ldg_ecs_cmd_buff_rst(buff);
-    if (LDG_UNLIKELY(step != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = step; }
+    ret = ecs_first_fault_keep(ret, step);
 
     return ret;
 }
@@ -635,7 +664,7 @@ LDG_EXPORT uint8_t ldg_ecs_ctx_comp_has(ldg_ecs_ctx_t *ctx, uint64_t entity, uin
 
     if (LDG_UNLIKELY(comp_id == LDG_ECS_COMP_ID_INVALID || comp_id >= ctx->conf.comp_cap)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(ctx->comp[comp_id].is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(ctx->comp[comp_id].is_reg != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_FOUND; }
 
     return ldg_ecs_comp_has(&ctx->comp[comp_id], entity);
 }
@@ -793,10 +822,10 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_tick(ldg_ecs_ctx_t *ctx)
         ldg_mem_cpy(&cb, slot, sizeof(cb));
         if (cb == 0x0) { continue; }
 
-        if (LDG_UNLIKELY(cb(ctx, entity) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; }
+        ret = ecs_first_fault_keep(ret, cb(ctx, entity));
     }
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_cmd_flush(ctx));
 
     return ret;
 }
@@ -814,10 +843,10 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_all_seq_run(ldg_ecs_ctx_t *ctx)
     {
         if (ctx->sys[sys_idx].func == 0x0) { continue; }
 
-        if (LDG_UNLIKELY(ctx->sys[sys_idx].func(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; }
+        ret = ecs_first_fault_keep(ret, ctx->sys[sys_idx].func(ctx));
     }
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_cmd_flush(ctx));
 
     return ret;
 }
@@ -840,7 +869,7 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_worker_cmd_flush(ldg_ecs_ctx_t *ctx)
 
     if (LDG_UNLIKELY(ctx->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
-    for (worker = 0; worker < ctx->conf.worker_cunt; worker++) { if (LDG_UNLIKELY(cmd_buff_apply(ctx, &ctx->worker_cmd_buff[worker]) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; } }
+    for (worker = 0; worker < ctx->conf.worker_cunt; worker++) { ret = ecs_first_fault_keep(ret, cmd_buff_apply(ctx, &ctx->worker_cmd_buff[worker])); }
 
     return ret;
 }

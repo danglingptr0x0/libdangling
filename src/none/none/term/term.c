@@ -2,10 +2,14 @@
 
 #include <dangling/term/term.h>
 #include <dangling/mem/alloc.h>
+#include <dangling/mem/mem.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
+#include <dangling/core/bits.h>
 
 #define LDG_TERM_STEP 1
+#define LDG_TERM_GRID_CUNT 2
+#define LDG_TERM_POOL_ALLOC_CUNT 10
 #define LDG_TERM_TAB_WIDTH 8
 #define LDG_TERM_BLANK_CH 0x20
 #define LDG_TERM_RED_IDX 0
@@ -43,9 +47,9 @@ static void term_cell_blank(const ldg_term_t *term, ldg_term_cell_t *cell)
     cell->fg[LDG_TERM_RED_IDX] = term->default_fg[LDG_TERM_RED_IDX];
     cell->fg[LDG_TERM_GREEN_IDX] = term->default_fg[LDG_TERM_GREEN_IDX];
     cell->fg[LDG_TERM_BLUE_IDX] = term->default_fg[LDG_TERM_BLUE_IDX];
-    cell->bg[LDG_TERM_RED_IDX] = term->cur_bg[LDG_TERM_RED_IDX];
-    cell->bg[LDG_TERM_GREEN_IDX] = term->cur_bg[LDG_TERM_GREEN_IDX];
-    cell->bg[LDG_TERM_BLUE_IDX] = term->cur_bg[LDG_TERM_BLUE_IDX];
+    cell->bg[LDG_TERM_RED_IDX] = term->curr_bg[LDG_TERM_RED_IDX];
+    cell->bg[LDG_TERM_GREEN_IDX] = term->curr_bg[LDG_TERM_GREEN_IDX];
+    cell->bg[LDG_TERM_BLUE_IDX] = term->curr_bg[LDG_TERM_BLUE_IDX];
 }
 
 static void term_row_blank(ldg_term_t *term, ldg_term_cell_t *grid, uint32_t row)
@@ -62,9 +66,11 @@ static void term_scrollback_push(ldg_term_t *term, const ldg_term_cell_t *row)
 
     if (term->scrollback_cap == 0) { return; }
 
-    base = (uint64_t)term->scrollback_hd * (uint64_t)term->col_cunt;
+    base = (uint64_t)term->scrollback_hd * (uint64_t)term->col_cap;
 
     for (col = 0; col < term->col_cunt; col++) { term->scrollback[base + col] = row[col]; }
+
+    for (col = term->col_cunt; col < term->col_cap; col++) { term_cell_blank(term, &term->scrollback[base + col]); }
 
     term->scrollback_hd++;
     if (term->scrollback_hd >= term->scrollback_cap) { term->scrollback_hd = 0; }
@@ -109,7 +115,8 @@ uint32_t ldg_term_pool_size_get(const ldg_term_conf_t *conf, uint64_t *out)
     cells = (uint64_t)conf->col_cunt * (uint64_t)conf->row_cunt;
 
     total = (uint64_t)sizeof(ldg_term_t);
-    total += cells * (uint64_t)sizeof(ldg_term_cell_t) * (uint64_t)LDG_TERM_RGB_CUNT;
+    total += cells * (uint64_t)sizeof(ldg_term_cell_t) * (uint64_t)LDG_TERM_GRID_CUNT;
+    total += (uint64_t)LDG_TERM_POOL_ALLOC_CUNT * (uint64_t)LDG_MEM_POOL_VAR_ALIGN;
     total += (uint64_t)conf->scrollback_cunt * (uint64_t)conf->col_cunt * (uint64_t)sizeof(ldg_term_cell_t);
     total += (uint64_t)conf->col_cunt;
     total += (uint64_t)conf->row_cunt;
@@ -279,7 +286,7 @@ uint32_t ldg_term_rst(ldg_term_t *term)
     term->link_active = LDG_TERM_LINK_NONE;
     term->cwd_len = 0;
     term->mark_kind = 0;
-    term->cur_attr = LDG_TERM_ATTR_NONE;
+    term->curr_attr = LDG_TERM_ATTR_NONE;
     term->saved_attr = LDG_TERM_ATTR_NONE;
 
     ldg_term_palette_rst(term);
@@ -290,8 +297,8 @@ uint32_t ldg_term_rst(ldg_term_t *term)
 
     for (row = 0; row < LDG_TERM_RGB_CUNT; row++)
     {
-        term->cur_fg[row] = term->default_fg[row];
-        term->cur_bg[row] = term->default_bg[row];
+        term->curr_fg[row] = term->default_fg[row];
+        term->curr_bg[row] = term->default_bg[row];
         term->saved_fg[row] = term->default_fg[row];
         term->saved_bg[row] = term->default_bg[row];
     }
@@ -513,14 +520,14 @@ uint32_t ldg_term_ch_put(ldg_term_t *term, uint8_t ch)
     cell = &grid[(term->cursor_row * term->col_cunt) + term->cursor_col];
 
     cell->ch = term_charset_apply(term, ch);
-    cell->attr = term->cur_attr;
+    cell->attr = term->curr_attr;
     cell->link = (uint8_t)term->link_active;
-    cell->fg[LDG_TERM_RED_IDX] = term->cur_fg[LDG_TERM_RED_IDX];
-    cell->fg[LDG_TERM_GREEN_IDX] = term->cur_fg[LDG_TERM_GREEN_IDX];
-    cell->fg[LDG_TERM_BLUE_IDX] = term->cur_fg[LDG_TERM_BLUE_IDX];
-    cell->bg[LDG_TERM_RED_IDX] = term->cur_bg[LDG_TERM_RED_IDX];
-    cell->bg[LDG_TERM_GREEN_IDX] = term->cur_bg[LDG_TERM_GREEN_IDX];
-    cell->bg[LDG_TERM_BLUE_IDX] = term->cur_bg[LDG_TERM_BLUE_IDX];
+    cell->fg[LDG_TERM_RED_IDX] = term->curr_fg[LDG_TERM_RED_IDX];
+    cell->fg[LDG_TERM_GREEN_IDX] = term->curr_fg[LDG_TERM_GREEN_IDX];
+    cell->fg[LDG_TERM_BLUE_IDX] = term->curr_fg[LDG_TERM_BLUE_IDX];
+    cell->bg[LDG_TERM_RED_IDX] = term->curr_bg[LDG_TERM_RED_IDX];
+    cell->bg[LDG_TERM_GREEN_IDX] = term->curr_bg[LDG_TERM_GREEN_IDX];
+    cell->bg[LDG_TERM_BLUE_IDX] = term->curr_bg[LDG_TERM_BLUE_IDX];
 
     term_dirty_mark(term, term->cursor_row);
 
@@ -623,12 +630,12 @@ uint32_t ldg_term_cursor_save(ldg_term_t *term)
 
     term->saved_cursor_col = term->cursor_col;
     term->saved_cursor_row = term->cursor_row;
-    term->saved_attr = term->cur_attr;
+    term->saved_attr = term->curr_attr;
 
     for (idx = 0; idx < LDG_TERM_RGB_CUNT; idx++)
     {
-        term->saved_fg[idx] = term->cur_fg[idx];
-        term->saved_bg[idx] = term->cur_bg[idx];
+        term->saved_fg[idx] = term->curr_fg[idx];
+        term->saved_bg[idx] = term->curr_bg[idx];
     }
 
     return LDG_ERR_AOK;
@@ -642,12 +649,12 @@ uint32_t ldg_term_cursor_restore(ldg_term_t *term)
 
     term->cursor_col = term->saved_cursor_col;
     term->cursor_row = term->saved_cursor_row;
-    term->cur_attr = term->saved_attr;
+    term->curr_attr = term->saved_attr;
 
     for (idx = 0; idx < LDG_TERM_RGB_CUNT; idx++)
     {
-        term->cur_fg[idx] = term->saved_fg[idx];
-        term->cur_bg[idx] = term->saved_bg[idx];
+        term->curr_fg[idx] = term->saved_fg[idx];
+        term->curr_bg[idx] = term->saved_bg[idx];
     }
 
     if (term->cursor_col >= term->col_cunt) { term->cursor_col = term->col_cunt - LDG_TERM_STEP; }
@@ -685,23 +692,15 @@ uint8_t ldg_term_cursor_visible_is(const ldg_term_t *term)
 #define LDG_TERM_GRAY_STEP 10
 #define LDG_TERM_GRAY_LIFT 8
 #define LDG_TERM_ANSI_CUNT 16
-#define LDG_TERM_ANSI_DIM 128
-#define LDG_TERM_ANSI_FULL 255
 #define LDG_TERM_COLOR_OFF 0
-#define LDG_TERM_PAIR_STEP 2
-#define LDG_TERM_BIT_RED 0x1
-#define LDG_TERM_BIT_GREEN 0x2
-#define LDG_TERM_BIT_BLUE 0x4
+#define LDG_TERM_XTERM_ANSI_INIT { { 0x00, 0x00, 0x00 }, { 0xCD, 0x00, 0x00 }, { 0x00, 0xCD, 0x00 }, { 0xCD, 0xCD, 0x00 }, { 0x00, 0x00, 0xEE }, { 0xCD, 0x00, 0xCD }, { 0x00, 0xCD, 0xCD }, { 0xE5, 0xE5, 0xE5 }, { 0x7F, 0x7F, 0x7F }, { 0xFF, 0x00, 0x00 }, { 0x00, 0xFF, 0x00 }, { 0xFF, 0xFF, 0x00 }, { 0x5C, 0x5C, 0xFF }, { 0xFF, 0x00, 0xFF }, { 0x00, 0xFF, 0xFF }, { 0xFF, 0xFF, 0xFF } }
 
 static void term_palette_ansi_get(uint32_t idx, uint8_t *out)
 {
-    uint8_t level = 0;
+    const uint8_t ansi[LDG_TERM_ANSI_CUNT][LDG_TERM_RGB_CUNT] = LDG_TERM_XTERM_ANSI_INIT;
+    uint32_t comp = 0;
 
-    level = (idx >= (LDG_TERM_ANSI_CUNT / LDG_TERM_PAIR_STEP)) ? LDG_TERM_ANSI_FULL : LDG_TERM_ANSI_DIM;
-
-    out[LDG_TERM_RED_IDX] = (idx & LDG_TERM_BIT_RED) ? level : LDG_TERM_COLOR_OFF;
-    out[LDG_TERM_GREEN_IDX] = (idx & LDG_TERM_BIT_GREEN) ? level : LDG_TERM_COLOR_OFF;
-    out[LDG_TERM_BLUE_IDX] = (idx & LDG_TERM_BIT_BLUE) ? level : LDG_TERM_COLOR_OFF;
+    for (comp = 0; comp < LDG_TERM_RGB_CUNT; comp++) { out[comp] = ansi[idx][comp]; }
 }
 
 uint32_t ldg_term_palette_rst(ldg_term_t *term)
@@ -800,22 +799,80 @@ uint32_t ldg_term_role_color_get(const ldg_term_t *term, uint32_t role, uint8_t 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_link_open(ldg_term_t *term, const char *uri, uint64_t len)
+static uint8_t term_link_uri_eq_is(const ldg_term_t *term, uint32_t id, const char *uri, uint64_t len)
 {
     uint64_t idx = 0;
 
-    if (LDG_UNLIKELY(!term || !uri)) { return LDG_ERR_FUNC_ARG_NULL; }
+    for (idx = 0; idx < len; idx++) { if (term->link_uri[id][idx] != uri[idx]) { return LDG_TRUTH_FALSE; } }
 
-    if (term->link_cunt + LDG_TERM_STEP >= LDG_TERM_LINK_MAX) { return LDG_ERR_FULL; }
+    return (term->link_uri[id][len] == LDG_STR_TERM) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+}
+
+static void term_link_ref_mark(const ldg_term_cell_t *cell, uint64_t cunt, uint8_t *held)
+{
+    uint64_t idx = 0;
+
+    if (!cell) { return; }
+
+    for (idx = 0; idx < cunt; idx++) { if (cell[idx].link < LDG_TERM_LINK_MAX) { held[cell[idx].link] = LDG_TRUTH_TRUE; } }
+}
+
+static uint32_t term_link_free_find(const ldg_term_t *term, uint32_t *out)
+{
+    uint8_t held[LDG_TERM_LINK_MAX] = LDG_ARR_ZERO_INIT;
+    uint64_t grid_cunt = 0;
+    uint32_t id = 0;
+
+    grid_cunt = (uint64_t)term->col_cap * (uint64_t)term->row_cap;
+
+    term_link_ref_mark(term->cell, grid_cunt, held);
+    term_link_ref_mark(term->alt_cell, grid_cunt, held);
+    term_link_ref_mark(term->scrollback, (uint64_t)term->scrollback_cap * (uint64_t)term->col_cap, held);
+
+    for (id = LDG_TERM_STEP; id <= term->link_cunt; id++)
+    {
+        if (held[id] == LDG_TRUTH_TRUE || id == term->link_active) { continue; }
+
+        *out = id;
+        return LDG_ERR_AOK;
+    }
+
+    return LDG_ERR_FULL;
+}
+
+uint32_t ldg_term_link_open(ldg_term_t *term, const char *uri, uint64_t len)
+{
+    uint64_t idx = 0;
+    uint32_t id = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!term || !uri)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (len >= LDG_TERM_LINK_URI_MAX) { len = LDG_TERM_LINK_URI_MAX - LDG_TERM_STEP; }
 
-    term->link_cunt++;
+    for (id = LDG_TERM_STEP; id <= term->link_cunt; id++)
+    {
+        if (term_link_uri_eq_is(term, id, uri, len) != LDG_TRUTH_TRUE) { continue; }
 
-    for (idx = 0; idx < len; idx++) { term->link_uri[term->link_cunt][idx] = uri[idx]; }
+        term->link_active = id;
+        return LDG_ERR_AOK;
+    }
 
-    term->link_uri[term->link_cunt][len] = LDG_STR_TERM;
-    term->link_active = term->link_cunt;
+    if (term->link_cunt + LDG_TERM_STEP < LDG_TERM_LINK_MAX)
+    {
+        term->link_cunt++;
+        id = term->link_cunt;
+    }
+    else
+    {
+        ret = term_link_free_find(term, &id);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
+
+    for (idx = 0; idx < len; idx++) { term->link_uri[id][idx] = uri[idx]; }
+
+    term->link_uri[id][len] = LDG_STR_TERM;
+    term->link_active = id;
 
     return LDG_ERR_AOK;
 }
@@ -1145,9 +1202,79 @@ static uint32_t term_img_slot_find(const ldg_term_t *term, uint32_t id, uint32_t
     return LDG_ERR_NOT_FOUND;
 }
 
-uint32_t ldg_term_img_st(ldg_term_t *term, uint32_t id, uint32_t width, uint32_t height, uint8_t fmt, const uint8_t *pixel, uint32_t size)
+static uint64_t term_img_live_bytes_get(const ldg_term_t *term, uint32_t skip)
+{
+    uint64_t total = 0;
+    uint32_t idx = 0;
+
+    for (idx = 0; idx < term->img_max; idx++) { if (idx != skip && term->img[idx].alive == LDG_TRUTH_TRUE) { total += term->img[idx].size; } }
+
+    return total;
+}
+
+static uint8_t term_img_placed_is(const ldg_term_t *term, uint32_t id)
 {
     uint32_t idx = 0;
+
+    for (idx = 0; idx < term->placement_max; idx++) { if (term->placement[idx].alive == LDG_TRUTH_TRUE && term->placement[idx].img_id == id) { return LDG_TRUTH_TRUE; } }
+
+    return LDG_TRUTH_FALSE;
+}
+
+static void term_img_compact(ldg_term_t *term)
+{
+    uint32_t cursor = 0;
+    uint32_t pass = 0;
+    uint32_t idx = 0;
+    uint32_t pick = 0;
+    uint32_t byte = 0;
+    uint32_t src = 0;
+
+    for (pass = 0; pass < term->img_max; pass++)
+    {
+        pick = UINT32_MAX;
+
+        for (idx = 0; idx < term->img_max; idx++)
+        {
+            if (term->img[idx].alive != LDG_TRUTH_TRUE || term->img[idx].offset < cursor) { continue; }
+
+            if (pick == UINT32_MAX || term->img[idx].offset < term->img[pick].offset) { pick = idx; }
+        }
+
+        if (pick == UINT32_MAX) { break; }
+
+        src = term->img[pick].offset;
+
+        for (byte = 0; byte < term->img[pick].size; byte++) { term->img_pixel[cursor + byte] = term->img_pixel[src + byte]; }
+
+        term->img[pick].offset = cursor;
+        cursor += term->img[pick].size;
+    }
+
+    term->img_used = cursor;
+}
+
+static void term_img_transient_evict(ldg_term_t *term, uint64_t need, uint32_t skip)
+{
+    uint32_t idx = 0;
+
+    for (idx = 0; idx < term->img_max; idx++)
+    {
+        if ((uint64_t)term->img_cap >= term_img_live_bytes_get(term, skip) + need) { return; }
+
+        if (idx == skip || term->img[idx].alive != LDG_TRUTH_TRUE || term->img[idx].id < LDG_TERM_IMG_ID_TRANSIENT_BASE) { continue; }
+
+        if (term_img_placed_is(term, term->img[idx].id) == LDG_TRUTH_TRUE) { continue; }
+
+        term->img[idx].alive = LDG_TRUTH_FALSE;
+    }
+}
+
+uint32_t ldg_term_img_st(ldg_term_t *term, uint32_t id, uint32_t width, uint32_t height, uint8_t fmt, const uint8_t *pixel, uint32_t size)
+{
+    uint64_t expect = 0;
+    uint32_t idx = 0;
+    uint32_t old = UINT32_MAX;
     uint32_t slot = UINT32_MAX;
     uint32_t byte = 0;
 
@@ -1157,22 +1284,26 @@ uint32_t ldg_term_img_st(ldg_term_t *term, uint32_t id, uint32_t width, uint32_t
 
     if (LDG_UNLIKELY(fmt != LDG_TERM_IMG_FMT_RGB && fmt != LDG_TERM_IMG_FMT_RGBA)) { return LDG_ERR_UNSUPPORTED; }
 
+    expect = (uint64_t)width * (uint64_t)height * (uint64_t)(fmt / LDG_BYTE_BITS);
+    if (LDG_UNLIKELY(expect != (uint64_t)size)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     if (LDG_UNLIKELY(!term->img || !term->placement || !term->img_pixel)) { return LDG_ERR_NOT_INIT; }
 
-    if (term_img_slot_find(term, id, &slot) == LDG_ERR_AOK) { term->img[slot].alive = LDG_TRUTH_FALSE; }
+    if (term_img_slot_find(term, id, &old) != LDG_ERR_AOK) { old = UINT32_MAX; }
 
-    slot = UINT32_MAX;
+    term_img_transient_evict(term, size, old);
 
-    for (idx = 0; idx < term->img_max; idx++) { if (term->img[idx].alive != LDG_TRUTH_TRUE)
-        {
-            slot = idx;
-            break;
-        }
-    }
+    if (LDG_UNLIKELY((uint64_t)term->img_cap < term_img_live_bytes_get(term, old) + size)) { return LDG_ERR_FULL; }
+
+    slot = old;
+
+    for (idx = 0; idx < term->img_max && slot == UINT32_MAX; idx++) { if (term->img[idx].alive != LDG_TRUTH_TRUE) { slot = idx; } }
 
     if (LDG_UNLIKELY(slot == UINT32_MAX)) { return LDG_ERR_FULL; }
 
-    if (LDG_UNLIKELY(size > term->img_cap - term->img_used)) { return LDG_ERR_FULL; }
+    term->img[slot].alive = LDG_TRUTH_FALSE;
+
+    term_img_compact(term);
 
     for (byte = 0; byte < size; byte++) { term->img_pixel[term->img_used + byte] = pixel[byte]; }
 
@@ -1200,6 +1331,8 @@ uint32_t ldg_term_img_drop(ldg_term_t *term, uint32_t id)
     if (ret != LDG_ERR_AOK) { return ret; }
 
     term->img[slot].alive = LDG_TRUTH_FALSE;
+
+    term_img_compact(term);
 
     return LDG_ERR_AOK;
 }
@@ -1353,7 +1486,7 @@ uint32_t ldg_term_attr_set(ldg_term_t *term, uint8_t attr)
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    term->cur_attr |= attr;
+    term->curr_attr |= attr;
 
     return LDG_ERR_AOK;
 }
@@ -1362,7 +1495,7 @@ uint32_t ldg_term_attr_clear(ldg_term_t *term, uint8_t attr)
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    term->cur_attr &= (uint8_t)(~attr);
+    term->curr_attr &= (uint8_t)(~attr);
 
     return LDG_ERR_AOK;
 }
@@ -1373,12 +1506,12 @@ uint32_t ldg_term_attr_rst(ldg_term_t *term)
 
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    term->cur_attr = LDG_TERM_ATTR_NONE;
+    term->curr_attr = LDG_TERM_ATTR_NONE;
 
     for (idx = 0; idx < LDG_TERM_RGB_CUNT; idx++)
     {
-        term->cur_fg[idx] = term->default_fg[idx];
-        term->cur_bg[idx] = term->default_bg[idx];
+        term->curr_fg[idx] = term->default_fg[idx];
+        term->curr_bg[idx] = term->default_bg[idx];
     }
 
     return LDG_ERR_AOK;
@@ -1388,9 +1521,9 @@ uint32_t ldg_term_fg_set(ldg_term_t *term, uint8_t red, uint8_t green, uint8_t b
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    term->cur_fg[LDG_TERM_RED_IDX] = red;
-    term->cur_fg[LDG_TERM_GREEN_IDX] = green;
-    term->cur_fg[LDG_TERM_BLUE_IDX] = blue;
+    term->curr_fg[LDG_TERM_RED_IDX] = red;
+    term->curr_fg[LDG_TERM_GREEN_IDX] = green;
+    term->curr_fg[LDG_TERM_BLUE_IDX] = blue;
 
     return LDG_ERR_AOK;
 }
@@ -1399,9 +1532,9 @@ uint32_t ldg_term_bg_set(ldg_term_t *term, uint8_t red, uint8_t green, uint8_t b
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    term->cur_bg[LDG_TERM_RED_IDX] = red;
-    term->cur_bg[LDG_TERM_GREEN_IDX] = green;
-    term->cur_bg[LDG_TERM_BLUE_IDX] = blue;
+    term->curr_bg[LDG_TERM_RED_IDX] = red;
+    term->curr_bg[LDG_TERM_GREEN_IDX] = green;
+    term->curr_bg[LDG_TERM_BLUE_IDX] = blue;
 
     return LDG_ERR_AOK;
 }
@@ -1612,7 +1745,6 @@ uint32_t ldg_term_ch_erase(ldg_term_t *term, uint32_t cunt)
 
 uint32_t ldg_term_resize(ldg_term_t *term, uint32_t col_cunt, uint32_t row_cunt)
 {
-    ldg_term_cell_t *grid = 0x0;
     uint32_t last_col = 0;
     uint32_t last_row = 0;
     uint32_t row = 0;
@@ -1642,9 +1774,11 @@ uint32_t ldg_term_resize(ldg_term_t *term, uint32_t col_cunt, uint32_t row_cunt)
     term->margin_side = LDG_TRUTH_FALSE;
     term->wrap_pending = LDG_TRUTH_FALSE;
 
-    grid = term_grid_get(term);
-
-    for (row = LDG_TERM_ROW_FIRST; row < row_cunt; row++) { term_row_blank(term, grid, row); }
+    for (row = LDG_TERM_ROW_FIRST; row < row_cunt; row++)
+    {
+        term_row_blank(term, term->cell, row);
+        term_row_blank(term, term->alt_cell, row);
+    }
 
     term_dirty_span_mark(term, LDG_TERM_ROW_FIRST, last_row);
 
@@ -1799,7 +1933,7 @@ uint32_t ldg_term_scrollback_row_get(const ldg_term_t *term, uint32_t back, ldg_
     slot -= back;
     slot = slot % term->scrollback_cap;
 
-    base = (uint64_t)slot * (uint64_t)term->col_cunt;
+    base = (uint64_t)slot * (uint64_t)term->col_cap;
 
     for (col = 0; col < term->col_cunt; col++) { out[col] = term->scrollback[base + col]; }
 

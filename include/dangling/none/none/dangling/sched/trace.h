@@ -41,9 +41,10 @@ typedef struct ldg_sched_trace_ring
     ldg_sched_trace_entry_t *entries;
     volatile uint64_t hd;
     uint64_t cap;
+    volatile uint64_t tl;
     volatile uint32_t lock;
     uint8_t is_init;
-    uint8_t pudding[35];
+    uint8_t pudding[27];
 } LDG_ALIGNED ldg_sched_trace_ring_t;
 
 LDG_EXPORT uint32_t ldg_sched_trace_init(ldg_sched_trace_ring_t *ring);

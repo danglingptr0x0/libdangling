@@ -8,6 +8,7 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/alloc.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/str/str.h>
 #include <pipewire/pipewire.h>
 #include <spa/param/props.h>
@@ -15,12 +16,33 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/iter.h>
+#include <pipewire/extensions/metadata.h>
 
 #define LDG_AUDIO_NODE_STREAM 1
 #define LDG_AUDIO_NODE_SINK 2
 #define LDG_AUDIO_NODE_SRC 3
 
 #define LDG_AUDIO_DUCK_STACK_MAX 16
+
+#define LDG_AUDIO_META_NAME_DEFAULT "default"
+#define LDG_AUDIO_META_KEY_NAME "metadata.name"
+#define LDG_AUDIO_META_TYPE_JSON "Spa:String:JSON"
+#define LDG_AUDIO_META_KEY_SINK "default.audio.sink"
+#define LDG_AUDIO_META_KEY_SRC "default.audio.source"
+#define LDG_AUDIO_META_KEY_TGT_OBJECT "target.object"
+#define LDG_AUDIO_META_KEY_TGT_NODE "target.node"
+#define LDG_AUDIO_KEY_OBJECT_SERIAL "object.serial"
+#define LDG_AUDIO_META_JSON_NAME "\"name\""
+#define LDG_AUDIO_META_JSON_SEP ':'
+#define LDG_AUDIO_META_JSON_QUOTE '"'
+#define LDG_AUDIO_META_CB_OK 0
+#define LDG_AUDIO_NODE_ID_NONE 0
+#define LDG_AUDIO_DEC_DIGIT_BASE '0'
+#define LDG_AUDIO_BIND_USER_SIZE_NONE 0
+#define LDG_AUDIO_CHANNEL_CUNT_DEFAULT 2
+#define LDG_AUDIO_PARAM_FLAGS_NONE 0
+#define LDG_AUDIO_VOL_MIN 0.0
+#define LDG_AUDIO_VOL_MAX 1.0
 
 #define LDG_AUDIO_PCM_DEPTH_U8 8
 #define LDG_AUDIO_PCM_DEPTH_S16 16
@@ -40,20 +62,22 @@ typedef struct ldg_audio_node
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
     double vol;
-    uint8_t muted;
     uint32_t channel_cunt;
-    uint32_t target_id;
+    uint32_t tgt_id;
+    uint64_t serial;
     struct pw_proxy *proxy;
     struct spa_hook listener;
     struct ldg_audio_node *next;
+    uint8_t muted;
+    uint8_t pudding[7];
 } ldg_audio_node_t;
 
 typedef struct ldg_audio_duck_entry
 {
     double factor;
-    uint32_t exclude_stream_id;
     uint32_t *stream_ids;
     double *orig_vols;
+    uint32_t exclude_stream_id;
     uint32_t stream_cunt;
 } ldg_audio_duck_entry_t;
 
@@ -65,17 +89,19 @@ typedef struct ldg_audio_ctx
     struct pw_registry *registry;
     struct spa_hook registry_listener;
     struct spa_hook core_listener;
+    struct pw_proxy *metadata;
+    struct spa_hook metadata_listener;
+    char default_sink_name[LDG_AUDIO_NAME_MAX];
+    char default_src_name[LDG_AUDIO_NAME_MAX];
     ldg_audio_node_t *streams;
     ldg_audio_node_t *sinks;
     ldg_audio_node_t *srcs;
     ldg_audio_duck_entry_t duck_stack[LDG_AUDIO_DUCK_STACK_MAX];
     uint32_t duck_cunt;
-    uint32_t default_sink_id;
-    uint32_t default_src_id;
     uint32_t self_stream_id;
     int32_t sync_seq;
     volatile uint8_t is_init;
-    uint8_t pudding[4];
+    uint8_t pudding[35];
 } LDG_ALIGNED ldg_audio_ctx_t;
 
 // singleton audio backend; file-scope static required for PipeWire callbacks
@@ -150,45 +176,192 @@ static void audio_node_remove(ldg_audio_node_t **hd, uint32_t id)
     }
 }
 
+static void audio_name_fold_cpy(char *dst, const char *src, uint64_t cap)
+{
+    uint64_t idx = 0;
+    uint8_t ch = 0;
+
+    if (!dst || cap == 0) { return; }
+
+    dst[0] = LDG_STR_TERM;
+
+    if (!src) { return; }
+
+    while (idx + LDG_STR_TERM_SIZE < cap && src[idx] != LDG_STR_TERM)
+    {
+        ch = (uint8_t)src[idx];
+        dst[idx] = (ch < LDG_ASCII_PRINTABLE_MIN || ch > LDG_ASCII_PRINTABLE_MAX) ? LDG_ASCII_NONPRINTABLE_CHAR : (char)ch;
+        idx++;
+    }
+
+    dst[idx] = LDG_STR_TERM;
+}
+
+static uint8_t audio_dec_parse_is(const char *text, uint64_t *out)
+{
+    uint64_t val = 0;
+    uint64_t digit = 0;
+    uint64_t idx = 0;
+
+    *out = 0;
+
+    if (!text || text[0] == LDG_STR_TERM) { return LDG_TRUTH_FALSE; }
+
+    for (idx = 0; text[idx] != LDG_STR_TERM; idx++)
+    {
+        if (ldg_char_digit_is((uint8_t)text[idx]) != LDG_TRUTH_TRUE) { return LDG_TRUTH_FALSE; }
+
+        digit = (uint64_t)((uint8_t)text[idx] - (uint8_t)LDG_AUDIO_DEC_DIGIT_BASE);
+
+        if (val > (UINT64_MAX - digit) / LDG_BASE_DEC) { return LDG_TRUTH_FALSE; }
+
+        val = (val * LDG_BASE_DEC) + digit;
+    }
+
+    *out = val;
+
+    return LDG_TRUTH_TRUE;
+}
+
+static ldg_audio_node_t* audio_node_name_find(ldg_audio_node_t *hd, const char *name)
+{
+    ldg_audio_node_t *curr = hd;
+
+    if (!name || name[0] == LDG_STR_TERM) { return 0x0; }
+
+    while (curr)
+    {
+        if (strcmp(curr->name, name) == 0) { return curr; }
+
+        curr = curr->next;
+    }
+
+    return 0x0;
+}
+
+static uint32_t audio_tgt_resolve(const char *text)
+{
+    ldg_audio_node_t *curr = 0x0;
+    char name[LDG_AUDIO_NAME_MAX] = LDG_ARR_ZERO_INIT;
+    uint64_t serial = 0;
+
+    if (!text) { return LDG_AUDIO_NODE_ID_NONE; }
+
+    if (audio_dec_parse_is(text, &serial) == LDG_TRUTH_TRUE)
+    {
+        for (curr = g_audio_ctx.sinks; curr; curr = curr->next) { if (curr->serial == serial) { return curr->id; } }
+
+        return LDG_AUDIO_NODE_ID_NONE;
+    }
+
+    audio_name_fold_cpy(name, text, LDG_AUDIO_NAME_MAX);
+    curr = audio_node_name_find(g_audio_ctx.sinks, name);
+
+    return curr ? curr->id : LDG_AUDIO_NODE_ID_NONE;
+}
+
+static void audio_meta_name_take(char *dst, const char *json)
+{
+    const char *at = 0x0;
+    uint64_t len = 0;
+
+    dst[0] = LDG_STR_TERM;
+
+    if (!json) { return; }
+
+    at = strstr(json, LDG_AUDIO_META_JSON_NAME);
+    if (!at) { return; }
+
+    at = strchr(at + strlen(LDG_AUDIO_META_JSON_NAME), LDG_AUDIO_META_JSON_SEP);
+    if (!at) { return; }
+
+    at = strchr(at, LDG_AUDIO_META_JSON_QUOTE);
+    if (!at) { return; }
+
+    at++;
+
+    while (at[len] != LDG_STR_TERM && at[len] != LDG_AUDIO_META_JSON_QUOTE && len + LDG_STR_TERM_SIZE < LDG_AUDIO_NAME_MAX) { len++; }
+
+    if (at[len] != LDG_AUDIO_META_JSON_QUOTE) { return; }
+
+    audio_name_fold_cpy(dst, at, len + LDG_STR_TERM_SIZE);
+}
+
+static int32_t audio_meta_property(void *data, uint32_t subject, const char *key, const char *type, const char *text)
+{
+    ldg_audio_ctx_t *ctx = (ldg_audio_ctx_t *)data;
+    ldg_audio_node_t *node = 0x0;
+    uint8_t json_is = LDG_TRUTH_FALSE;
+
+    if (!ctx || !key) { return LDG_AUDIO_META_CB_OK; }
+
+    if (type && strcmp(type, LDG_AUDIO_META_TYPE_JSON) == 0) { json_is = LDG_TRUTH_TRUE; }
+
+    if (strcmp(key, LDG_AUDIO_META_KEY_SINK) == 0)
+    {
+        if (json_is == LDG_TRUTH_TRUE || !text) { audio_meta_name_take(ctx->default_sink_name, text); }
+
+        return LDG_AUDIO_META_CB_OK;
+    }
+
+    if (strcmp(key, LDG_AUDIO_META_KEY_SRC) == 0)
+    {
+        if (json_is == LDG_TRUTH_TRUE || !text) { audio_meta_name_take(ctx->default_src_name, text); }
+
+        return LDG_AUDIO_META_CB_OK;
+    }
+
+    if (strcmp(key, LDG_AUDIO_META_KEY_TGT_OBJECT) != 0 && strcmp(key, LDG_AUDIO_META_KEY_TGT_NODE) != 0) { return LDG_AUDIO_META_CB_OK; }
+
+    node = audio_node_find(ctx->streams, subject);
+    if (node) { node->tgt_id = audio_tgt_resolve(text); }
+
+    return LDG_AUDIO_META_CB_OK;
+}
+
+static const struct pw_metadata_events audio_meta_events = {
+    PW_VERSION_METADATA_EVENTS, .property = audio_meta_property, };
+
 static void node_event_param(void *data, __attribute__((unused)) int seq, uint32_t id, __attribute__((unused)) uint32_t idx, __attribute__((unused)) uint32_t next, const struct spa_pod *param)
 {
     ldg_audio_node_t *node = (ldg_audio_node_t *)data;
     const struct spa_pod_prop *prop = 0x0;
-    const struct spa_pod_object *obj = 0x0;
-    uint32_t n_vols = 0;
-    uint32_t i = 0;
-    double sum = 0.0;
     const float *vols = 0x0;
+    uint32_t n_vols = 0;
+    uint32_t val_size = 0;
+    uint32_t val_type = 0;
+    uint32_t mute_val = 0;
+    uint32_t ch_idx = 0;
+    double sum = 0.0;
 
     if (!param || id != SPA_PARAM_Props) { return; }
 
     if (!spa_pod_is_object(param)) { return; }
 
-    obj = (const struct spa_pod_object *)param;
+    prop = spa_pod_find_prop(param, 0x0, SPA_PROP_channelVolumes);
 
-    SPA_POD_OBJECT_FOREACH(obj, prop)
+    if (prop) { vols = (const float *)spa_pod_get_array_full(&prop->value, &n_vols, &val_size, &val_type); }
+
+    if (vols && val_type == SPA_TYPE_Float && val_size == (uint32_t)sizeof(*vols) && n_vols > 0 && n_vols <= SPA_AUDIO_MAX_CHANNELS)
     {
-        if (prop->key == SPA_PROP_channelVolumes)
-        {
-            if (spa_pod_is_array(&prop->value))
-            {
-                n_vols = (uint32_t)SPA_POD_ARRAY_N_VALUES(&prop->value);
-                vols = (const float *)SPA_POD_ARRAY_VALUES(&prop->value);
+        node->channel_cunt = n_vols;
 
-                if (n_vols > 0 && n_vols <= SPA_AUDIO_MAX_CHANNELS)
-                {
-                    node->channel_cunt = n_vols;
-                    sum = 0.0;
-                    for (i = 0; i < n_vols; i++) { sum += (double)vols[i]; }
-                    node->vol = sum / (double)n_vols;
-                    if (node->vol < 0.0) { node->vol = 0.0; }
+        for (ch_idx = 0; ch_idx < n_vols; ch_idx++) { sum += (double)vols[ch_idx]; }
 
-                    if (node->vol > 1.0) { node->vol = 1.0; }
-                }
-            }
-        }
-        else if (prop->key == SPA_PROP_mute) { if (spa_pod_is_bool(&prop->value)) { node->muted = (uint8_t)SPA_POD_VALUE(struct spa_pod_bool, &prop->value); } }
+        node->vol = sum / (double)n_vols;
+
+        if (node->vol < LDG_AUDIO_VOL_MIN) { node->vol = LDG_AUDIO_VOL_MIN; }
+
+        if (node->vol > LDG_AUDIO_VOL_MAX) { node->vol = LDG_AUDIO_VOL_MAX; }
     }
+
+    prop = spa_pod_find_prop(param, 0x0, SPA_PROP_mute);
+
+    if (!prop || !spa_pod_is_bool(&prop->value)) { return; }
+
+    if (ldg_mem_cpy(&mute_val, SPA_POD_BODY_CONST(&prop->value), sizeof(mute_val)) != LDG_ERR_AOK) { return; }
+
+    node->muted = (mute_val != 0) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
 }
 
 static const struct pw_node_events node_events = {
@@ -197,13 +370,27 @@ static const struct pw_node_events node_events = {
 static void registry_event_glob(__attribute__((unused)) void *data, uint32_t id, __attribute__((unused)) uint32_t permissions, const char *type, __attribute__((unused)) uint32_t version, const struct spa_dict *props)
 {
     const char *media_class = 0x0;
+    const char *meta_name = 0x0;
     const char *name = 0x0;
     const char *desc = 0x0;
+    const char *serial_text = 0x0;
     ldg_audio_node_t *node = 0x0;
     ldg_audio_node_t **list = 0x0;
     uint32_t node_type = 0;
 
     if (!props) { return; }
+
+    if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0)
+    {
+        meta_name = spa_dict_lookup(props, LDG_AUDIO_META_KEY_NAME);
+
+        if (!meta_name || strcmp(meta_name, LDG_AUDIO_META_NAME_DEFAULT) != 0 || g_audio_ctx.metadata) { return; }
+
+        g_audio_ctx.metadata = (struct pw_proxy *)pw_registry_bind(g_audio_ctx.registry, id, type, PW_VERSION_METADATA, LDG_AUDIO_BIND_USER_SIZE_NONE);
+        if (g_audio_ctx.metadata) { pw_metadata_add_listener((struct pw_metadata *)g_audio_ctx.metadata, &g_audio_ctx.metadata_listener, &audio_meta_events, &g_audio_ctx); }
+
+        return;
+    }
 
     if (strcmp(type, PW_TYPE_INTERFACE_Node) != 0) { return; }
 
@@ -235,16 +422,21 @@ static void registry_event_glob(__attribute__((unused)) void *data, uint32_t id,
     node->type = node_type;
 
     name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
-    if (name) { if (LDG_UNLIKELY(ldg_str_rbrcpy(node->name, name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return; } }
+    if (name) { audio_name_fold_cpy(node->name, name, LDG_AUDIO_NAME_MAX); }
 
     desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
-    if (desc) { if (LDG_UNLIKELY(ldg_str_rbrcpy(node->desc, desc, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { return; } }
-    else if (name) { if (LDG_UNLIKELY(ldg_str_rbrcpy(node->desc, name, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { return; } }
+    if (desc) { audio_name_fold_cpy(node->desc, desc, LDG_AUDIO_DESC_MAX); }
+    else if (name) { audio_name_fold_cpy(node->desc, name, LDG_AUDIO_DESC_MAX); }
+
+    serial_text = spa_dict_lookup(props, LDG_AUDIO_KEY_OBJECT_SERIAL);
+    if (audio_dec_parse_is(serial_text, &node->serial) != LDG_TRUTH_TRUE) { node->serial = UINT64_MAX; }
 
     if (node_type == LDG_AUDIO_NODE_STREAM)
     {
-        const char *app_name = spa_dict_lookup(props, PW_KEY_APP_NAME);
-        if (app_name) { if (LDG_UNLIKELY(ldg_str_rbrcpy(node->name, app_name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return; } }
+        name = spa_dict_lookup(props, PW_KEY_APP_NAME);
+        if (name) { audio_name_fold_cpy(node->name, name, LDG_AUDIO_NAME_MAX); }
+
+        node->tgt_id = audio_tgt_resolve(spa_dict_lookup(props, LDG_AUDIO_META_KEY_TGT_OBJECT));
     }
 
     node->proxy = (struct pw_proxy *)pw_registry_bind(g_audio_ctx.registry, id, type, PW_VERSION_NODE, 0);
@@ -284,7 +476,7 @@ uint32_t ldg_audio_init(void)
 {
     if (g_audio_ctx.is_init == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
 
-    if (LDG_UNLIKELY(memset(&g_audio_ctx, 0, sizeof(ldg_audio_ctx_t)) != &g_audio_ctx)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(&g_audio_ctx, sizeof(ldg_audio_ctx_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     pw_init(0x0, 0x0);
 
@@ -364,6 +556,13 @@ void ldg_audio_shutdown(void)
         if (g_audio_ctx.duck_stack[i].orig_vols) { ldg_mem_dealloc(g_audio_ctx.duck_stack[i].orig_vols); }
     }
 
+    if (g_audio_ctx.metadata)
+    {
+        spa_hook_remove(&g_audio_ctx.metadata_listener);
+        pw_proxy_destroy(g_audio_ctx.metadata);
+        g_audio_ctx.metadata = 0x0;
+    }
+
     spa_hook_remove(&g_audio_ctx.registry_listener);
     spa_hook_remove(&g_audio_ctx.core_listener);
 
@@ -390,55 +589,52 @@ uint32_t ldg_audio_sync(void)
 
 static uint32_t audio_node_vol_set(ldg_audio_node_t *node, double vol)
 {
-    ldg_mem_pool_t *scratch = 0x0;
-    uint8_t *buff = 0x0;
-    struct spa_pod_builder pod_wr = { 0 };
-    struct spa_pod_frame props = { 0 };
-    struct spa_pod_frame vols = { 0 };
+    uint8_t buff[LDG_AUDIO_PCM_POD_MAX] = LDG_ARR_ZERO_INIT;
+    struct spa_pod_builder pod_wr = LDG_STRUCT_ZERO_INIT;
+    struct spa_pod_frame props = LDG_STRUCT_ZERO_INIT;
+    struct spa_pod_frame vols = LDG_STRUCT_ZERO_INIT;
+    struct spa_pod *pod = 0x0;
     uint32_t idx = 0;
     uint32_t cunt = 0;
-    uint32_t ret = 0;
 
     if (!node || !node->proxy) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ret = ldg_mem_pool_create(0, 1024, &scratch);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    spa_pod_builder_init(&pod_wr, buff, sizeof(buff));
 
-    ret = ldg_mem_pool_alloc(scratch, 1024, (void **)&buff);
-    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
-    {
-        ldg_mem_pool_destroy(&scratch);
-        return ret;
-    }
-
-    pod_wr = SPA_POD_BUILDER_INIT(buff, 1024);
-
-    cunt = (node->channel_cunt > 0) ? node->channel_cunt : 2;
+    cunt = (node->channel_cunt > 0) ? node->channel_cunt : LDG_AUDIO_CHANNEL_CUNT_DEFAULT;
 
     spa_pod_builder_push_object(&pod_wr, &props, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-    spa_pod_builder_prop(&pod_wr, SPA_PROP_channelVolumes, 0);
+    spa_pod_builder_prop(&pod_wr, SPA_PROP_channelVolumes, LDG_AUDIO_PARAM_FLAGS_NONE);
     spa_pod_builder_push_array(&pod_wr, &vols);
     for (idx = 0; idx < cunt; idx++) { spa_pod_builder_float(&pod_wr, (float)vol); }
     spa_pod_builder_pop(&pod_wr, &vols);
 
-    pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, 0, (struct spa_pod *)spa_pod_builder_pop(&pod_wr, &props));
+    pod = (struct spa_pod *)spa_pod_builder_pop(&pod_wr, &props);
+    if (LDG_UNLIKELY(!pod)) { return LDG_ERR_OVERFLOW; }
 
-    ldg_mem_pool_destroy(&scratch);
+    if (LDG_UNLIKELY(pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, LDG_AUDIO_PARAM_FLAGS_NONE, pod) < 0)) { return LDG_ERR_INVALID; }
 
     return LDG_ERR_AOK;
 }
 
 static ldg_audio_node_t* audio_default_sink_find(void)
 {
-    ldg_audio_node_t *node = g_audio_ctx.sinks;
+    ldg_audio_node_t *node = 0x0;
 
-    if (g_audio_ctx.default_sink_id != 0)
-    {
-        node = audio_node_find(g_audio_ctx.sinks, g_audio_ctx.default_sink_id);
-        if (node) { return node; }
-    }
+    node = audio_node_name_find(g_audio_ctx.sinks, g_audio_ctx.default_sink_name);
+    if (node) { return node; }
 
     return g_audio_ctx.sinks;
+}
+
+static ldg_audio_node_t* audio_default_src_find(void)
+{
+    ldg_audio_node_t *node = 0x0;
+
+    node = audio_node_name_find(g_audio_ctx.srcs, g_audio_ctx.default_src_name);
+    if (node) { return node; }
+
+    return g_audio_ctx.srcs;
 }
 
 uint32_t ldg_audio_master_vol_get(double *vol)
@@ -559,9 +755,11 @@ uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted)
 uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted)
 {
     ldg_audio_node_t *node = 0x0;
-    uint8_t buff[256] = { 0 };
-    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buff, sizeof(buff));
+    uint8_t buff[LDG_AUDIO_PCM_POD_MAX] = LDG_ARR_ZERO_INIT;
+    struct spa_pod_builder pod_wr = LDG_STRUCT_ZERO_INIT;
+    struct spa_pod_frame props = LDG_STRUCT_ZERO_INIT;
     struct spa_pod *pod = 0x0;
+    uint32_t ret = LDG_ERR_AOK;
 
     if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
 
@@ -576,13 +774,18 @@ uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted)
         return (stream_id == 0) ? LDG_ERR_AUDIO_NO_DEFAULT : LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
-    pod = (struct spa_pod *)spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props, SPA_PROP_mute, SPA_POD_Bool(muted ? 1 : 0));
+    spa_pod_builder_init(&pod_wr, buff, sizeof(buff));
+    spa_pod_builder_push_object(&pod_wr, &props, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+    spa_pod_builder_prop(&pod_wr, SPA_PROP_mute, LDG_AUDIO_PARAM_FLAGS_NONE);
+    spa_pod_builder_bool(&pod_wr, muted == LDG_TRUTH_TRUE);
+    pod = (struct spa_pod *)spa_pod_builder_pop(&pod_wr, &props);
 
-    pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, 0, pod);
+    if (LDG_UNLIKELY(!pod)) { ret = LDG_ERR_OVERFLOW; }
+    else if (LDG_UNLIKELY(pw_node_set_param((struct pw_node *)node->proxy, SPA_PARAM_Props, LDG_AUDIO_PARAM_FLAGS_NONE, pod) < 0)) { ret = LDG_ERR_INVALID; }
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
 
-    return LDG_ERR_AOK;
+    return ret;
 }
 
 uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
@@ -614,18 +817,23 @@ uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt)
         return LDG_ERR_ALLOC_NULL;
     }
 
-    if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_stream_t)) != arr)) { return 0; }
+    if (LDG_UNLIKELY(ldg_mem_zero(arr, n * sizeof(ldg_audio_stream_t)) != LDG_ERR_AOK))
+    {
+        ldg_mem_dealloc(arr);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     for (node = g_audio_ctx.streams; node && i < n; node = node->next, i++)
     {
         arr[i].id = node->id;
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX);
 
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].app_name, node->desc, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].app_name, node->desc, LDG_AUDIO_NAME_MAX);
 
         arr[i].vol = node->vol;
         arr[i].muted = node->muted;
-        arr[i].sink_id = node->target_id;
+        arr[i].sink_id = node->tgt_id;
     }
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
@@ -658,16 +866,20 @@ uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream)
     {
         if (strcmp(node->name, name) == 0)
         {
-            if (LDG_UNLIKELY(memset(stream, 0, sizeof(ldg_audio_stream_t)) != stream)) { return LDG_ERR_MEM_BAD; }
+            if (LDG_UNLIKELY(ldg_mem_zero(stream, sizeof(ldg_audio_stream_t)) != LDG_ERR_AOK))
+            {
+                pw_thread_loop_unlock(g_audio_ctx.loop);
+                return LDG_ERR_MEM_BAD;
+            }
 
             stream->id = node->id;
-            if (LDG_UNLIKELY(ldg_str_rbrcpy(stream->name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+            audio_name_fold_cpy(stream->name, node->name, LDG_AUDIO_NAME_MAX);
 
-            if (LDG_UNLIKELY(ldg_str_rbrcpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+            audio_name_fold_cpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX);
 
             stream->vol = node->vol;
             stream->muted = node->muted;
-            stream->sink_id = node->target_id;
+            stream->sink_id = node->tgt_id;
             ret = LDG_ERR_AOK;
             break;
         }
@@ -709,16 +921,20 @@ uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream)
         return LDG_ERR_AUDIO_STREAM_NOT_FOUND;
     }
 
-    if (LDG_UNLIKELY(memset(stream, 0, sizeof(ldg_audio_stream_t)) != stream)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(stream, sizeof(ldg_audio_stream_t)) != LDG_ERR_AOK))
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     stream->id = node->id;
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(stream->name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(stream->name, node->name, LDG_AUDIO_NAME_MAX);
 
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(stream->app_name, node->desc, LDG_AUDIO_NAME_MAX);
 
     stream->vol = node->vol;
     stream->muted = node->muted;
-    stream->sink_id = node->target_id;
+    stream->sink_id = node->tgt_id;
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
 
@@ -743,6 +959,7 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
 {
     ldg_audio_node_t *node = 0x0;
     ldg_audio_sink_t *arr = 0x0;
+    ldg_audio_node_t *dflt = 0x0;
     uint32_t n = 0;
     uint32_t i = 0;
 
@@ -768,18 +985,25 @@ uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt)
         return LDG_ERR_ALLOC_NULL;
     }
 
-    if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_sink_t)) != arr)) { return 0; }
+    if (LDG_UNLIKELY(ldg_mem_zero(arr, n * sizeof(ldg_audio_sink_t)) != LDG_ERR_AOK))
+    {
+        ldg_mem_dealloc(arr);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
+
+    dflt = audio_default_sink_find();
 
     for (node = g_audio_ctx.sinks; node && i < n; node = node->next, i++)
     {
         arr[i].id = node->id;
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX);
 
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].desc, node->desc, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].desc, node->desc, LDG_AUDIO_DESC_MAX);
 
         arr[i].vol = node->vol;
         arr[i].muted = node->muted;
-        arr[i].is_default = (node->id == g_audio_ctx.default_sink_id || (g_audio_ctx.default_sink_id == 0 && node == g_audio_ctx.sinks)) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+        arr[i].is_default = (node == dflt) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
     }
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
@@ -801,6 +1025,7 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
 {
     ldg_audio_node_t *node = 0x0;
     ldg_audio_src_t *arr = 0x0;
+    ldg_audio_node_t *dflt = 0x0;
     uint32_t n = 0;
     uint32_t i = 0;
 
@@ -826,18 +1051,25 @@ uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt)
         return LDG_ERR_ALLOC_NULL;
     }
 
-    if (LDG_UNLIKELY(memset(arr, 0, n * sizeof(ldg_audio_src_t)) != arr)) { return 0; }
+    if (LDG_UNLIKELY(ldg_mem_zero(arr, n * sizeof(ldg_audio_src_t)) != LDG_ERR_AOK))
+    {
+        ldg_mem_dealloc(arr);
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
+
+    dflt = audio_default_src_find();
 
     for (node = g_audio_ctx.srcs; node && i < n; node = node->next, i++)
     {
         arr[i].id = node->id;
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].name, node->name, LDG_AUDIO_NAME_MAX);
 
-        if (LDG_UNLIKELY(ldg_str_rbrcpy(arr[i].desc, node->desc, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { continue; }
+        audio_name_fold_cpy(arr[i].desc, node->desc, LDG_AUDIO_DESC_MAX);
 
         arr[i].vol = node->vol;
         arr[i].muted = node->muted;
-        arr[i].is_default = (node->id == g_audio_ctx.default_src_id || (g_audio_ctx.default_src_id == 0 && node == g_audio_ctx.srcs)) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+        arr[i].is_default = (node == dflt) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
     }
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
@@ -872,12 +1104,16 @@ uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink)
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
-    if (LDG_UNLIKELY(memset(sink, 0, sizeof(ldg_audio_sink_t)) != sink)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(sink, sizeof(ldg_audio_sink_t)) != LDG_ERR_AOK))
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     sink->id = node->id;
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(sink->name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(sink->name, node->name, LDG_AUDIO_NAME_MAX);
 
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(sink->desc, node->desc, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(sink->desc, node->desc, LDG_AUDIO_DESC_MAX);
 
     sink->vol = node->vol;
     sink->muted = node->muted;
@@ -898,9 +1134,7 @@ uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src)
 
     pw_thread_loop_lock(g_audio_ctx.loop);
 
-    if (g_audio_ctx.default_src_id != 0) { node = audio_node_find(g_audio_ctx.srcs, g_audio_ctx.default_src_id); }
-
-    if (!node) { node = g_audio_ctx.srcs; }
+    node = audio_default_src_find();
 
     if (!node)
     {
@@ -908,12 +1142,16 @@ uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src)
         return LDG_ERR_AUDIO_NO_DEFAULT;
     }
 
-    if (LDG_UNLIKELY(memset(src, 0, sizeof(ldg_audio_src_t)) != src)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(src, sizeof(ldg_audio_src_t)) != LDG_ERR_AOK))
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     src->id = node->id;
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(src->name, node->name, LDG_AUDIO_NAME_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(src->name, node->name, LDG_AUDIO_NAME_MAX);
 
-    if (LDG_UNLIKELY(ldg_str_rbrcpy(src->desc, node->desc, LDG_AUDIO_DESC_MAX) > LDG_ERR_STR_OVERLAP)) { return LDG_ERR_MEM_BAD; }
+    audio_name_fold_cpy(src->desc, node->desc, LDG_AUDIO_DESC_MAX);
 
     src->vol = node->vol;
     src->muted = node->muted;
@@ -947,11 +1185,14 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
     for (node = g_audio_ctx.streams; node; node = node->next) { if (node->id != exclude_stream_id) { cunt++; } }
 
     entry = &g_audio_ctx.duck_stack[g_audio_ctx.duck_cunt];
-    if (LDG_UNLIKELY(memset(entry, 0, sizeof(ldg_audio_duck_entry_t)) != entry)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(entry, sizeof(ldg_audio_duck_entry_t)) != LDG_ERR_AOK))
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     entry->factor = factor;
     entry->exclude_stream_id = exclude_stream_id;
-    entry->stream_cunt = cunt;
 
     if (cunt > 0)
     {
@@ -967,7 +1208,11 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
 
             if (entry->orig_vols) { ldg_mem_dealloc(entry->orig_vols); }
 
-            if (LDG_UNLIKELY(memset(entry, 0, sizeof(ldg_audio_duck_entry_t)) != entry)) { return LDG_ERR_MEM_BAD; }
+            if (LDG_UNLIKELY(ldg_mem_zero(entry, sizeof(ldg_audio_duck_entry_t)) != LDG_ERR_AOK))
+            {
+                pw_thread_loop_unlock(g_audio_ctx.loop);
+                return LDG_ERR_MEM_BAD;
+            }
 
             pw_thread_loop_unlock(g_audio_ctx.loop);
             return LDG_ERR_ALLOC_NULL;
@@ -984,6 +1229,7 @@ uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id)
         }
     }
 
+    entry->stream_cunt = i;
     g_audio_ctx.duck_cunt++;
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
@@ -1020,7 +1266,11 @@ uint32_t ldg_audio_unduck(void)
 
     if (entry->orig_vols) { ldg_mem_dealloc(entry->orig_vols); }
 
-    if (LDG_UNLIKELY(memset(entry, 0, sizeof(ldg_audio_duck_entry_t)) != entry)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_zero(entry, sizeof(ldg_audio_duck_entry_t)) != LDG_ERR_AOK))
+    {
+        pw_thread_loop_unlock(g_audio_ctx.loop);
+        return LDG_ERR_MEM_BAD;
+    }
 
     pw_thread_loop_unlock(g_audio_ctx.loop);
 
@@ -1075,13 +1325,12 @@ static void audio_pcm_process(__attribute__((unused)) void *data)
     }
 
     frame_cunt = spa_buff->datas[0].maxsize / g_audio_pcm.frame_size;
-    if (pw_buff->requested > 0 && (uint32_t)pw_buff->requested < frame_cunt) { frame_cunt = (uint32_t)pw_buff->requested; }
 
     src_cb = g_audio_pcm.src_cb;
     LDG_BARRIER;
 
     if (src_cb != 0x0) { if (src_cb(g_audio_pcm.src_user, spa_buff->datas[0].data, frame_cunt, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; } }
-    else if (ldg_audio_play_frames_pull(spa_buff->datas[0].data, frame_cunt, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; }
+    else if (ldg_audio_play_frames_pull(spa_buff->datas[0].data, (uint64_t)frame_cunt * g_audio_pcm.frame_size, g_audio_pcm.frame_size, &got) != LDG_ERR_AOK) { got = LDG_AUDIO_PCM_NONE; }
 
     if (got < frame_cunt)
     {
@@ -1107,7 +1356,7 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
     uint8_t pod_buff[LDG_AUDIO_PCM_POD_MAX] = LDG_ARR_ZERO_INIT;
     const struct spa_pod *params[LDG_AUDIO_PCM_PARAM_CUNT] = LDG_ARR_ZERO_INIT;
     struct spa_pod_builder builder = LDG_STRUCT_ZERO_INIT;
-    struct spa_audio_info_raw info = LDG_STRUCT_ZERO_INIT;
+    struct spa_audio_info_raw info = { .format = SPA_AUDIO_FORMAT_UNKNOWN };
     struct pw_properties *props = 0x0;
     uint32_t fmt = 0;
 
@@ -1132,7 +1381,7 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
 
     pw_stream_add_listener(g_audio_pcm.stream, &g_audio_pcm.listener, &audio_pcm_events, 0x0);
 
-    info.format = fmt;
+    info.format = (enum spa_audio_format)fmt;
     info.rate = rate;
     info.channels = channel_cunt;
 
@@ -1141,7 +1390,7 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
 
     g_audio_pcm.frame_size = (uint32_t)channel_cunt * ((uint32_t)bit_depth / LDG_AUDIO_PCM_BITS_PER_BYTE);
 
-    if (LDG_UNLIKELY(pw_stream_connect(g_audio_pcm.stream, PW_DIRECTION_OUTPUT, PW_ID_ANY, PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS, params, LDG_AUDIO_PCM_PARAM_CUNT) < 0))
+    if (LDG_UNLIKELY(pw_stream_connect(g_audio_pcm.stream, PW_DIRECTION_OUTPUT, PW_ID_ANY, (enum pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS), params, LDG_AUDIO_PCM_PARAM_CUNT) < 0))
     {
         pw_stream_destroy(g_audio_pcm.stream);
         g_audio_pcm.stream = 0x0;

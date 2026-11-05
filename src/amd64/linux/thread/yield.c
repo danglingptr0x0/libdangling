@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <time.h>
+#include <sched.h>
 
 #include <dangling/thread/yield.h>
 #include <dangling/core/err.h>
@@ -11,7 +12,12 @@ uint32_t ldg_thread_yield(uint64_t ns)
     uint64_t elapsed = 0;
     struct timespec req = { 0 };
 
-    if (ns == 0) { return LDG_ERR_AOK; }
+    if (ns == 0)
+    {
+        if (LDG_UNLIKELY(sched_yield() != 0)) { return LDG_ERR_INTERRUPTED; }
+
+        return LDG_ERR_AOK;
+    }
 
     secs = ns / LDG_NS_PER_SEC;
     elapsed = ns % LDG_NS_PER_SEC;

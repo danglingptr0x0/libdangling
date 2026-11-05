@@ -79,7 +79,7 @@
 #define LDG_MATH_PHYS_ACOUSTIC_RAMP_PERIOD_CUNT 4.0
 #define LDG_MATH_PHYS_ACOUSTIC_GPU_SRC_MAX 4
 
-uint32_t ldg_math_phys_field_energy_get(const double *cur, const double *prev, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double *out);
+uint32_t ldg_math_phys_field_energy_get(const double *curr, const double *prev, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, double wave_speed, double dt, double *out);
 uint32_t ldg_math_phys_field_em_electric_advance(double *electric, const double *magnetic, const double *drive, double *psi, const uint16_t *mtl, const double *coeff, const double *stretch, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, uint64_t slab_lo, uint64_t slab_hi);
 uint32_t ldg_math_phys_field_em_magnetic_advance(double *magnetic, const double *electric, double *psi, const uint16_t *mtl, const double *coeff, const double *stretch, uint64_t nx, uint64_t ny, uint64_t nz, double spacing, uint64_t slab_lo, uint64_t slab_hi);
 uint32_t ldg_math_phys_field_em_electric_2d_advance(double *electric, const double *magnetic, const double *drive, double *psi, const uint16_t *mtl, const double *coeff, const double *stretch, uint64_t nx, uint64_t ny, double spacing);

@@ -262,6 +262,16 @@ LDG_EXPORT uint32_t ldg_time_timer_wheel_tick(ldg_time_timer_wheel_t *wheel, uin
 
     if (LDG_UNLIKELY(wheel->is_init != LDG_TRUTH_TRUE || wheel->tick_interval_ns == 0)) { return LDG_ERR_NOT_INIT; }
 
+    if (wheel->is_anchored != LDG_TRUTH_TRUE)
+    {
+        wheel->base_time_ns = current_time_ns;
+        wheel->is_anchored = LDG_TRUTH_TRUE;
+    }
+
+    if (LDG_UNLIKELY(current_time_ns < wheel->base_time_ns)) { return LDG_ERR_RANGE; }
+
+    current_time_ns -= wheel->base_time_ns;
+
     wheel->current_time_ns = current_time_ns;
     now_tick = current_time_ns / wheel->tick_interval_ns;
 

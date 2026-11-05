@@ -125,7 +125,9 @@ uint32_t ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
 {
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     ret = ldg_thread_pool_stop(pool);
 
@@ -152,7 +154,9 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
     pthread_t tid = 0;
     pthread_attr_t attr = { 0 };
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     {
         uint8_t expected = LDG_TRUTH_FALSE;
@@ -193,7 +197,9 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
     uint32_t idx = 0;
     uint32_t ret = LDG_ERR_AOK;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) != LDG_TRUTH_TRUE)) { return LDG_ERR_AOK; }
 
@@ -226,7 +232,9 @@ uint64_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool)
 
 uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_affinity_t policy, uint64_t mask)
 {
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) == LDG_TRUTH_TRUE)) { return LDG_ERR_BUSY; }
 
@@ -238,6 +246,19 @@ uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_a
     pool->affinity_mask = mask;
 
     return LDG_ERR_AOK;
+}
+
+uint32_t ldg_thread_pool_priority_set(ldg_thread_pool_t *pool, ldg_thread_pool_priority_t lvl)
+{
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) == LDG_TRUTH_TRUE)) { return LDG_ERR_BUSY; }
+
+    if (LDG_UNLIKELY(lvl > LDG_THREAD_POOL_PRIORITY_REALTIME)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    return LDG_ERR_UNSUPPORTED;
 }
 
 static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
@@ -281,7 +302,9 @@ uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_
 {
     ldg_thread_pool_task_t task = { 0 };
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     {
         uint8_t expected = LDG_TRUTH_FALSE;

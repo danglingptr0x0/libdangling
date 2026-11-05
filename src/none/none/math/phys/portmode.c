@@ -1,4 +1,3 @@
-
 #include <dangling/math/phys.h>
 #include <dangling/math/math.h>
 #include <dangling/math/complex.h>
@@ -34,13 +33,13 @@ typedef struct portmode_mesh
     double spacing;
 } portmode_mesh_t;
 
-LDG_NOINLINE static void portmode_mesh_fill(portmode_mesh_t *mesh, const uint8_t *pec)
+static void portmode_mesh_fill(portmode_mesh_t *mesh, const uint8_t *pec)
 {
     double spacing = mesh->spacing;
     double base_x = 0.0;
     double base_y = 0.0;
-    double vert_x[3];
-    double vert_y[3];
+    double vert_x[3] = LDG_ARR_ZERO_INIT;
+    double vert_y[3] = LDG_ARR_ZERO_INIT;
     double area_sig = 0.0;
     uint64_t ga = mesh->grid_a;
     uint64_t gb = mesh->grid_b;
@@ -110,7 +109,7 @@ LDG_NOINLINE static void portmode_mesh_fill(portmode_mesh_t *mesh, const uint8_t
     }
 }
 
-LDG_NOINLINE static void portmode_dof_build(portmode_mesh_t *mesh)
+static void portmode_dof_build(portmode_mesh_t *mesh)
 {
     uint64_t tri = 0;
     uint64_t side = 0;
@@ -182,13 +181,13 @@ LDG_NOINLINE static void portmode_dof_build(portmode_mesh_t *mesh)
     mesh->dof_cunt = dof;
 }
 
-LDG_NOINLINE static void portmode_blk_assemble(const portmode_mesh_t *mesh, const double *eps_r, const double *mu_r, double k0, double *a_ee, double *t_mu, double *g_mu, double *g_eps, double *tz_eps)
+static void portmode_blk_assemble(const portmode_mesh_t *mesh, const double *eps_r, const double *mu_r, double k0, double *a_ee, double *t_mu, double *g_mu, double *g_eps, double *tz_eps)
 {
     const double *grad = 0x0;
     double area = 0.0;
     double eps_val = 0.0;
     double inv_mu = 0.0;
-    double curl_val[3];
+    double curl_val[3] = LDG_ARR_ZERO_INIT;
     double dot_gg = 0.0;
     double mass_val = 0.0;
     double couple_val = 0.0;
@@ -278,7 +277,7 @@ LDG_NOINLINE static void portmode_blk_assemble(const portmode_mesh_t *mesh, cons
     }
 }
 
-LDG_NOINLINE static uint32_t portmode_spd_solve_cols(ldg_math_cholesky_ctx_t *chol, ldg_math_complex_t *stage, const double *mat_spd, const double *rhs_cols, uint64_t dim, uint64_t col_cunt, double *out_cols)
+static uint32_t portmode_spd_solve_cols(ldg_math_cholesky_ctx_t *chol, ldg_math_complex_t *stage, const double *mat_spd, const double *rhs_cols, uint64_t dim, uint64_t col_cunt, double *out_cols)
 {
     uint64_t row = 0;
     uint64_t col = 0;
@@ -308,14 +307,14 @@ LDG_NOINLINE static uint32_t portmode_spd_solve_cols(ldg_math_cholesky_ctx_t *ch
     return LDG_ERR_AOK;
 }
 
-LDG_NOINLINE static void portmode_field_sample(const portmode_mesh_t *mesh, const double *mu_r, const double *e_dof, const double *z_dof, double beta, double k0, double *out_e, double *out_h)
+static void portmode_field_sample(const portmode_mesh_t *mesh, const double *mu_r, const double *e_dof, const double *z_dof, double beta, double k0, double *out_e, double *out_h)
 {
     const double *grad = 0x0;
     double et_a = 0.0;
     double et_b = 0.0;
     double gz_a = 0.0;
     double gz_b = 0.0;
-    double bary[3];
+    double bary[3] = LDG_ARR_ZERO_INIT;
     double coef = 0.0;
     double cross_sum = 0.0;
     double inv_mu = 0.0;

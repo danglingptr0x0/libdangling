@@ -6,7 +6,7 @@
 
 LDG_EXPORT uint32_t ldg_gpu_surface_create(void *vk, void *native_surface, ldg_gpu_surface_t *out)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     uint32_t slot = UINT32_MAX;
     uint32_t ret = 0;
     uint32_t idx = 0;
@@ -49,7 +49,7 @@ LDG_EXPORT uint32_t ldg_gpu_surface_create(void *vk, void *native_surface, ldg_g
 
 LDG_EXPORT uint32_t ldg_gpu_surface_destroy(void *vk, uint32_t surface_id)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }

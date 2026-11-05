@@ -21,33 +21,35 @@ typedef struct ldg_audio_wav_info
 
 typedef struct ldg_audio_stream
 {
+    double vol;
     uint32_t id;
+    uint32_t sink_id;
     char name[LDG_AUDIO_NAME_MAX];
     char app_name[LDG_AUDIO_NAME_MAX];
-    double vol;
     uint8_t muted;
-    uint32_t sink_id;
-    uint8_t pudding[4];
+    uint8_t pudding[7];
 } ldg_audio_stream_t;
 
 typedef struct ldg_audio_sink
 {
+    double vol;
     uint32_t id;
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
-    double vol;
     uint8_t muted;
     uint8_t is_default;
+    uint8_t pudding[2];
 } ldg_audio_sink_t;
 
 typedef struct ldg_audio_src
 {
+    double vol;
     uint32_t id;
     char name[LDG_AUDIO_NAME_MAX];
     char desc[LDG_AUDIO_DESC_MAX];
-    double vol;
     uint8_t muted;
     uint8_t is_default;
+    uint8_t pudding[2];
 } ldg_audio_src_t;
 
 #define LDG_AUDIO_PLAY_PATH_MAX 512
@@ -94,7 +96,7 @@ LDG_EXPORT uint32_t ldg_audio_play_status_get(ldg_audio_play_status_t *out);
 typedef uint32_t (*ldg_audio_pcm_pull_cb_t)(void *user, void *buff, uint32_t frame_cunt, uint32_t *out_cunt);
 
 LDG_EXPORT uint32_t ldg_audio_play_fmt_get(uint32_t *out_rate, uint16_t *out_channel_cunt, uint16_t *out_bit_depth);
-LDG_EXPORT uint32_t ldg_audio_play_frames_pull(void *buff, uint32_t frame_cunt, uint32_t *out_cunt);
+LDG_EXPORT uint32_t ldg_audio_play_frames_pull(void *buff, uint64_t buff_size, uint32_t expect_frame_size, uint32_t *out_cunt);
 
 LDG_EXPORT uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t bit_depth);
 LDG_EXPORT uint32_t ldg_audio_sink_pcm_close(void);

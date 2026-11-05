@@ -5,6 +5,9 @@
 #define LDG_THREAD_POOL_CPU_FALLBACK 4
 #define LDG_THREAD_POOL_PIN_NONE 0
 #define LDG_THREAD_POOL_THREAD_OK 0
+#define LDG_THREAD_POOL_STACK_DEFAULT 0
+#define LDG_THREAD_POOL_CREATE_RUN 0
+#define LDG_THREAD_POOL_HANDLE_NONE 0
 
 #include <dangling/thread/pool.h>
 #include <dangling/thread/mpmc.h>
@@ -30,6 +33,26 @@ static uint64_t thread_pool_pin_mask_get(const ldg_thread_pool_t *pool)
     tid = (uint64_t)GetCurrentThreadId();
 
     return bit << (tid % (uint64_t)cpu_cunt);
+}
+
+static int32_t thread_pool_priority_native_get(uint32_t lvl)
+{
+    if (lvl == LDG_THREAD_POOL_PRIORITY_IDLE) { return THREAD_PRIORITY_IDLE; }
+
+    if (lvl == LDG_THREAD_POOL_PRIORITY_LOW) { return THREAD_PRIORITY_BELOW_NORMAL; }
+
+    if (lvl == LDG_THREAD_POOL_PRIORITY_NORMAL) { return THREAD_PRIORITY_NORMAL; }
+
+    if (lvl == LDG_THREAD_POOL_PRIORITY_HIGH) { return THREAD_PRIORITY_HIGHEST; }
+
+    return THREAD_PRIORITY_TIME_CRITICAL;
+}
+
+static void thread_pool_priority_apply(ldg_thread_pool_t *pool, HANDLE handle)
+{
+    if (pool->priority == LDG_THREAD_POOL_PRIORITY_NONE) { return; }
+
+    if (LDG_UNLIKELY(SetThreadPriority(handle, thread_pool_priority_native_get(pool->priority)) == 0)) { pool->priority = LDG_THREAD_POOL_PRIORITY_NONE; }
 }
 
 static DWORD WINAPI ldg_thread_pool_worker_enter(LPVOID arg)
@@ -124,7 +147,9 @@ uint32_t ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
 {
     uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     ret = ldg_thread_pool_stop(pool);
 
@@ -149,7 +174,9 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
     uint32_t started = 0;
     HANDLE h = 0x0;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     {
         uint8_t expected = LDG_TRUTH_FALSE;
@@ -164,8 +191,10 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
         LDG_WR_ONCE(pool->workers[idx].state, LDG_THREAD_POOL_WORKER_STARTING);
         LDG_WR_ONCE(pool->workers[idx].should_stop, 0);
 
-        h = CreateThread(0x0, 0, ldg_thread_pool_worker_enter, &pool->workers[idx], 0, 0x0);
-        pool->workers[idx].handle = (h != 0x0) ? (uint64_t)h : 0;
+        h = CreateThread(0x0, LDG_THREAD_POOL_STACK_DEFAULT, ldg_thread_pool_worker_enter, &pool->workers[idx], LDG_THREAD_POOL_CREATE_RUN, 0x0);
+        pool->workers[idx].handle = (h != 0x0) ? (uint64_t)h : LDG_THREAD_POOL_HANDLE_NONE;
+
+        if (h != 0x0) { thread_pool_priority_apply(pool, h); }
 
         if (LDG_UNLIKELY(h == 0x0))
         {
@@ -186,7 +215,9 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
     uint32_t idx = 0;
     uint32_t ret = LDG_ERR_AOK;
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) != LDG_TRUTH_TRUE)) { return LDG_ERR_AOK; }
 
@@ -220,7 +251,9 @@ uint64_t ldg_thread_pool_worker_cunt_get(ldg_thread_pool_t *pool)
 
 uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_affinity_t policy, uint64_t mask)
 {
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) == LDG_TRUTH_TRUE)) { return LDG_ERR_BUSY; }
 
@@ -230,6 +263,21 @@ uint32_t ldg_thread_pool_affinity_set(ldg_thread_pool_t *pool, ldg_thread_pool_a
 
     pool->affinity = (uint32_t)policy;
     pool->affinity_mask = mask;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_thread_pool_priority_set(ldg_thread_pool_t *pool, ldg_thread_pool_priority_t lvl)
+{
+    if (LDG_UNLIKELY(!pool)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(LDG_RD_ONCE(pool->is_running) == LDG_TRUTH_TRUE)) { return LDG_ERR_BUSY; }
+
+    if (LDG_UNLIKELY(lvl > LDG_THREAD_POOL_PRIORITY_REALTIME)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    pool->priority = (uint32_t)lvl;
 
     return LDG_ERR_AOK;
 }
@@ -248,8 +296,10 @@ static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
         LDG_WR_ONCE(pool->workers[idx].state, LDG_THREAD_POOL_WORKER_STARTING);
         LDG_WR_ONCE(pool->workers[idx].should_stop, 0);
 
-        h = CreateThread(0x0, 0, ldg_thread_pool_worker_enter, &pool->workers[idx], 0, 0x0);
-        pool->workers[idx].handle = (h != 0x0) ? (uint64_t)h : 0;
+        h = CreateThread(0x0, LDG_THREAD_POOL_STACK_DEFAULT, ldg_thread_pool_worker_enter, &pool->workers[idx], LDG_THREAD_POOL_CREATE_RUN, 0x0);
+        pool->workers[idx].handle = (h != 0x0) ? (uint64_t)h : LDG_THREAD_POOL_HANDLE_NONE;
+
+        if (h != 0x0) { thread_pool_priority_apply(pool, h); }
 
         if (LDG_UNLIKELY(h == 0x0))
         {
@@ -270,7 +320,9 @@ uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_
 {
     ldg_thread_pool_task_t task = { 0 };
 
-    if (LDG_UNLIKELY(!pool || pool->is_init != LDG_TRUTH_TRUE || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!pool || !func)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(pool->is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_NOT_INIT; }
 
     {
         uint8_t expected = LDG_TRUTH_FALSE;

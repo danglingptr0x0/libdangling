@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include <dangling/hw/sensor.h>
+#include <dangling/sys/lib.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/secure.h>
@@ -70,7 +71,7 @@ typedef struct hw_sensor_ctx
     uint8_t pudding[5];
 } LDG_ALIGNED hw_sensor_ctx_t;
 
-hw_sensor_ctx_t g_hw_sensor = LDG_STRUCT_ZERO_INIT;
+static hw_sensor_ctx_t g_hw_sensor = LDG_STRUCT_ZERO_INIT;
 
 static uint32_t hw_sensor_millikelvin_get(ULONG decikelvin, uint32_t *out)
 {
@@ -89,7 +90,7 @@ static uint32_t hw_sensor_millikelvin_get(ULONG decikelvin, uint32_t *out)
     return LDG_ERR_AOK;
 }
 
-static LDG_NOINLINE void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
 {
     GUID zone_class = LDG_HW_SENSOR_THERMAL_ZONE_GUID;
     SP_DEVICE_INTERFACE_DATA face = LDG_STRUCT_ZERO_INIT;
@@ -134,25 +135,26 @@ static LDG_NOINLINE void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
     if (!SetupDiDestroyDeviceInfoList(info_set)) { LDG_ERRLOG_WARN("hw: sensor thermal info set destroy failed"); }
 }
 
-static LDG_NOINLINE void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
 {
-    HMODULE powrprof = 0x0;
+    void *powrprof = 0x0;
+    ldg_sys_lib_func_t func = 0x0;
     hw_sensor_power_info_fn power_info = 0x0;
     SYSTEM_INFO info = LDG_STRUCT_ZERO_INIT;
     uint32_t core_cunt = 0;
     uint32_t idx = 0;
     uint8_t varied = LDG_TRUTH_FALSE;
 
-    powrprof = LoadLibraryA(LDG_HW_SENSOR_DLL_POWRPROF);
-    if (LDG_UNLIKELY(!powrprof)) { return; }
+    if (LDG_UNLIKELY(ldg_sys_lib_open(LDG_HW_SENSOR_DLL_POWRPROF, &powrprof) != LDG_ERR_AOK)) { return; }
 
-    power_info = (hw_sensor_power_info_fn)(void *)GetProcAddress(powrprof, LDG_HW_SENSOR_PROC_POWER_INFO);
-    if (LDG_UNLIKELY(!power_info))
+    if (LDG_UNLIKELY(ldg_sys_lib_sym_get(powrprof, LDG_HW_SENSOR_PROC_POWER_INFO, &func) != LDG_ERR_AOK))
     {
-        if (!FreeLibrary(powrprof)) { LDG_ERRLOG_WARN("hw: sensor powrprof release failed"); }
+        if (ldg_sys_lib_close(powrprof) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("hw: sensor powrprof release failed"); }
 
         return;
     }
+
+    power_info = (hw_sensor_power_info_fn)func;
 
     GetSystemInfo(&info);
 
@@ -177,10 +179,10 @@ static LDG_NOINLINE void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
         if (ldg_mut_unlock(&g_hw_sensor.lock) != LDG_ERR_AOK) { LDG_ERRLOG_ERR("hw: sensor freq unlock failed"); }
     }
 
-    if (!FreeLibrary(powrprof)) { LDG_ERRLOG_WARN("hw: sensor powrprof release failed"); }
+    if (ldg_sys_lib_close(powrprof) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("hw: sensor powrprof release failed"); }
 }
 
-static LDG_NOINLINE void hw_sensor_clock_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_clock_collect(ldg_hw_sensor_t *out)
 {
     LARGE_INTEGER perf_open = LDG_STRUCT_ZERO_INIT;
     LARGE_INTEGER perf_close = LDG_STRUCT_ZERO_INIT;

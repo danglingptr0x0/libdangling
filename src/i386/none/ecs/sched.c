@@ -4,6 +4,13 @@
 #include <dangling/core/err.h>
 #include <dangling/ecs/ecs.h>
 
+static uint32_t ecs_first_fault_keep(uint32_t kept, uint32_t code)
+{
+    if (kept != LDG_ERR_AOK) { return kept; }
+
+    return code;
+}
+
 uint32_t ldg_ecs_sched_init(ldg_ecs_ctx_t *ctx)
 {
     ctx->sched = 0x0;
@@ -34,12 +41,12 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_sys_sched_all_run(ldg_ecs_ctx_t *ctx)
     {
         if (ctx->sys[idx].func == 0x0) { continue; }
 
-        if (LDG_UNLIKELY(ctx->sys[idx].func(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_INVALID; }
+        ret = ecs_first_fault_keep(ret, ctx->sys[idx].func(ctx));
     }
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_worker_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_worker_cmd_flush(ctx));
 
-    if (LDG_UNLIKELY(ldg_ecs_ctx_cmd_flush(ctx) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_ECS_CMD_OVERFLOW; }
+    ret = ecs_first_fault_keep(ret, ldg_ecs_ctx_cmd_flush(ctx));
 
     return ret;
 }

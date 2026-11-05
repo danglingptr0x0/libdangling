@@ -43,9 +43,11 @@ typedef struct ldg_time_timer_wheel
     uint64_t current_tick;
     uint64_t current_time_ns;
     uint64_t tick_interval_ns;
+    uint64_t base_time_ns;
     uint32_t timer_cunt;
     uint8_t is_init;
-    uint8_t pudding[27];
+    uint8_t is_anchored;
+    uint8_t pudding[18];
 } LDG_ALIGNED ldg_time_timer_wheel_t;
 
 LDG_EXPORT uint32_t ldg_time_timer_wheel_init(ldg_time_timer_wheel_t *wheel, uint64_t tick_interval_ns);

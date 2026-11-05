@@ -19,7 +19,7 @@ typedef struct ldg_math_phys_compute_cpu_slot
     uint8_t armed;
     uint8_t pack_armed;
     uint8_t in_flight;
-    uint8_t pudding[6];
+    uint8_t pudding[9];
 } ldg_math_phys_compute_cpu_slot_t;
 
 typedef struct ldg_math_phys_compute_cpu

@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <wchar.h>
 #include <windows.h>
 
 #define LDG_IO_PTY_NO_FLAG 0
@@ -8,9 +10,13 @@
 #define LDG_IO_PTY_CMD_MAX 1024
 #define LDG_IO_PTY_PIPE_NO_SIZE 0
 #define LDG_IO_PTY_MB_NULL_TERM (-1)
-#define LDG_IO_PTY_SHELL_DEFAULT "cmd.exe"
+#define LDG_IO_PTY_SHELL_DEFAULT "powershell.exe"
+#define LDG_IO_PTY_SHELL_FALLBACK "cmd.exe"
+#define LDG_IO_PTY_SHELL_DEFAULT_SUB L"\\WindowsPowerShell\\v1.0\\powershell.exe"
+#define LDG_IO_PTY_SHELL_FALLBACK_SUB L"\\cmd.exe"
+#define LDG_IO_PTY_QUOTE_LEN 1
 #define LDG_IO_PTY_TERM_DEFAULT "xterm-256color"
-#define LDG_IO_PTY_KERNEL_MOD L"kernel32.dll"
+#define LDG_IO_PTY_KERNEL_MOD "kernel32.dll"
 #define LDG_IO_PTY_CREATE_SYM "CreatePseudoConsole"
 #define LDG_IO_PTY_RESIZE_SYM "ResizePseudoConsole"
 #define LDG_IO_PTY_CLOSE_SYM "ClosePseudoConsole"
@@ -24,6 +30,7 @@
 #endif
 
 #include <dangling/io/pty.h>
+#include <dangling/sys/lib.h>
 #include <dangling/mem/secure.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
@@ -33,11 +40,39 @@ typedef HRESULT (WINAPI *ldg_conpty_create_fn)(COORD, HANDLE, HANDLE, DWORD, ldg
 typedef HRESULT (WINAPI *ldg_conpty_resize_fn)(ldg_hpcon_t, COORD);
 typedef void (WINAPI *ldg_conpty_close_fn)(ldg_hpcon_t);
 
+static uint32_t pty_sys_shell_get(const WCHAR *sub, WCHAR *out, uint32_t cap)
+{
+    UINT dir_len = 0;
+    uint64_t sub_len = 0;
+    uint64_t end = 0;
+    DWORD attr = 0;
+
+    dir_len = GetSystemDirectoryW(out + LDG_IO_PTY_QUOTE_LEN, cap - LDG_IO_PTY_QUOTE_LEN);
+    if (LDG_UNLIKELY(dir_len == 0 || dir_len >= cap - LDG_IO_PTY_QUOTE_LEN)) { return LDG_ERR_NOT_FOUND; }
+
+    sub_len = (uint64_t)wcslen(sub);
+    end = LDG_IO_PTY_QUOTE_LEN + (uint64_t)dir_len + sub_len;
+    if (LDG_UNLIKELY(end + LDG_IO_PTY_QUOTE_LEN >= (uint64_t)cap)) { return LDG_ERR_STR_TRUNC; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(out + LDG_IO_PTY_QUOTE_LEN + dir_len, sub, (sub_len + LDG_STR_TERM_SIZE) * (uint64_t)sizeof(WCHAR)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    attr = GetFileAttributesW(out + LDG_IO_PTY_QUOTE_LEN);
+    if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) != 0) { return LDG_ERR_NOT_FOUND; }
+
+    out[0] = L'"';
+    out[end] = L'"';
+    out[end + LDG_IO_PTY_QUOTE_LEN] = LDG_STR_TERM;
+
+    return LDG_ERR_AOK;
+}
+
 uint32_t ldg_io_pty_conf_default_get(ldg_io_pty_conf_t *out)
 {
+    WCHAR probe[LDG_IO_PTY_CMD_MAX] = LDG_ARR_ZERO_INIT;
+
     if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    out->shell = LDG_IO_PTY_SHELL_DEFAULT;
+    out->shell = (pty_sys_shell_get(LDG_IO_PTY_SHELL_DEFAULT_SUB, probe, LDG_IO_PTY_CMD_MAX) == LDG_ERR_AOK) ? LDG_IO_PTY_SHELL_DEFAULT : LDG_IO_PTY_SHELL_FALLBACK;
     out->cwd = 0x0;
     out->term_name = LDG_IO_PTY_TERM_DEFAULT;
     out->col_cunt = LDG_IO_PTY_COL_DEFAULT;
@@ -53,41 +88,84 @@ static uint32_t pty_wide_convert(const char *src, WCHAR *out, int32_t cap)
     return LDG_ERR_AOK;
 }
 
-static uint32_t pty_create_fn_get(ldg_conpty_create_fn *out)
+static uint32_t pty_kernel_sym_get(const char *name, ldg_sys_lib_func_t *out)
 {
-    HMODULE mod = 0x0;
+    void *lib = 0x0;
+    uint32_t ret = 0;
 
-    mod = GetModuleHandleW(LDG_IO_PTY_KERNEL_MOD);
-    if (LDG_UNLIKELY(!mod)) { return LDG_ERR_UNSUPPORTED; }
+    *out = 0x0;
 
-    *out = (ldg_conpty_create_fn)(void *)GetProcAddress(mod, LDG_IO_PTY_CREATE_SYM);
-    if (LDG_UNLIKELY(!*out)) { return LDG_ERR_UNSUPPORTED; }
+    ret = ldg_sys_lib_open(LDG_IO_PTY_KERNEL_MOD, &lib);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_sys_lib_sym_get(lib, name, out);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        if (LDG_UNLIKELY(ldg_sys_lib_close(lib) != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("io: pty kernel lib close failed"); }
+
+        return ret;
+    }
+
+    ret = ldg_sys_lib_close(lib);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        *out = 0x0;
+        return ret;
+    }
 
     return LDG_ERR_AOK;
+}
+
+static uint32_t pty_create_fn_get(ldg_conpty_create_fn *out)
+{
+    ldg_sys_lib_func_t func = 0x0;
+    uint32_t ret = 0;
+
+    ret = pty_kernel_sym_get(LDG_IO_PTY_CREATE_SYM, &func);
+    *out = (ldg_conpty_create_fn)func;
+
+    return ret;
 }
 
 static uint32_t pty_resize_fn_get(ldg_conpty_resize_fn *out)
 {
-    HMODULE mod = 0x0;
+    ldg_sys_lib_func_t func = 0x0;
+    uint32_t ret = 0;
 
-    mod = GetModuleHandleW(LDG_IO_PTY_KERNEL_MOD);
-    if (LDG_UNLIKELY(!mod)) { return LDG_ERR_UNSUPPORTED; }
+    ret = pty_kernel_sym_get(LDG_IO_PTY_RESIZE_SYM, &func);
+    *out = (ldg_conpty_resize_fn)func;
 
-    *out = (ldg_conpty_resize_fn)(void *)GetProcAddress(mod, LDG_IO_PTY_RESIZE_SYM);
-    if (LDG_UNLIKELY(!*out)) { return LDG_ERR_UNSUPPORTED; }
-
-    return LDG_ERR_AOK;
+    return ret;
 }
 
 static uint32_t pty_close_fn_get(ldg_conpty_close_fn *out)
 {
-    HMODULE mod = 0x0;
+    ldg_sys_lib_func_t func = 0x0;
+    uint32_t ret = 0;
 
-    mod = GetModuleHandleW(LDG_IO_PTY_KERNEL_MOD);
-    if (LDG_UNLIKELY(!mod)) { return LDG_ERR_UNSUPPORTED; }
+    ret = pty_kernel_sym_get(LDG_IO_PTY_CLOSE_SYM, &func);
+    *out = (ldg_conpty_close_fn)func;
 
-    *out = (ldg_conpty_close_fn)(void *)GetProcAddress(mod, LDG_IO_PTY_CLOSE_SYM);
-    if (LDG_UNLIKELY(!*out)) { return LDG_ERR_UNSUPPORTED; }
+    return ret;
+}
+
+static uint32_t pty_shell_quote(const char *shell, WCHAR *out, uint32_t cap)
+{
+    uint64_t len = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(cap <= LDG_IO_PTY_QUOTE_LEN + LDG_IO_PTY_QUOTE_LEN)) { return LDG_ERR_STR_TRUNC; }
+
+    ret = pty_wide_convert(shell, out + LDG_IO_PTY_QUOTE_LEN, (int32_t)(cap - LDG_IO_PTY_QUOTE_LEN - LDG_IO_PTY_QUOTE_LEN));
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (LDG_UNLIKELY(wcschr(out + LDG_IO_PTY_QUOTE_LEN, L'"') != 0x0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    len = (uint64_t)wcslen(out + LDG_IO_PTY_QUOTE_LEN);
+
+    out[0] = L'"';
+    out[LDG_IO_PTY_QUOTE_LEN + len] = L'"';
+    out[LDG_IO_PTY_QUOTE_LEN + len + LDG_IO_PTY_QUOTE_LEN] = LDG_STR_TERM;
 
     return LDG_ERR_AOK;
 }
@@ -151,7 +229,10 @@ uint32_t ldg_io_pty_open(const ldg_io_pty_conf_t *conf, ldg_io_pty_t *out)
     ret = pty_close_fn_get(&destroy);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = pty_wide_convert(conf->shell, cmd, LDG_IO_PTY_CMD_MAX);
+    if (strcmp(conf->shell, LDG_IO_PTY_SHELL_DEFAULT) == 0) { ret = pty_sys_shell_get(LDG_IO_PTY_SHELL_DEFAULT_SUB, cmd, LDG_IO_PTY_CMD_MAX); }
+    else if (strcmp(conf->shell, LDG_IO_PTY_SHELL_FALLBACK) == 0) { ret = pty_sys_shell_get(LDG_IO_PTY_SHELL_FALLBACK_SUB, cmd, LDG_IO_PTY_CMD_MAX); }
+    else { ret = pty_shell_quote(conf->shell, cmd, LDG_IO_PTY_CMD_MAX); }
+
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (conf->cwd)

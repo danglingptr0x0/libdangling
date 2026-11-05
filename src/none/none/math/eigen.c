@@ -192,7 +192,7 @@ static void eigen_hermitian_fill(ldg_math_complex_t *work, uint64_t dim)
     }
 }
 
-LDG_NOINLINE static void eigen_tridiag_reduce(ldg_math_eigen_ctx_t *ctx)
+static void eigen_tridiag_reduce(ldg_math_eigen_ctx_t *ctx)
 {
     ldg_math_complex_t *work = ctx->work;
     ldg_math_complex_t *house_y = ctx->house;
@@ -275,7 +275,7 @@ LDG_NOINLINE static void eigen_tridiag_reduce(ldg_math_eigen_ctx_t *ctx)
     }
 }
 
-LDG_NOINLINE static void eigen_basis_form(ldg_math_eigen_ctx_t *ctx, ldg_math_complex_t *out_vec)
+static void eigen_basis_form(ldg_math_eigen_ctx_t *ctx, ldg_math_complex_t *out_vec)
 {
     ldg_math_complex_t *work = ctx->work;
     ldg_math_complex_t proj = LDG_STRUCT_ZERO_INIT;
@@ -347,10 +347,10 @@ LDG_NOINLINE static void eigen_basis_form(ldg_math_eigen_ctx_t *ctx, ldg_math_co
     }
 }
 
-LDG_NOINLINE static uint32_t eigen_hermitian_run(ldg_math_eigen_ctx_t *ctx, double *out_val, ldg_math_complex_t *out_vec)
+static uint32_t eigen_hermitian_run(ldg_math_eigen_ctx_t *ctx, double *out_val, ldg_math_complex_t *out_vec)
 {
     ldg_math_complex_t sub = LDG_STRUCT_ZERO_INIT;
-    ldg_math_complex_t d_cur = LDG_STRUCT_ZERO_INIT;
+    ldg_math_complex_t d_curr = LDG_STRUCT_ZERO_INIT;
     ldg_math_complex_t d_next = LDG_STRUCT_ZERO_INIT;
     double sub_abs = 0.0;
     uint64_t dim = ctx->dim;
@@ -364,22 +364,22 @@ LDG_NOINLINE static uint32_t eigen_hermitian_run(ldg_math_eigen_ctx_t *ctx, doub
     if (dim >= 2) { ctx->phase[dim - 2] = ctx->work[(dim - 1) * dim + (dim - 2)]; }
 
     for (step = 0; step < dim; step++) { ctx->diag[step] = ctx->work[step * dim + step].re; }
-    d_cur.re = 1.0;
-    d_cur.im = 0.0;
+    d_curr.re = 1.0;
+    d_curr.im = 0.0;
     for (step = 0; step + 1 < dim; step++)
     {
         sub = ctx->phase[step];
         sub_abs = ldg_math_sqrt_get(sub.re * sub.re + sub.im * sub.im);
         ctx->offdiag[step] = sub_abs;
-        ctx->phase[step] = d_cur;
+        ctx->phase[step] = d_curr;
         if (sub_abs > 0.0)
         {
-            d_next.re = (d_cur.re * sub.re - d_cur.im * sub.im) / sub_abs;
-            d_next.im = (d_cur.re * sub.im + d_cur.im * sub.re) / sub_abs;
-            d_cur = d_next;
+            d_next.re = (d_curr.re * sub.re - d_curr.im * sub.im) / sub_abs;
+            d_next.im = (d_curr.re * sub.im + d_curr.im * sub.re) / sub_abs;
+            d_curr = d_next;
         }
     }
-    ctx->phase[dim - 1] = d_cur;
+    ctx->phase[dim - 1] = d_curr;
     if (out_vec != 0x0) { for (row = 0; row < dim; row++) { for (col = 0; col < dim; col++) { ctx->rot[row * dim + col] = (row == col) ? 1.0 : 0.0; } } }
 
     err = eigen_tridiag_qr_run(ctx->diag, ctx->offdiag, dim, (out_vec != 0x0) ? ctx->rot : 0x0, dim);
@@ -735,9 +735,9 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_destroy(ldg_math_eigen_lanczos_ct
 
 LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t *ctx, const ldg_math_sparse_t *mat, double tol, double *out_val, double *out_vec, uint64_t *out_cunt)
 {
-    double *q_cur = 0x0;
+    double *q_curr = 0x0;
     double *q_next = 0x0;
-    double *om_cur = 0x0;
+    double *om_curr = 0x0;
     double *om_new = 0x0;
     double *om_swap = 0x0;
     double alpha = 0.0;
@@ -772,7 +772,7 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t 
     if (LDG_UNLIKELY(mat->rows != dim || mat->cols != dim)) { return LDG_ERR_MATH_DIM_MISMATCH; }
 
     cap = (ctx->step_cap < dim) ? ctx->step_cap : dim;
-    om_cur = ctx->omega;
+    om_curr = ctx->omega;
     om_new = ctx->omega_prev;
     accum = 0.0;
     for (row = 0; row < dim; row++)
@@ -782,21 +782,21 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t 
     }
     accum = ldg_math_sqrt_get(accum);
     for (row = 0; row < dim; row++) { ctx->basis[row] /= accum; }
-    om_cur[0] = 1.0;
+    om_curr[0] = 1.0;
     for (step = 0; step < cap; step++)
     {
-        q_cur = &ctx->basis[step * dim];
+        q_curr = &ctx->basis[step * dim];
         q_next = &ctx->basis[(step + 1) * dim];
-        err = ldg_math_sparse_mv(mat, q_cur, q_next);
+        err = ldg_math_sparse_mv(mat, q_curr, q_next);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
         alpha = 0.0;
-        for (row = 0; row < dim; row++) { alpha += q_cur[row] * q_next[row]; }
+        for (row = 0; row < dim; row++) { alpha += q_curr[row] * q_next[row]; }
         ctx->diag[step] = alpha;
         beta_prev = (step > 0) ? ctx->offdiag[step - 1] : 0.0;
         for (row = 0; row < dim; row++)
         {
-            q_next[row] -= alpha * q_cur[row];
+            q_next[row] -= alpha * q_curr[row];
             if (step > 0) { q_next[row] -= beta_prev * ctx->basis[(step - 1) * dim + row]; }
         }
         beta_raw = 0.0;
@@ -814,8 +814,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t 
 
         for (pos = 0; pos < step; pos++)
         {
-            accum = ctx->offdiag[pos] * om_cur[pos + 1] + (ctx->diag[pos] - alpha) * om_cur[pos];
-            if (pos > 0) { accum += ctx->offdiag[pos - 1] * om_cur[pos - 1]; }
+            accum = ctx->offdiag[pos] * om_curr[pos + 1] + (ctx->diag[pos] - alpha) * om_curr[pos];
+            if (pos > 0) { accum += ctx->offdiag[pos - 1] * om_curr[pos - 1]; }
 
             accum -= beta_prev * om_new[pos];
             om_new[pos] = (accum + DBL_EPSILON * anorm) / beta_raw;
@@ -879,8 +879,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t 
 
         ctx->offdiag[step] = beta_val;
         for (row = 0; row < dim; row++) { q_next[row] /= beta_val; }
-        om_swap = om_cur;
-        om_cur = om_new;
+        om_swap = om_curr;
+        om_curr = om_new;
         om_new = om_swap;
     }
     beta_last = ctx->offdiag[steps - 1];
@@ -911,7 +911,7 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_compute(ldg_math_eigen_lanczos_ctx_t 
     return LDG_ERR_AOK;
 }
 
-LDG_NOINLINE static void eigen_schur_balance_run(double *work, double *scale, uint64_t dim)
+static void eigen_schur_balance_run(double *work, double *scale, uint64_t dim)
 {
     double row_max = 0.0;
     double col_max = 0.0;
@@ -953,7 +953,7 @@ LDG_NOINLINE static void eigen_schur_balance_run(double *work, double *scale, ui
     }
 }
 
-LDG_NOINLINE static void eigen_schur_hessenberg_run(double *work, double *basis, double *house, uint64_t dim)
+static void eigen_schur_hessenberg_run(double *work, double *basis, double *house, uint64_t dim)
 {
     double norm_val = 0.0;
     double uu_val = 0.0;
@@ -1001,9 +1001,9 @@ LDG_NOINLINE static void eigen_schur_hessenberg_run(double *work, double *basis,
     }
 }
 
-LDG_NOINLINE static void eigen_schur_reflect_apply(double *work, double *basis, uint64_t dim, uint64_t lo, uint64_t hi, uint64_t at, double ref_a, double ref_b, double ref_c, uint8_t wide)
+static void eigen_schur_reflect_apply(double *work, double *basis, uint64_t dim, uint64_t lo, uint64_t hi, uint64_t at, double ref_a, double ref_b, double ref_c, uint8_t wide)
 {
-    double vec_u[3];
+    double vec_u[3] = LDG_ARR_ZERO_INIT;
     double norm_val = 0.0;
     double uu_val = 0.0;
     double proj = 0.0;
@@ -1049,7 +1049,7 @@ LDG_NOINLINE static void eigen_schur_reflect_apply(double *work, double *basis, 
     }
 }
 
-LDG_NOINLINE static uint32_t eigen_schur_francis_run(double *work, double *basis, ldg_math_complex_t *val, uint64_t dim)
+static uint32_t eigen_schur_francis_run(double *work, double *basis, ldg_math_complex_t *val, uint64_t dim)
 {
     double trace_val = 0.0;
     double det_val = 0.0;
@@ -1664,7 +1664,7 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_destroy(ldg_math_eigen_pencil_ctx_
 
 LDG_EXPORT uint32_t ldg_math_eigen_pencil_shift_invert_compute(ldg_math_eigen_pencil_ctx_t *ctx, ldg_math_lu_ctx_t *lu, const ldg_math_complex_t *mat_a, const ldg_math_complex_t *mat_b, double sigma, double tol, double *out_val, ldg_math_complex_t *out_vec, uint64_t *out_cunt)
 {
-    ldg_math_complex_t *q_cur = 0x0;
+    ldg_math_complex_t *q_curr = 0x0;
     ldg_math_complex_t *q_next = 0x0;
     ldg_math_complex_t *f_vec = 0x0;
     ldg_math_complex_t proj = LDG_STRUCT_ZERO_INIT;
@@ -1743,9 +1743,9 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_shift_invert_compute(ldg_math_eigen_pe
     }
     for (step = 0; step < cap; step++)
     {
-        q_cur = &ctx->basis[step * dim];
+        q_curr = &ctx->basis[step * dim];
         q_next = &ctx->basis[(step + 1) * dim];
-        eigen_pencil_bmul(mat_b, dim, q_cur, ctx->bprod);
+        eigen_pencil_bmul(mat_b, dim, q_curr, ctx->bprod);
         err = ldg_math_lu_solve_compute(lu, ctx->bprod, 1, ctx->apply);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
@@ -1758,8 +1758,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_shift_invert_compute(ldg_math_eigen_pe
         ctx->diag[step] = alpha;
         for (row = 0; row < dim; row++)
         {
-            q_next[row].re -= alpha * q_cur[row].re;
-            q_next[row].im -= alpha * q_cur[row].im;
+            q_next[row].re -= alpha * q_curr[row].re;
+            q_next[row].im -= alpha * q_curr[row].im;
             if (step > 0)
             {
                 q_next[row].re -= ctx->offdiag[step - 1] * ctx->basis[(step - 1) * dim + row].re;

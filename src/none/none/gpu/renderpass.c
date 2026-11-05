@@ -6,13 +6,13 @@
 
 LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass_desc_t *desc, uint32_t *id)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     VkAttachmentDescription attachments[2] = { { 0 } };
     VkAttachmentReference color_ref = { 0 };
     VkAttachmentReference depth_ref = { 0 };
     VkSubpassDescription subpass = { 0 };
     VkSubpassDependency dep = { 0 };
-    VkRenderPassCreateInfo rp_info = { 0 };
+    VkRenderPassCreateInfo rp_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
     VkRenderPass renderpass = VK_NULL_HANDLE;
     VkDevice dev = VK_NULL_HANDLE;
     VkFormat color_vk = VK_FORMAT_UNDEFINED;
@@ -34,7 +34,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
 
     if (LDG_UNLIKELY(ctx->has_gfx != LDG_TRUTH_TRUE)) { return LDG_ERR_GPU_QUEUE_NOT_FOUND; }
 
-    color_vk = (VkFormat)gpu_fmt_to_vk(desc->color_fmt);
+    color_vk = (VkFormat)ldg_gpu_fmt_to_vk(desc->color_fmt);
     if (LDG_UNLIKELY(color_vk == VK_FORMAT_UNDEFINED)) { return LDG_ERR_GPU_FMT_UNSUPPORTED; }
 
     dev = (VkDevice)ctx->dev;
@@ -73,7 +73,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
 
     if (desc->depth_fmt != LDG_GPU_FMT_UNDEFINED)
     {
-        depth_vk = (VkFormat)gpu_fmt_to_vk(desc->depth_fmt);
+        depth_vk = (VkFormat)ldg_gpu_fmt_to_vk(desc->depth_fmt);
         if (LDG_UNLIKELY(depth_vk == VK_FORMAT_UNDEFINED))
         {
             LDG_GPU_UNLOCK_OR_WARN(ctx);
@@ -101,8 +101,6 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
     dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dep.srcAccessMask = 0;
     dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    rp_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     rp_info.attachmentCount = attach_cunt;
     rp_info.pAttachments = attachments;
     rp_info.subpassCount = 1;
@@ -129,7 +127,7 @@ LDG_EXPORT uint32_t ldg_gpu_renderpass_create(void *vk, const ldg_gpu_renderpass
 
 LDG_EXPORT uint32_t ldg_gpu_renderpass_destroy(void *vk, uint32_t id)
 {
-    ldg_gpu_ctx_t *ctx = vk;
+    ldg_gpu_ctx_t *ctx = (ldg_gpu_ctx_t *)vk;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }

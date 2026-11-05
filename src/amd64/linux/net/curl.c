@@ -11,10 +11,19 @@
 #include <dangling/mem/alloc.h>
 #include <dangling/proto/emiemi.h>
 
-static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, void *user_data)
+static void ldg_net_curl_status_set(void *curl, ldg_net_curl_resp_t *resp)
+{
+    int64_t code = 0;
+
+    if (LDG_UNLIKELY(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code) != CURLE_OK)) { return; }
+
+    resp->status = (uint32_t)code;
+}
+
+static size_t ldg_net_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, void *user_data)
 {
     uint64_t size_real = 0;
-    ldg_curl_resp_t *resp = 0x0;
+    ldg_net_curl_resp_t *resp = 0x0;
     uint64_t new_len = 0;
     uint64_t new_cap = 0;
     void *new_data = 0x0;
@@ -24,15 +33,15 @@ static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, voi
     size_real = (uint64_t)size * (uint64_t)nmemb;
     if (LDG_UNLIKELY(nmemb != 0 && size_real / (uint64_t)nmemb != (uint64_t)size)) { return 0; }
 
-    resp = (ldg_curl_resp_t *)user_data;
+    resp = (ldg_net_curl_resp_t *)user_data;
 
     new_len = resp->size + size_real;
-    if (LDG_UNLIKELY(new_len < resp->size || new_len > LDG_CURL_RESP_MAX_CAP)) { return 0; }
+    if (LDG_UNLIKELY(new_len < resp->size || new_len > LDG_NET_CURL_RESP_MAX_CAP)) { return 0; }
 
     if (!resp->data || new_len + LDG_STR_TERM_SIZE > resp->cap)
     {
-        new_cap = resp->cap ? resp->cap * LDG_CURL_RESP_RESIZE_FACTOR : LDG_CURL_RESP_INITIAL_CAP;
-        while (new_cap < new_len + LDG_STR_TERM_SIZE) { new_cap *= LDG_CURL_RESP_RESIZE_FACTOR; }
+        new_cap = resp->cap ? resp->cap * LDG_NET_CURL_RESP_RESIZE_FACTOR : LDG_NET_CURL_RESP_INITIAL_CAP;
+        while (new_cap < new_len + LDG_STR_TERM_SIZE) { new_cap *= LDG_NET_CURL_RESP_RESIZE_FACTOR; }
 
         if (LDG_UNLIKELY(posix_memalign(&new_data, LDG_AMD64_CACHE_LINE_WIDTH, new_cap) != 0)) { return 0; }
 
@@ -45,7 +54,7 @@ static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, voi
             free(resp->data);
         }
 
-        resp->data = new_data;
+        resp->data = (char *)new_data;
         resp->cap = new_cap;
     }
 
@@ -57,14 +66,14 @@ static size_t ldg_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb, voi
     return (size_t)size_real;
 }
 
-void ldg_curl_resp_init(ldg_curl_resp_t *resp)
+void ldg_net_curl_resp_init(ldg_net_curl_resp_t *resp)
 {
     if (LDG_UNLIKELY(!resp)) { return; }
 
-    if (LDG_UNLIKELY(memset(resp, 0, sizeof(ldg_curl_resp_t)) != resp)) { return; }
+    if (LDG_UNLIKELY(memset(resp, 0, sizeof(ldg_net_curl_resp_t)) != resp)) { return; }
 }
 
-void ldg_curl_resp_free(ldg_curl_resp_t *resp)
+void ldg_net_curl_resp_free(ldg_net_curl_resp_t *resp)
 {
     if (LDG_UNLIKELY(!resp)) { return; }
 
@@ -78,20 +87,20 @@ void ldg_curl_resp_free(ldg_curl_resp_t *resp)
     resp->cap = 0;
 }
 
-typedef struct ldg_curl_stream_ctx
+typedef struct ldg_net_curl_stream_ctx
 {
-    ldg_curl_stream_cb_t cb;
+    ldg_net_curl_stream_cb_t cb;
     void *user_data;
-} ldg_curl_stream_ctx_t;
+} ldg_net_curl_stream_ctx_t;
 
-static size_t ldg_curl_stream_wr_cb(void *contents, size_t size, size_t nmemb, void *user_data)
+static size_t ldg_net_curl_stream_wr_cb(void *contents, size_t size, size_t nmemb, void *user_data)
 {
-    ldg_curl_stream_ctx_t *ctx = 0x0;
+    ldg_net_curl_stream_ctx_t *ctx = 0x0;
     uint64_t size_real = 0;
 
     if (LDG_UNLIKELY(!contents || !user_data)) { return 0; }
 
-    ctx = (ldg_curl_stream_ctx_t *)user_data;
+    ctx = (ldg_net_curl_stream_ctx_t *)user_data;
     size_real = (uint64_t)size * (uint64_t)nmemb;
 
     if (LDG_UNLIKELY(!ctx->cb)) { return 0; }
@@ -99,27 +108,27 @@ static size_t ldg_curl_stream_wr_cb(void *contents, size_t size, size_t nmemb, v
     return (size_t)ctx->cb(contents, size_real, ctx->user_data);
 }
 
-uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, uint64_t cap)
+uint32_t ldg_net_curl_multi_ctx_create(ldg_net_curl_multi_ctx_t *ctx, uint64_t cap)
 {
     void *reqs_tmp = 0x0;
 
     if (LDG_UNLIKELY(!ctx || cap == 0)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_curl_multi_ctx_t)) != ctx)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_net_curl_multi_ctx_t)) != ctx)) { return LDG_ERR_MEM_BAD; }
 
     ctx->multi = curl_multi_init();
     if (LDG_UNLIKELY(!ctx->multi)) { return LDG_ERR_NET_INIT; }
 
-    if (LDG_UNLIKELY(posix_memalign(&reqs_tmp, LDG_AMD64_CACHE_LINE_WIDTH, cap * sizeof(ldg_curl_multi_req_t)) != 0))
+    if (LDG_UNLIKELY(posix_memalign(&reqs_tmp, LDG_AMD64_CACHE_LINE_WIDTH, cap * sizeof(ldg_net_curl_multi_req_t)) != 0))
     {
         curl_multi_cleanup(ctx->multi);
         ctx->multi = 0x0;
         return LDG_ERR_ALLOC_NULL;
     }
 
-    ctx->reqs = (ldg_curl_multi_req_t *)reqs_tmp;
+    ctx->reqs = (ldg_net_curl_multi_req_t *)reqs_tmp;
 
-    if (LDG_UNLIKELY(memset(ctx->reqs, 0, cap * sizeof(ldg_curl_multi_req_t)) != ctx->reqs)) { curl_multi_cleanup(ctx->multi); free(ctx->reqs); return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(memset(ctx->reqs, 0, cap * sizeof(ldg_net_curl_multi_req_t)) != ctx->reqs)) { curl_multi_cleanup(ctx->multi); free(ctx->reqs); return LDG_ERR_MEM_BAD; }
 
     ctx->req_cap = cap;
     ctx->req_cunt = 0;
@@ -127,7 +136,7 @@ uint32_t ldg_curl_multi_ctx_create(ldg_curl_multi_ctx_t *ctx, uint64_t cap)
     return LDG_ERR_AOK;
 }
 
-void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
+void ldg_net_curl_multi_ctx_destroy(ldg_net_curl_multi_ctx_t *ctx)
 {
     uint64_t idx = 0;
 
@@ -145,19 +154,19 @@ void ldg_curl_multi_ctx_destroy(ldg_curl_multi_ctx_t *ctx)
 
         if (ctx->reqs[idx].post_data) { free(ctx->reqs[idx].post_data); }
 
-        ldg_curl_resp_free(&ctx->reqs[idx].resp);
+        ldg_net_curl_resp_free(&ctx->reqs[idx].resp);
     }
 
     if (ctx->reqs) { free(ctx->reqs); }
 
     if (ctx->multi) { curl_multi_cleanup(ctx->multi); }
 
-    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_curl_multi_ctx_t)) != ctx)) { return; }
+    if (LDG_UNLIKELY(memset(ctx, 0, sizeof(ldg_net_curl_multi_ctx_t)) != ctx)) { return; }
 }
 
-uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, const char *post_data, void *hdrs)
+uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *url, const char *post_data, void *hdrs)
 {
-    ldg_curl_multi_req_t *req = 0x0;
+    ldg_net_curl_multi_req_t *req = 0x0;
     uint64_t url_len = 0;
     uint64_t data_len = 0;
     uint32_t ret = LDG_ERR_AOK;
@@ -169,7 +178,7 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
     if (LDG_UNLIKELY(ctx->req_cunt >= ctx->req_cap)) { return LDG_ERR_FULL; }
 
     req = &ctx->reqs[ctx->req_cunt];
-    if (LDG_UNLIKELY(memset(req, 0, sizeof(ldg_curl_multi_req_t)) != req)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(memset(req, 0, sizeof(ldg_net_curl_multi_req_t)) != req)) { return LDG_ERR_MEM_BAD; }
 
     url_len = (uint64_t)strlen(url) + LDG_STR_TERM_SIZE;
     if (LDG_UNLIKELY(posix_memalign(&url_tmp, LDG_AMD64_CACHE_LINE_WIDTH, url_len) != 0)) { return LDG_ERR_ALLOC_NULL; }
@@ -210,7 +219,7 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
     req->hdrs = hdrs;
     req->idx = (uint32_t)ctx->req_cunt;
 
-    ldg_curl_resp_init(&req->resp);
+    ldg_net_curl_resp_init(&req->resp);
 
     req->curl = curl_easy_init();
     if (LDG_UNLIKELY(!req->curl))
@@ -222,7 +231,7 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
         return LDG_ERR_NET_INIT;
     }
 
-    if (LDG_UNLIKELY(curl_easy_setopt(req->curl, CURLOPT_URL, req->url) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEDATA, &req->resp) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSL_VERIFYPEER, 1L) != CURLE_OK || (req->hdrs && curl_easy_setopt(req->curl, CURLOPT_HTTPHEADER, req->hdrs) != CURLE_OK) || (req->post_data && curl_easy_setopt(req->curl, CURLOPT_POSTFIELDS, req->post_data) != CURLE_OK)))
+    if (LDG_UNLIKELY(curl_easy_setopt(req->curl, CURLOPT_URL, req->url) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEDATA, &req->resp) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSL_VERIFYPEER, 1L) != CURLE_OK || (req->hdrs && curl_easy_setopt(req->curl, CURLOPT_HTTPHEADER, req->hdrs) != CURLE_OK) || (req->post_data && curl_easy_setopt(req->curl, CURLOPT_POSTFIELDS, req->post_data) != CURLE_OK)))
     {
         curl_easy_cleanup(req->curl);
         req->curl = 0x0;
@@ -239,12 +248,12 @@ uint32_t ldg_curl_multi_req_add(ldg_curl_multi_ctx_t *ctx, const char *url, cons
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, void *hdrs)
+uint32_t ldg_net_curl_multi_get(ldg_net_curl_multi_ctx_t *ctx, const char *url, void *hdrs)
 {
     uint32_t ret = 0;
-    ldg_curl_multi_req_t *req = 0x0;
+    ldg_net_curl_multi_req_t *req = 0x0;
 
-    ret = ldg_curl_multi_req_add(ctx, url, 0x0, hdrs);
+    ret = ldg_net_curl_multi_req_add(ctx, url, 0x0, hdrs);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     req = &ctx->reqs[ctx->req_cunt - 1];
@@ -253,12 +262,12 @@ uint32_t ldg_curl_multi_get(ldg_curl_multi_ctx_t *ctx, const char *url, void *hd
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const char *data, void *hdrs)
+uint32_t ldg_net_curl_multi_post(ldg_net_curl_multi_ctx_t *ctx, const char *url, const char *data, void *hdrs)
 {
     uint32_t ret = 0;
-    ldg_curl_multi_req_t *req = 0x0;
+    ldg_net_curl_multi_req_t *req = 0x0;
 
-    ret = ldg_curl_multi_req_add(ctx, url, data, hdrs);
+    ret = ldg_net_curl_multi_req_add(ctx, url, data, hdrs);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     req = &ctx->reqs[ctx->req_cunt - 1];
@@ -267,7 +276,7 @@ uint32_t ldg_curl_multi_post(ldg_curl_multi_ctx_t *ctx, const char *url, const c
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
+uint32_t ldg_net_curl_multi_perform(ldg_net_curl_multi_ctx_t *ctx)
 {
     int32_t still_running = 0;
     int32_t numfds = 0;
@@ -284,7 +293,7 @@ uint32_t ldg_curl_multi_perform(ldg_curl_multi_ctx_t *ctx)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
+uint32_t ldg_net_curl_multi_progress_get(ldg_net_curl_multi_ctx_t *ctx, double *out)
 {
     uint64_t idx = 0;
     int64_t total_dl = 0;
@@ -318,7 +327,7 @@ uint32_t ldg_curl_multi_progress_get(ldg_curl_multi_ctx_t *ctx, double *out)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_hdr_append(void **list, const char *hdr)
+uint32_t ldg_net_curl_hdr_append(void **list, const char *hdr)
 {
     struct curl_slist *tmp = 0x0;
 
@@ -332,7 +341,7 @@ uint32_t ldg_curl_hdr_append(void **list, const char *hdr)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_hdr_cpy(void *src, void **dst)
+uint32_t ldg_net_curl_hdr_cpy(void *src, void **dst)
 {
     struct curl_slist *node = 0x0;
     struct curl_slist *tmp = 0x0;
@@ -354,7 +363,7 @@ uint32_t ldg_curl_hdr_cpy(void *src, void **dst)
     return LDG_ERR_AOK;
 }
 
-void ldg_curl_hdr_destroy(void **list)
+void ldg_net_curl_hdr_destroy(void **list)
 {
     if (LDG_UNLIKELY(!list || !*list)) { return; }
 
@@ -362,7 +371,7 @@ void ldg_curl_hdr_destroy(void **list)
     *list = 0x0;
 }
 
-uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
+uint32_t ldg_net_curl_easy_ctx_create(ldg_net_curl_easy_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -374,7 +383,7 @@ uint32_t ldg_curl_easy_ctx_create(ldg_curl_easy_ctx_t *ctx)
     return LDG_ERR_AOK;
 }
 
-void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
+void ldg_net_curl_easy_ctx_destroy(ldg_net_curl_easy_ctx_t *ctx)
 {
     if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE)) { return; }
 
@@ -387,18 +396,18 @@ void ldg_curl_easy_ctx_destroy(ldg_curl_easy_ctx_t *ctx)
     ctx->is_init = LDG_TRUTH_FALSE;
 }
 
-uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_resp_t *resp)
+uint32_t ldg_net_curl_easy_get(ldg_net_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_net_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
     if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ldg_curl_resp_init(resp);
+    ldg_net_curl_resp_init(resp);
 
     curl_easy_reset(ctx->curl);
     curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
     curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, 1L);
-    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb);
     curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
 
     if (hdrs) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs); }
@@ -406,25 +415,27 @@ uint32_t ldg_curl_easy_get(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs
     res = curl_easy_perform(ctx->curl);
     if (LDG_UNLIKELY(res != CURLE_OK))
     {
-        ldg_curl_resp_free(resp);
+        ldg_net_curl_resp_free(resp);
         return LDG_ERR_NET_PERFORM;
     }
+
+    ldg_net_curl_status_set(ctx->curl, resp);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_curl_resp_t *resp)
+uint32_t ldg_net_curl_easy_post(ldg_net_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_net_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
     if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !resp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ldg_curl_resp_init(resp);
+    ldg_net_curl_resp_init(resp);
 
     curl_easy_reset(ctx->curl);
     curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
     curl_easy_setopt(ctx->curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb);
     curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
 
     if (data) { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data); }
@@ -435,14 +446,16 @@ uint32_t ldg_curl_easy_post(ldg_curl_easy_ctx_t *ctx, const char *url, const cha
     res = curl_easy_perform(ctx->curl);
     if (LDG_UNLIKELY(res != CURLE_OK))
     {
-        ldg_curl_resp_free(resp);
+        ldg_net_curl_resp_free(resp);
         return LDG_ERR_NET_PERFORM;
     }
+
+    ldg_net_curl_status_set(ctx->curl, resp);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_easy_raw_post(ldg_curl_easy_ctx_t *ctx, const char *url, const void *data, uint64_t len, void *hdrs, ldg_curl_resp_t *resp)
+uint32_t ldg_net_curl_easy_raw_post(ldg_net_curl_easy_ctx_t *ctx, const char *url, const void *data, uint64_t len, void *hdrs, ldg_net_curl_resp_t *resp)
 {
     CURLcode res = CURLE_OK;
 
@@ -450,13 +463,13 @@ uint32_t ldg_curl_easy_raw_post(ldg_curl_easy_ctx_t *ctx, const char *url, const
 
     if (LDG_UNLIKELY(!data && len)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    ldg_curl_resp_init(resp);
+    ldg_net_curl_resp_init(resp);
 
     curl_easy_reset(ctx->curl);
     curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
     curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
     curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data ? (const char *)data : "");
-    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_resp_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb);
     curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp);
 
     if (hdrs) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs); }
@@ -464,14 +477,16 @@ uint32_t ldg_curl_easy_raw_post(ldg_curl_easy_ctx_t *ctx, const char *url, const
     res = curl_easy_perform(ctx->curl);
     if (LDG_UNLIKELY(res != CURLE_OK))
     {
-        ldg_curl_resp_free(resp);
+        ldg_net_curl_resp_free(resp);
         return LDG_ERR_NET_PERFORM;
     }
+
+    ldg_net_curl_status_set(ctx->curl, resp);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_emiemi_post(ldg_curl_easy_ctx_t *ctx, const char *url, const uint8_t *payload, uint32_t payload_len, void *hdrs, ldg_curl_resp_t *resp, ldg_curl_emiemi_res_t *out)
+uint32_t ldg_net_curl_emiemi_post(ldg_net_curl_easy_ctx_t *ctx, const char *url, const uint8_t *payload, uint32_t payload_len, void *hdrs, ldg_net_curl_resp_t *resp, ldg_net_curl_emiemi_res_t *out)
 {
     uint8_t *frame = 0x0;
     uint32_t frame_len = 0;
@@ -502,7 +517,7 @@ uint32_t ldg_curl_emiemi_post(ldg_curl_easy_ctx_t *ctx, const char *url, const u
         return err;
     }
 
-    post_err = ldg_curl_easy_raw_post(ctx, url, frame, frame_len, hdrs, resp);
+    post_err = ldg_net_curl_easy_raw_post(ctx, url, frame, frame_len, hdrs, resp);
     ldg_mem_dealloc(frame);
     frame = 0x0;
     if (LDG_UNLIKELY(post_err != LDG_ERR_AOK)) { return post_err; }
@@ -515,10 +530,10 @@ uint32_t ldg_curl_emiemi_post(ldg_curl_easy_ctx_t *ctx, const char *url, const u
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_curl_stream_cb_t cb, void *user_data)
+uint32_t ldg_net_curl_easy_get_stream(ldg_net_curl_easy_ctx_t *ctx, const char *url, void *hdrs, ldg_net_curl_stream_cb_t cb, void *user_data)
 {
     CURLcode res = CURLE_OK;
-    ldg_curl_stream_ctx_t stream_ctx = { 0 };
+    ldg_net_curl_stream_ctx_t stream_ctx = { 0 };
 
     if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -528,7 +543,7 @@ uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, voi
     curl_easy_reset(ctx->curl);
     curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
     curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, 1L);
-    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_stream_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_stream_wr_cb);
     curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx);
 
     if (hdrs) { curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs); }
@@ -539,10 +554,10 @@ uint32_t ldg_curl_easy_get_stream(ldg_curl_easy_ctx_t *ctx, const char *url, voi
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_curl_stream_cb_t cb, void *user_data)
+uint32_t ldg_net_curl_easy_post_stream(ldg_net_curl_easy_ctx_t *ctx, const char *url, const char *data, void *hdrs, ldg_net_curl_stream_cb_t cb, void *user_data)
 {
     CURLcode res = CURLE_OK;
-    ldg_curl_stream_ctx_t stream_ctx = { 0 };
+    ldg_net_curl_stream_ctx_t stream_ctx = { 0 };
 
     if (LDG_UNLIKELY(!ctx || ctx->is_init != LDG_TRUTH_TRUE || !url || !cb)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -552,7 +567,7 @@ uint32_t ldg_curl_easy_post_stream(ldg_curl_easy_ctx_t *ctx, const char *url, co
     curl_easy_reset(ctx->curl);
     curl_easy_setopt(ctx->curl, CURLOPT_URL, url);
     curl_easy_setopt(ctx->curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_curl_stream_wr_cb);
+    curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_stream_wr_cb);
     curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx);
 
     if (data) { curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data); }

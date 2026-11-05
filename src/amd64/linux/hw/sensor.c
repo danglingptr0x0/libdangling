@@ -43,10 +43,8 @@
 #define LDG_HW_SENSOR_JITTER_SAMPLE_MAX 32
 #define LDG_HW_SENSOR_JITTER_SPAN_NS 20000
 #define LDG_HW_SENSOR_PPB_SCALE 1000000000.0
-#define LDG_HW_SENSOR_PPM_SCALE 1000000.0
 #define LDG_HW_SENSOR_TIMEX_FREQ_SHIFT 65536.0
 #define LDG_HW_SENSOR_MIN_KELVIN_MILLIDEG (-273150)
-#define LDG_HW_SENSOR_JOIN_RETRY_MS 5
 
 #define LDG_HW_SENSOR_PATH_HWMON "/sys/class/hwmon"
 #define LDG_HW_SENSOR_PATH_THERMAL "/sys/class/thermal"
@@ -59,7 +57,6 @@
 #define LDG_HW_SENSOR_FMT_VOLTAGE "%s/hwmon%u/in%u_input"
 #define LDG_HW_SENSOR_FMT_VOLTAGE_LABEL "%s/hwmon%u/in%u_label"
 #define LDG_HW_SENSOR_FMT_CURRENT "%s/hwmon%u/curr%u_input"
-#define LDG_HW_SENSOR_FMT_CURRENT_LABEL "%s/hwmon%u/curr%u_label"
 #define LDG_HW_SENSOR_FMT_POWER "%s/hwmon%u/power%u_input"
 #define LDG_HW_SENSOR_FMT_FAN "%s/hwmon%u/fan%u_input"
 #define LDG_HW_SENSOR_FMT_PWM "%s/hwmon%u/pwm%u"
@@ -78,8 +75,6 @@
 #define LDG_HW_SENSOR_NEEDLE_DIMM "dimm"
 #define LDG_HW_SENSOR_NEEDLE_DRAM "dram"
 #define LDG_HW_SENSOR_NEEDLE_VDDQ "vddq"
-#define LDG_HW_SENSOR_NEEDLE_SYSTIN "systin"
-#define LDG_HW_SENSOR_NEEDLE_AMBIENT "ambient"
 #define LDG_HW_SENSOR_NEEDLE_CORETEMP "coretemp"
 #define LDG_HW_SENSOR_NEEDLE_K10TEMP "k10temp"
 #define LDG_HW_SENSOR_NEEDLE_ZENPOWER "zenpower"
@@ -110,10 +105,10 @@ typedef struct hw_sensor_ctx
     volatile uint8_t running;
     uint8_t is_init;
     uint8_t has_latest;
-    uint8_t pudding[5];
+    uint8_t pudding[45];
 } LDG_ALIGNED hw_sensor_ctx_t;
 
-hw_sensor_ctx_t g_hw_sensor = LDG_STRUCT_ZERO_INIT;
+static hw_sensor_ctx_t g_hw_sensor = LDG_STRUCT_ZERO_INIT;
 
 static char hw_sensor_lower_get(char raw)
 {
@@ -317,7 +312,7 @@ static void hw_sensor_voltage_place(ldg_hw_sensor_t *out, hw_sensor_chip_t chip,
     if (out->board_voltage == LDG_HW_SENSOR_ABSENT) { out->board_voltage = millivolt; }
 }
 
-static LDG_NOINLINE void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
+static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
 {
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char chip_name[LDG_HW_SENSOR_CHIP_CAP] = LDG_ARR_ZERO_INIT;
@@ -379,7 +374,7 @@ static LDG_NOINLINE void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t 
     }
 }
 
-static LDG_NOINLINE void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
 {
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char kind[LDG_HW_SENSOR_LABEL_CAP] = LDG_ARR_ZERO_INIT;
@@ -404,7 +399,7 @@ static LDG_NOINLINE void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
     }
 }
 
-static LDG_NOINLINE void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
 {
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     int64_t raw = 0;
@@ -423,7 +418,7 @@ static LDG_NOINLINE void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
     }
 }
 
-static LDG_NOINLINE void hw_sensor_rapl_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_rapl_collect(ldg_hw_sensor_t *out)
 {
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char name[LDG_HW_SENSOR_LABEL_CAP] = LDG_ARR_ZERO_INIT;
@@ -445,7 +440,7 @@ static LDG_NOINLINE void hw_sensor_rapl_collect(ldg_hw_sensor_t *out)
     }
 }
 
-static LDG_NOINLINE void hw_sensor_clock_collect(ldg_hw_sensor_t *out)
+static void hw_sensor_clock_collect(ldg_hw_sensor_t *out)
 {
     struct timex trim = LDG_STRUCT_ZERO_INIT;
     struct timespec spec = LDG_STRUCT_ZERO_INIT;
@@ -633,7 +628,7 @@ static void* hw_sensor_sampler_enter(void *arg)
 
         period = LDG_RD_ONCE(g_hw_sensor.period);
 
-        nap_nsec = (int64_t)(period % LDG_MS_PER_SEC) * LDG_NS_PER_MS;
+        nap_nsec = (int64_t)((period % LDG_MS_PER_SEC) * LDG_NS_PER_MS);
 
         nap.tv_sec = (time_t)(period / LDG_MS_PER_SEC);
         nap.tv_nsec = nap_nsec;

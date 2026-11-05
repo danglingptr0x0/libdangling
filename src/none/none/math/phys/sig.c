@@ -245,7 +245,7 @@ uint32_t ldg_math_phys_sig_sample_get(ldg_math_phys_sig_t *sig, uint64_t tick, d
     double tone_ramp_tick = 0.0;
     double bit_pos = 0.0;
     double bit_frac = 0.0;
-    double cur_val = 0.0;
+    double curr_val = 0.0;
     double prev_val = 0.0;
     double blend = 0.0;
     double tail_time = 0.0;
@@ -310,18 +310,18 @@ uint32_t ldg_math_phys_sig_sample_get(ldg_math_phys_sig_t *sig, uint64_t tick, d
         bit_idx = (uint64_t)bit_pos;
         bit_frac = bit_pos - (double)bit_idx;
         ldg_math_phys_sig_prbs_advance(sig, bit_idx);
-        cur_val = 2.0 * (double)sig->prbs_bit_val - 1.0;
+        curr_val = 2.0 * (double)sig->prbs_bit_val - 1.0;
         prev_val = 2.0 * (double)sig->prbs_prev_bit_val - 1.0;
-        if (bit_idx == 0) { prev_val = cur_val; }
+        if (bit_idx == 0) { prev_val = curr_val; }
 
         if (sig->edge_fraction > 0.0 && bit_frac < sig->edge_fraction)
         {
             blend = 0.5 * (1.0 - ldg_math_cos_get(LDG_MATH_PI * bit_frac / sig->edge_fraction));
-            *out = sig->amplitude * (prev_val + (cur_val - prev_val) * blend);
+            *out = sig->amplitude * (prev_val + (curr_val - prev_val) * blend);
             return LDG_ERR_AOK;
         }
 
-        *out = sig->amplitude * cur_val;
+        *out = sig->amplitude * curr_val;
         return LDG_ERR_AOK;
     }
 

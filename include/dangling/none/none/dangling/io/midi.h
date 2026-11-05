@@ -64,7 +64,7 @@ typedef struct ldg_io_midi_in
     uint32_t pending_cunt;
     uint8_t pending[LDG_IO_MIDI_DATA_CUNT_MAX];
     uint8_t open;
-    uint8_t pudding[5];
+    uint8_t pudding[21];
 } LDG_ALIGNED ldg_io_midi_in_t;
 
 typedef struct ldg_io_midi_out
