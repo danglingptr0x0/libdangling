@@ -2005,4 +2005,44 @@ DANGLING_6.0 {
 
         /* term/vt */
         ldg_term_vt_cell_px_set;
+
+        /* mem/exec */
+        ldg_mem_exec_map;
+        ldg_mem_exec_prot_set;
+        ldg_mem_exec_unmap;
+
+        /* sys/guard */
+        ldg_sys_guard_init;
+        ldg_sys_guard_shutdown;
+        ldg_sys_guard_range_add;
+        ldg_sys_guard_range_drop;
+        ldg_sys_guard_fault_get;
+
+        /* io/ipc */
+        ldg_io_ipc_listen;
+        ldg_io_ipc_accept;
+        ldg_io_ipc_connect;
+        ldg_io_ipc_peek;
+        ldg_io_ipc_rd;
+        ldg_io_ipc_wr;
+        ldg_io_ipc_close;
+
+        /* sys/scan */
+        ldg_sys_scan_ctx_create;
+        ldg_sys_scan_ctx_destroy;
+        ldg_sys_scan_clean_is;
+
+        /* sys/proc */
+        ldg_sys_proc_path_find;
+
+        /* sys/info */
+        ldg_sys_env_set;
+
+        /* io/console */
+        ldg_io_console_raw_set;
+        ldg_io_console_key_rd;
+
+        /* net/diag */
+        ldg_net_diag_ping;
+        ldg_net_diag_dns_list;
 } DANGLING_5.0;

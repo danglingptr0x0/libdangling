@@ -1859,11 +1859,13 @@ static double* ldg_math_phys_field_buff_get(const ldg_math_phys_region_t *region
     return (double *)(void *)(base + sizeof(ldg_math_phys_field_hdr_t)) + buff_idx * hdr->cell_cunt;
 }
 
+#define LDG_MATH_PHYS_FIELD_TIME_LVL_CUNT 3
+
 static double* ldg_math_phys_field_snapshot_get(const ldg_math_phys_region_t *region_ptr, uint32_t frame_idx)
 {
     uint8_t *base = (uint8_t *)region_ptr->field;
     ldg_math_phys_field_hdr_t *hdr = (ldg_math_phys_field_hdr_t *)region_ptr->field;
-    return (double *)(base + sizeof(ldg_math_phys_field_hdr_t)) + (3 + (uint64_t)frame_idx) * hdr->cell_cunt;
+    return (double *)(void *)(base + sizeof(ldg_math_phys_field_hdr_t)) + (LDG_MATH_PHYS_FIELD_TIME_LVL_CUNT + (uint64_t)frame_idx) * hdr->cell_cunt;
 }
 
 #define LDG_MATH_PHYS_PASS_ACOUSTIC_VELOCITY 0
@@ -2253,11 +2255,13 @@ static uint16_t* ldg_math_phys_em_mtl_get(const ldg_math_phys_region_t *region_p
     return (uint16_t *)(ldg_math_phys_em_drive_get(region_ptr) + 3 * hdr->cell_cunt);
 }
 
+#define LDG_MATH_PHYS_EM_SNAPSHOT_COMP_CUNT 6
+
 static double* ldg_math_phys_em_snapshot_get(const ldg_math_phys_region_t *region_ptr, uint64_t slot)
 {
     ldg_math_phys_em_hdr_t *hdr = ldg_math_phys_em_hdr_get(region_ptr);
     uint64_t mtl_bytes = LDG_ALIGNED_UP(hdr->cell_cunt * sizeof(uint16_t));
-    return (double *)((uint8_t *)ldg_math_phys_em_mtl_get(region_ptr) + mtl_bytes) + slot * 6 * hdr->cell_cunt;
+    return (double *)(void *)((uint8_t *)ldg_math_phys_em_mtl_get(region_ptr) + mtl_bytes) + slot * LDG_MATH_PHYS_EM_SNAPSHOT_COMP_CUNT * hdr->cell_cunt;
 }
 
 static double* ldg_math_phys_em_stretch_get(const ldg_math_phys_region_t *region_ptr)
@@ -2541,16 +2545,19 @@ static uint32_t ldg_math_phys_em_size_get(uint64_t cell_cunt, uint64_t axis_sum,
     return LDG_ERR_AOK;
 }
 
+#define LDG_MATH_PHYS_EM_PORT_PATTERN_COMP_CUNT 4
+#define LDG_MATH_PHYS_EM_PORT_TAP_RING_CUNT 2
+
 static double* ldg_math_phys_em_port_pattern_get(const ldg_math_phys_region_t *region_ptr, uint64_t port, uint64_t mode, uint64_t comp)
 {
     ldg_math_phys_em_hdr_t *hdr = ldg_math_phys_em_hdr_get(region_ptr);
-    return (double *)((uint8_t *)region_ptr->field + hdr->port_pattern_offset) + ((port * LDG_MATH_PHYS_EM_PORT_MODE_CAP + mode) * 4 + comp) * hdr->face_max;
+    return (double *)(void *)((uint8_t *)region_ptr->field + hdr->port_pattern_offset) + ((port * LDG_MATH_PHYS_EM_PORT_MODE_CAP + mode) * LDG_MATH_PHYS_EM_PORT_PATTERN_COMP_CUNT + comp) * hdr->face_max;
 }
 
 static double* ldg_math_phys_em_port_tap_ring_get(const ldg_math_phys_region_t *region_ptr, uint64_t port, uint64_t mode, uint64_t which)
 {
     ldg_math_phys_em_hdr_t *hdr = ldg_math_phys_em_hdr_get(region_ptr);
-    return (double *)((uint8_t *)region_ptr->field + hdr->port_tap_offset) + ((port * LDG_MATH_PHYS_EM_PORT_MODE_CAP + mode) * 2 + which) * hdr->port_tap_depth;
+    return (double *)(void *)((uint8_t *)region_ptr->field + hdr->port_tap_offset) + ((port * LDG_MATH_PHYS_EM_PORT_MODE_CAP + mode) * LDG_MATH_PHYS_EM_PORT_TAP_RING_CUNT + which) * hdr->port_tap_depth;
 }
 
 static uint16_t* ldg_math_phys_em_conductor_get(const ldg_math_phys_region_t *region_ptr)
@@ -2680,6 +2687,8 @@ static void ldg_math_phys_buff_zero(double *buff, uint64_t cunt)
     for (idx = 0; idx < cunt; idx++) { buff[idx] = 0.0; }
 }
 
+#define LDG_MATH_PHYS_SLAB_CALLER_WORKER 0
+
 static uint32_t ldg_math_phys_slab_run(uint32_t worker_id, void *arg)
 {
     ldg_math_phys_slab_job_t *job = (ldg_math_phys_slab_job_t *)arg;
@@ -2715,7 +2724,7 @@ static uint32_t ldg_math_phys_pass_dispatch(const ldg_math_phys_ctx_t *ctx, ldg_
 
     if (job_cunt < 2)
     {
-        err = ldg_math_phys_slab_run(0, &job[0]);
+        err = ldg_math_phys_slab_run(LDG_MATH_PHYS_SLAB_CALLER_WORKER, &job[0]);
         return err;
     }
 
@@ -2735,9 +2744,9 @@ static uint32_t ldg_math_phys_pass_dispatch(const ldg_math_phys_ctx_t *ctx, ldg_
     for (idx = 1; idx < job_cunt; idx++)
     {
         err = ldg_thread_pool_submit(pool, ldg_math_phys_slab_run, &job[idx]);
-        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { err = ldg_math_phys_slab_run(0, &job[idx]); }
+        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { job[idx].ret = ldg_math_phys_slab_run(LDG_MATH_PHYS_SLAB_CALLER_WORKER, &job[idx]); }
     }
-    err = ldg_math_phys_slab_run(0, &job[0]);
+    job[0].ret = ldg_math_phys_slab_run(LDG_MATH_PHYS_SLAB_CALLER_WORKER, &job[0]);
     while (LDG_LD_ACQUIRE(done_cuntr) < job_cunt) { LDG_PAUSE; }
     for (idx = 0; idx < job_cunt; idx++) { if (LDG_UNLIKELY(job[idx].ret != LDG_ERR_AOK)) { return job[idx].ret; } }
     return LDG_ERR_AOK;
@@ -11134,15 +11143,17 @@ LDG_EXPORT uint32_t ldg_math_phys_em_port_mode_fem_set(ldg_math_phys_ctx_t *ctx,
         }
     }
 
-    if (h_pat != 0x0) { err = ldg_mem_dealloc(h_pat); }
+    if (h_pat != 0x0) { err = ldg_mem_dealloc(h_pat); if (LDG_UNLIKELY(err != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = err; } }
 
-    if (e_pat != 0x0) { err = ldg_mem_dealloc(e_pat); }
+    if (e_pat != 0x0) { err = ldg_mem_dealloc(e_pat); if (LDG_UNLIKELY(err != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = err; } }
 
-    if (pec_arr != 0x0) { err = ldg_mem_dealloc(pec_arr); }
+    if (pec_arr != 0x0) { err = ldg_mem_dealloc(pec_arr); if (LDG_UNLIKELY(err != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = err; } }
 
-    if (mu_arr != 0x0) { err = ldg_mem_dealloc(mu_arr); }
+    if (mu_arr != 0x0) { err = ldg_mem_dealloc(mu_arr); if (LDG_UNLIKELY(err != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = err; } }
 
     err = ldg_mem_dealloc(eps_arr);
+    if (LDG_UNLIKELY(err != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = err; }
+
     return ret;
 }
 
@@ -11418,6 +11429,8 @@ uint32_t ldg_math_phys_compute_commit(ldg_math_phys_ctx_t *ctx, uint32_t region,
 
     region_ptr = &ctx->region[region];
     hdr = ldg_math_phys_em_hdr_get(region_ptr);
+    if (LDG_UNLIKELY(hdr->snapshot_depth == 0)) { return LDG_ERR_NOT_INIT; }
+
     hdr->tick_cuntr += tick_cunt;
     err = ldg_math_phys_field_em_energy_get(ldg_math_phys_em_electric_get(region_ptr), ldg_math_phys_em_magnetic_get(region_ptr), ldg_math_phys_em_mtl_get(region_ptr), ldg_math_phys_em_coeff_get(region_ptr), hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, &energy_val);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }
@@ -11470,6 +11483,8 @@ uint32_t ldg_math_phys_acoustic_compute_commit(ldg_math_phys_ctx_t *ctx, uint32_
 
     region_ptr = &ctx->region[region];
     hdr = ldg_math_phys_acoustic_hdr_get(region_ptr);
+    if (LDG_UNLIKELY(hdr->snapshot_depth == 0)) { return LDG_ERR_NOT_INIT; }
+
     hdr->tick_cuntr += tick_cunt;
     err = ldg_math_phys_field_acoustic_energy_get(ldg_math_phys_acoustic_pressure_get(region_ptr), ldg_math_phys_acoustic_velocity_get(region_ptr), ldg_math_phys_acoustic_mtl_get(region_ptr), ldg_math_phys_acoustic_coeff_get(region_ptr), hdr->nx, hdr->ny, hdr->nz, region_ptr->desc.spacing, &energy_val);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return LDG_ERR_MATH_PHYS_DOMAIN; }

@@ -839,7 +839,9 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
     app_info.apiVersion = VK_API_VERSION_1_2;
     inst_info.pApplicationInfo = &app_info;
 
-    all_inst_ext_cunt = desc->inst_extension_cunt + (validation_en ? 1 : 0);
+    all_inst_ext_cunt = desc->inst_extension_cunt;
+    if (validation_en) { all_inst_ext_cunt += LDG_GPU_VALIDATION_INST_EXT_CUNT; }
+
     if (all_inst_ext_cunt > 0)
     {
         err = ldg_mem_pool_alloc(scratch, sizeof(const char *) * (all_inst_ext_cunt + 1), (void **)&all_inst_exts);
@@ -871,14 +873,13 @@ LDG_EXPORT uint32_t ldg_gpu_init(const ldg_gpu_init_desc_t *desc, void **out)
             inst_info.enabledLayerCount = 0;
             inst_info.ppEnabledLayerNames = 0x0;
 
-            if (all_inst_ext_cunt > 1)
+            if (all_inst_ext_cunt > LDG_GPU_VALIDATION_INST_EXT_CUNT)
             {
-                all_inst_ext_cunt--;
+                all_inst_ext_cunt -= LDG_GPU_VALIDATION_INST_EXT_CUNT;
                 inst_info.enabledExtensionCount = all_inst_ext_cunt;
             }
-            else if (all_inst_ext_cunt == 1 && desc->inst_extension_cunt == 0)
+            else if (all_inst_ext_cunt == LDG_GPU_VALIDATION_INST_EXT_CUNT && desc->inst_extension_cunt == 0)
             {
-                all_inst_ext_cunt = 0;
                 inst_info.enabledExtensionCount = 0;
                 inst_info.ppEnabledExtensionNames = 0x0;
             }

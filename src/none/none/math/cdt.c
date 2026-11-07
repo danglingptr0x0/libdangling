@@ -215,7 +215,6 @@ static uint32_t cdt_point_locate(const double *vert, const cdt_tet_t *tet, uint3
         err = ldg_math_3d_orient(node_a, node_b, node_c, query, predicate_pool, &face_3);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        next = CDT_NONE;
         if (face_0 == LDG_MATH_SIGN_NEG) { next = tet[current].neigh[0]; }
         else if (face_1 == LDG_MATH_SIGN_NEG) { next = tet[current].neigh[1]; }
         else if (face_2 == LDG_MATH_SIGN_NEG) { next = tet[current].neigh[2]; }

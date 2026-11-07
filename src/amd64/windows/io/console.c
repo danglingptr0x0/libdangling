@@ -278,3 +278,139 @@ uint32_t ldg_io_console_rd(uint8_t *dst, uint64_t cap, uint64_t *out_len)
 
     return console_in_rd(dst, cap, out_len);
 }
+
+typedef struct ldg_io_console_mode
+{
+    DWORD saved;
+    uint8_t raw;
+    uint8_t pudding[3];
+} ldg_io_console_mode_t;
+
+static ldg_io_console_mode_t* console_mode_get(void)
+{
+    static ldg_io_console_mode_t mode = LDG_STRUCT_ZERO_INIT;
+
+    return &mode;
+}
+
+uint32_t ldg_io_console_raw_set(uint8_t en)
+{
+    ldg_io_console_mode_t *mode = console_mode_get();
+    HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
+
+    if (LDG_UNLIKELY(in == INVALID_HANDLE_VALUE || !in)) { return LDG_ERR_CLOSED; }
+
+    if (en == LDG_TRUTH_TRUE)
+    {
+        if (mode->raw == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+        if (!GetConsoleMode(in, &mode->saved)) { return LDG_ERR_UNSUPPORTED; }
+
+        if (!SetConsoleMode(in, mode->saved & ~(DWORD)(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT))) { return LDG_ERR_DENIED; }
+
+        mode->raw = LDG_TRUTH_TRUE;
+
+        return LDG_ERR_AOK;
+    }
+
+    if (mode->raw != LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+    if (!SetConsoleMode(in, mode->saved)) { return LDG_ERR_DENIED; }
+
+    mode->raw = LDG_TRUTH_FALSE;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t console_vk_kind_get(WORD vk)
+{
+    if (vk >= VK_F1 && vk <= VK_F12) { return (uint32_t)LDG_IO_CONSOLE_KEY_F1 + (uint32_t)(vk - VK_F1); }
+
+    switch (vk)
+    {
+        case VK_ESCAPE:
+            return LDG_IO_CONSOLE_KEY_ESC;
+        case VK_RETURN:
+            return LDG_IO_CONSOLE_KEY_ENTER;
+        case VK_TAB:
+            return LDG_IO_CONSOLE_KEY_TAB;
+        case VK_BACK:
+            return LDG_IO_CONSOLE_KEY_BACKSPACE;
+        case VK_UP:
+            return LDG_IO_CONSOLE_KEY_UP;
+        case VK_DOWN:
+            return LDG_IO_CONSOLE_KEY_DOWN;
+        case VK_LEFT:
+            return LDG_IO_CONSOLE_KEY_LHS;
+        case VK_RIGHT:
+            return LDG_IO_CONSOLE_KEY_RHS;
+        case VK_HOME:
+            return LDG_IO_CONSOLE_KEY_HOME;
+        case VK_END:
+            return LDG_IO_CONSOLE_KEY_END;
+        case VK_PRIOR:
+            return LDG_IO_CONSOLE_KEY_PAGE_UP;
+        case VK_NEXT:
+            return LDG_IO_CONSOLE_KEY_PAGE_DOWN;
+        case VK_INSERT:
+            return LDG_IO_CONSOLE_KEY_INSERT;
+        case VK_DELETE:
+            return LDG_IO_CONSOLE_KEY_DELETE;
+        default:
+            return LDG_IO_CONSOLE_KEY_KIND_CUNT;
+    }
+}
+
+uint32_t ldg_io_console_key_rd(ldg_io_console_key_t *out)
+{
+    INPUT_RECORD rec = LDG_STRUCT_ZERO_INIT;
+    HANDLE in = 0x0;
+    DWORD pending = 0;
+    DWORD got = 0;
+    DWORD state = 0;
+    uint32_t idx = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    out->kind = LDG_IO_CONSOLE_KEY_OTHER;
+    out->codepoint = LDG_IO_CONSOLE_CH_NONE;
+    out->mods = 0;
+    out->raw = 0;
+    out->down = LDG_TRUTH_FALSE;
+
+    in = GetStdHandle(STD_INPUT_HANDLE);
+    if (LDG_UNLIKELY(in == INVALID_HANDLE_VALUE || !in)) { return LDG_ERR_CLOSED; }
+
+    for (idx = 0; idx < LDG_IO_CONSOLE_REC_CAP; idx++)
+    {
+        if (!GetNumberOfConsoleInputEvents(in, &pending)) { return LDG_ERR_IO_RD; }
+
+        if (pending == 0) { return LDG_ERR_EMPTY; }
+
+        if (!ReadConsoleInputW(in, &rec, LDG_IO_CONSOLE_STEP, &got)) { return LDG_ERR_IO_RD; }
+
+        if (got == 0) { return LDG_ERR_EMPTY; }
+
+        if (rec.EventType != KEY_EVENT) { continue; }
+
+        state = rec.Event.KeyEvent.dwControlKeyState;
+        out->raw = rec.Event.KeyEvent.wVirtualKeyCode;
+        out->down = rec.Event.KeyEvent.bKeyDown ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+        out->codepoint = rec.Event.KeyEvent.uChar.UnicodeChar;
+
+        if ((state & SHIFT_PRESSED) != 0) { out->mods |= LDG_IO_CONSOLE_MOD_SHIFT; }
+
+        if ((state & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) != 0) { out->mods |= LDG_IO_CONSOLE_MOD_ALT; }
+
+        if ((state & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) != 0) { out->mods |= LDG_IO_CONSOLE_MOD_CTRL; }
+
+        out->kind = console_vk_kind_get(rec.Event.KeyEvent.wVirtualKeyCode);
+        if (out->kind == LDG_IO_CONSOLE_KEY_KIND_CUNT) { out->kind = (out->codepoint != LDG_IO_CONSOLE_CH_NONE) ? LDG_IO_CONSOLE_KEY_CHAR : LDG_IO_CONSOLE_KEY_OTHER; }
+
+        if (out->kind != LDG_IO_CONSOLE_KEY_CHAR) { out->codepoint = LDG_IO_CONSOLE_CH_NONE; }
+
+        return LDG_ERR_AOK;
+    }
+
+    return LDG_ERR_EMPTY;
+}

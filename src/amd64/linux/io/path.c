@@ -109,10 +109,11 @@ uint32_t ldg_io_link_rd(const char *link_path, char *buff, uint64_t buff_size, u
 
     *len = 0;
 
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(buff, buff_size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
     res = (int64_t)readlink(link_path, buff, (uint64_t)buff_size - LDG_STR_TERM_SIZE);
     if (LDG_UNLIKELY(res < 0)) { return ldg_io_path_errno_translate(); }
 
-    buff[res] = LDG_STR_TERM;
     *len = (uint64_t)res;
 
     return LDG_ERR_AOK;
@@ -359,8 +360,6 @@ uint32_t ldg_io_path_prog_get(char *buff, uint64_t buff_size)
 
     if (LDG_UNLIKELY((uint64_t)res >= (uint64_t)buff_size - LDG_STR_TERM_SIZE)) { return LDG_ERR_STR_TRUNC; }
 
-    buff[res] = LDG_STR_TERM;
-
     return LDG_ERR_AOK;
 }
 
@@ -560,11 +559,14 @@ uint32_t ldg_io_path_resolve(const char *path, char *buff, uint64_t buff_size)
             symlink_depth++;
             if (LDG_UNLIKELY(symlink_depth > 40)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_IO_RD; }
 
-            link_res = (int64_t)readlink(resolved, link_target, PATH_MAX - 1);
+            if (LDG_UNLIKELY(ldg_mem_secure_zero(link_target, (uint64_t)PATH_MAX) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
+
+            link_res = (int64_t)readlink(resolved, link_target, (uint64_t)PATH_MAX - LDG_STR_TERM_SIZE);
             if (LDG_UNLIKELY(link_res < 0)) { ldg_mem_pool_destroy(&scratch); return ldg_io_path_errno_translate(); }
 
-            link_target[link_res] = LDG_STR_TERM;
-            llen = (uint64_t)link_res;
+            if (LDG_UNLIKELY((uint64_t)link_res >= (uint64_t)PATH_MAX - LDG_STR_TERM_SIZE)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_OVERFLOW; }
+
+            if (LDG_UNLIKELY(ldg_str_len_get(link_target, (uint64_t)PATH_MAX, &llen) != LDG_ERR_AOK)) { ldg_mem_pool_destroy(&scratch); return LDG_ERR_MEM_BAD; }
 
             if (ppos < plen)
             {

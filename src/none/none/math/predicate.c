@@ -29,6 +29,9 @@
 
 #define PREDICATE_BLK_DOUBLES 76936U
 #define PREDICATE_BLK_SIZE ((uint64_t)PREDICATE_BLK_DOUBLES * (uint64_t)sizeof(double))
+#define PREDICATE_TET_CORNER_CUNT 4U
+#define PREDICATE_TERM1_REST_CUNT 3U
+#define PREDICATE_TERM2_REST_CUNT 2U
 
 static double predicate_absolute_get(double val)
 {
@@ -886,13 +889,13 @@ static uint8_t predicate_orient2d_proj_sign_get(const double *point_p, const dou
 
 static uint8_t predicate_perturb_term1_eval(const double **corner, uint32_t row, uint32_t coord)
 {
-    const double *rest[3] = LDG_ARR_ZERO_INIT;
+    const double *rest[PREDICATE_TERM1_REST_CUNT] = LDG_ARR_ZERO_INIT;
     uint32_t axis_a = 0x0;
     uint32_t axis_b = 0x0;
     uint32_t fill = 0x0;
     uint32_t idx = 0x0;
     uint8_t sign = 0x0;
-    for (idx = 0; idx < 4; idx++) { if (idx != row)
+    for (idx = 0; idx < PREDICATE_TET_CORNER_CUNT && fill < PREDICATE_TERM1_REST_CUNT; idx++) { if (idx != row)
         {
             rest[fill] = corner[idx];
             fill++;
@@ -920,13 +923,13 @@ static uint8_t predicate_perturb_term1_eval(const double **corner, uint32_t row,
 
 static uint8_t predicate_perturb_term2_eval(const double **corner, uint32_t row_a, uint32_t row_b, uint32_t coord_a, uint32_t coord_b)
 {
-    const double *rest[2] = LDG_ARR_ZERO_INIT;
+    const double *rest[PREDICATE_TERM2_REST_CUNT] = LDG_ARR_ZERO_INIT;
     uint32_t fill = 0x0;
     uint32_t idx = 0x0;
     uint32_t free_coord = 0x0;
     uint32_t parity = 0x0;
     uint8_t sign = 0x0;
-    for (idx = 0; idx < 4; idx++) { if (idx != row_a && idx != row_b)
+    for (idx = 0; idx < PREDICATE_TET_CORNER_CUNT && fill < PREDICATE_TERM2_REST_CUNT; idx++) { if (idx != row_a && idx != row_b)
         {
             rest[fill] = corner[idx];
             fill++;

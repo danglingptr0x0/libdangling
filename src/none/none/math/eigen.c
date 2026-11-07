@@ -413,7 +413,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ctx = (ldg_math_eigen_ctx_t *)blk;
     if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_eigen_ctx_t)) != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -421,7 +422,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -429,7 +431,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -437,7 +440,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -445,7 +449,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -453,7 +458,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -461,7 +467,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -469,7 +476,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_ctx_create(uint64_t dim, ldg_math_eigen_ctx_t
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_ctx_destroy(&ctx);
+        if (ldg_math_eigen_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -606,7 +614,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ctx = (ldg_math_eigen_lanczos_ctx_t *)blk;
     if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_eigen_lanczos_ctx_t)) != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -615,7 +624,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc(basis_cunt * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -623,7 +633,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc(step_cap * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -631,7 +642,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc(step_cap * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -639,7 +651,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc((step_cap + 1) * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -647,21 +660,24 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc((step_cap + 1) * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
     ctx->omega_prev = (double *)blk;
     if (LDG_UNLIKELY(step_sq > UINT64_MAX / (uint64_t)sizeof(double)))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_OVERFLOW;
     }
 
     ret = ldg_mem_alloc(step_sq * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -669,7 +685,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_lanczos_ctx_create(uint64_t dim, uint64_t ste
     ret = ldg_mem_alloc(step_cap * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_lanczos_ctx_destroy(&ctx);
+        if (ldg_math_eigen_lanczos_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1254,7 +1271,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ctx = (ldg_math_eigen_schur_ctx_t *)blk;
     if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_eigen_schur_ctx_t)) != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1262,7 +1280,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1270,7 +1289,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1278,7 +1298,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1286,7 +1307,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1294,7 +1316,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1302,7 +1325,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_schur_ctx_create(uint64_t dim, ldg_math_eigen
     ret = ldg_mem_alloc((square + 2 * dim) * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_schur_ctx_destroy(&ctx);
+        if (ldg_math_eigen_schur_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1527,7 +1551,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ctx = (ldg_math_eigen_pencil_ctx_t *)blk;
     if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_eigen_pencil_ctx_t)) != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1536,7 +1561,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc(basis_cunt * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1544,7 +1570,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1552,7 +1579,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1560,7 +1588,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1568,7 +1597,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc((step_cap + 1) * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1576,7 +1606,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc((step_cap + 1) * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1584,7 +1615,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc(step_sq * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -1592,7 +1624,8 @@ LDG_EXPORT uint32_t ldg_math_eigen_pencil_ctx_create(uint64_t dim, uint64_t step
     ret = ldg_mem_alloc((step_cap + 1) * (uint64_t)sizeof(double), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_math_eigen_pencil_ctx_destroy(&ctx);
+        if (ldg_math_eigen_pencil_ctx_destroy(&ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: eigen ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 

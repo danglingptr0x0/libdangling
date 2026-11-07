@@ -10,6 +10,7 @@
 #include <dangling/io/file.h>
 #include <dangling/io/dir.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 
 #define LDG_SYS_URL_SCHEME_HTTP "http:"
 #define LDG_SYS_URL_SCHEME_HTTPS "https:"
@@ -345,6 +346,24 @@ uint32_t ldg_sys_env_get(const char *name, char *buff, uint64_t buff_size)
     return ldg_str_rbrcpy(buff, val, (uint64_t)buff_size);
 }
 
+uint32_t ldg_sys_env_set(const char *name, const char *val)
+{
+    if (LDG_UNLIKELY(!name)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(name[0] == LDG_STR_TERM)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (!val)
+    {
+        if (LDG_UNLIKELY(unsetenv(name) != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+        return LDG_ERR_AOK;
+    }
+
+    if (LDG_UNLIKELY(setenv(name, val, LDG_TRUTH_TRUE) != 0)) { return (errno == ENOMEM) ? LDG_ERR_ALLOC_NULL : LDG_ERR_FUNC_ARG_INVALID; }
+
+    return LDG_ERR_AOK;
+}
+
 uint32_t ldg_sys_pid_get(uint64_t *pid)
 {
     if (LDG_UNLIKELY(!pid)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -368,8 +387,9 @@ static void sys_fd_close(int32_t fd)
     if (close(fd) != 0) { return; }
 }
 
-static uint32_t sys_detached_spawn(char *const *argv)
+static uint32_t sys_detached_spawn(const char *const *argv)
 {
+    char *const *exec_argv = 0x0;
     int32_t pipe_fd[LDG_SYS_PIPE_END_CUNT] = LDG_ARR_ZERO_INIT;
     int64_t inter = 0;
     int64_t grandchild = 0;
@@ -403,7 +423,9 @@ static uint32_t sys_detached_spawn(char *const *argv)
 
         if (grandchild == 0)
         {
-            execvp(argv[0], argv);
+            if (ldg_mem_secure_cpy(&exec_argv, &argv, sizeof(exec_argv)) != LDG_ERR_AOK) { _exit(LDG_SYS_EXIT_EXEC_FAIL); }
+
+            execvp(argv[0], exec_argv);
             code = (int32_t)errno;
 
             if (write(pipe_fd[LDG_SYS_PIPE_WR], &code, sizeof(code)) < 0) { _exit(LDG_SYS_EXIT_EXEC_FAIL); }
@@ -439,7 +461,7 @@ static uint32_t sys_detached_spawn(char *const *argv)
 
 uint32_t ldg_sys_url_open(const char *url)
 {
-    char *argv[LDG_SYS_ARGV_MAX] = LDG_ARR_ZERO_INIT;
+    const char *argv[LDG_SYS_ARGV_MAX] = LDG_ARR_ZERO_INIT;
 
     if (LDG_UNLIKELY(!url)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -447,8 +469,8 @@ uint32_t ldg_sys_url_open(const char *url)
 
     if (sys_url_scheme_allowed_is(url) != LDG_TRUTH_TRUE) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    argv[0] = (char *)LDG_SYS_URL_OPEN_CMD;
-    argv[1] = (char *)url;
+    argv[0] = LDG_SYS_URL_OPEN_CMD;
+    argv[1] = url;
 
     return sys_detached_spawn(argv);
 }
@@ -498,10 +520,12 @@ static uint32_t sys_self_exec_get(char *buff, uint64_t buff_size)
 {
     int64_t len = 0;
 
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(buff, buff_size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
     len = (int64_t)readlink(LDG_SYS_SELF_EXE_LINK, buff, buff_size - LDG_STR_TERM_SIZE);
     if (LDG_UNLIKELY(len <= 0)) { return LDG_ERR_IO_RD; }
 
-    buff[len] = LDG_STR_TERM;
+    if (LDG_UNLIKELY((uint64_t)len >= buff_size - LDG_STR_TERM_SIZE)) { return LDG_ERR_STR_TRUNC; }
 
     return LDG_ERR_AOK;
 }
@@ -542,7 +566,8 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
     char desktop_path[LDG_SYS_PATH_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     char mime_type[LDG_SYS_PATH_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     char content[LDG_SYS_DESKTOP_BUFF_MAX] = LDG_ARR_ZERO_INIT;
-    char *argv[LDG_SYS_ARGV_MAX] = LDG_ARR_ZERO_INIT;
+    const char *argv[LDG_SYS_ARGV_MAX] = LDG_ARR_ZERO_INIT;
+    uint64_t fmt_len = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!scheme)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -576,20 +601,20 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
-    if (LDG_UNLIKELY(snprintf(desktop_name, sizeof(desktop_name), "%.*s%.*s%.*s", (int32_t)sizeof(LDG_SYS_DESKTOP_PREFIX), LDG_SYS_DESKTOP_PREFIX, (int32_t)LDG_SYS_URL_SCHEME_MAX, scheme, (int32_t)sizeof(LDG_SYS_DESKTOP_EXT), LDG_SYS_DESKTOP_EXT) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(desktop_name, sizeof(desktop_name), &fmt_len, "%.*s%.*s%.*s", (uint32_t)sizeof(LDG_SYS_DESKTOP_PREFIX), LDG_SYS_DESKTOP_PREFIX, (uint32_t)LDG_SYS_URL_SCHEME_MAX, scheme, (uint32_t)sizeof(LDG_SYS_DESKTOP_EXT), LDG_SYS_DESKTOP_EXT) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
     ret = ldg_io_path_join(apps_dir, desktop_name, desktop_path, sizeof(desktop_path));
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (LDG_UNLIKELY(snprintf(mime_type, sizeof(mime_type), "%.*s%.*s", (int32_t)sizeof(LDG_SYS_SCHEME_MIME_PREFIX), LDG_SYS_SCHEME_MIME_PREFIX, (int32_t)LDG_SYS_URL_SCHEME_MAX, scheme) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(mime_type, sizeof(mime_type), &fmt_len, "%.*s%.*s", (uint32_t)sizeof(LDG_SYS_SCHEME_MIME_PREFIX), LDG_SYS_SCHEME_MIME_PREFIX, (uint32_t)LDG_SYS_URL_SCHEME_MAX, scheme) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(snprintf(content, sizeof(content), "[Desktop Entry]\nType=Application\nName=%.*s\nExec=\"%.*s\" %%u\nNoDisplay=true\nTerminal=false\nMimeType=%.*s;\n", (int32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme, (int32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (int32_t)LDG_SYS_PATH_BUFF_MAX, mime_type) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(content, sizeof(content), &fmt_len, "[Desktop Entry]\nType=Application\nName=%.*s\nExec=\"%.*s\" %%u\nNoDisplay=true\nTerminal=false\nMimeType=%.*s;\n", (uint32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme, (uint32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (uint32_t)LDG_SYS_PATH_BUFF_MAX, mime_type) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
     ret = sys_desktop_wr(desktop_path, content);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    argv[0] = (char *)LDG_SYS_MIME_CMD;
-    argv[1] = (char *)"default";
+    argv[0] = LDG_SYS_MIME_CMD;
+    argv[1] = "default";
     argv[2] = desktop_name;
     argv[3] = mime_type;
 
@@ -694,7 +719,7 @@ uint32_t ldg_sys_notify_tip_set(const char *tip)
 
 uint32_t ldg_sys_notify(const char *title, const char *body, ldg_sys_notify_level_t level)
 {
-    char *argv[LDG_SYS_NOTIFY_ARGV_ICON_MAX] = LDG_ARR_ZERO_INIT;
+    const char *argv[LDG_SYS_NOTIFY_ARGV_ICON_MAX] = LDG_ARR_ZERO_INIT;
     uint32_t idx = 0;
 
     if (LDG_UNLIKELY(!title)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -703,26 +728,26 @@ uint32_t ldg_sys_notify(const char *title, const char *body, ldg_sys_notify_leve
 
     if (LDG_UNLIKELY(level > LDG_SYS_NOTIFY_LEVEL_CRIT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    argv[idx] = (char *)LDG_SYS_NOTIFY_CMD;
+    argv[idx] = LDG_SYS_NOTIFY_CMD;
     idx++;
-    argv[idx] = (char *)LDG_SYS_NOTIFY_LEVEL_FLAG;
+    argv[idx] = LDG_SYS_NOTIFY_LEVEL_FLAG;
     idx++;
-    argv[idx] = (char *)sys_notify_level_arg_get(level);
+    argv[idx] = sys_notify_level_arg_get(level);
     idx++;
 
     if (g_sys_notify.icon_set == LDG_TRUTH_TRUE)
     {
-        argv[idx] = (char *)LDG_SYS_NOTIFY_ICON_FLAG;
+        argv[idx] = LDG_SYS_NOTIFY_ICON_FLAG;
         idx++;
         argv[idx] = g_sys_notify.icon;
         idx++;
     }
 
-    argv[idx] = (char *)LDG_SYS_NOTIFY_OPT_END;
+    argv[idx] = LDG_SYS_NOTIFY_OPT_END;
     idx++;
-    argv[idx] = (char *)title;
+    argv[idx] = title;
     idx++;
-    argv[idx] = (char *)((body != 0x0) ? body : "");
+    argv[idx] = (body != 0x0) ? body : "";
 
     return sys_detached_spawn(argv);
 }

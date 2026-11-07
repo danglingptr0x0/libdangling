@@ -252,6 +252,7 @@ static uint32_t sched_worker_loop(uint32_t worker_id, void *arg)
         {
             job_idx = job - LDG_SCHED_STEP;
             ret = ldg_math_stat_bayes_observe(&ctx->bayes, ctx->job_pool.jobs[job_idx].job_class, (double)ctx->job_pool.jobs[job_idx].actual_duration);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("sched: bayes observe failed"); }
         }
 
         if (LDG_SUB_FETCH(ctx->active_jobs, LDG_SCHED_STEP) == 0)

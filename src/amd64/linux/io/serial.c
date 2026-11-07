@@ -1,7 +1,5 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <stdio.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -22,10 +20,11 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/str/str.h>
+#include <dangling/str/fmt.h>
 
 static uint32_t serial_baud_translate(ldg_io_serial_baud_t baud, speed_t *out)
 {
-    switch (baud)
+    switch ((uint32_t)baud)
     {
         case LDG_IO_SERIAL_BAUD_1200:
             *out = B1200;
@@ -69,7 +68,7 @@ static uint32_t serial_baud_translate(ldg_io_serial_baud_t baud, speed_t *out)
 
 static uint32_t serial_data_translate(ldg_io_serial_data_t data, tcflag_t *out)
 {
-    switch (data)
+    switch ((uint32_t)data)
     {
         case LDG_IO_SERIAL_DATA_5:
             *out = CS5;
@@ -173,33 +172,30 @@ static uint32_t serial_id_build(const char *dev_name, char *out, uint64_t cap)
     char vendor[LDG_IO_SERIAL_ATTR_MAX] = LDG_ARR_ZERO_INIT;
     char product[LDG_IO_SERIAL_ATTR_MAX] = LDG_ARR_ZERO_INIT;
     char serial[LDG_IO_SERIAL_ATTR_MAX] = LDG_ARR_ZERO_INIT;
-    int32_t len = 0;
+    uint64_t len = 0;
     uint32_t ret = 0;
 
     out[0] = LDG_STR_TERM;
 
-    len = snprintf(attr_path, LDG_IO_SERIAL_SYSFS_MAX, "/sys/class/tty/%.32s/device/../idVendor", dev_name);
-    if (len <= 0) { return LDG_ERR_NOT_FOUND; }
+    if (ldg_str_fmt(attr_path, LDG_IO_SERIAL_SYSFS_MAX, &len, "/sys/class/tty/%.32s/device/../idVendor", dev_name) != LDG_ERR_AOK) { return LDG_ERR_NOT_FOUND; }
 
     ret = serial_sysfs_rd(attr_path, vendor, LDG_IO_SERIAL_ATTR_MAX);
     if (ret != LDG_ERR_AOK) { return ret; }
 
-    len = snprintf(attr_path, LDG_IO_SERIAL_SYSFS_MAX, "/sys/class/tty/%.32s/device/../idProduct", dev_name);
-    if (len <= 0) { return LDG_ERR_NOT_FOUND; }
+    if (ldg_str_fmt(attr_path, LDG_IO_SERIAL_SYSFS_MAX, &len, "/sys/class/tty/%.32s/device/../idProduct", dev_name) != LDG_ERR_AOK) { return LDG_ERR_NOT_FOUND; }
 
     ret = serial_sysfs_rd(attr_path, product, LDG_IO_SERIAL_ATTR_MAX);
     if (ret != LDG_ERR_AOK) { return ret; }
 
-    len = snprintf(attr_path, LDG_IO_SERIAL_SYSFS_MAX, "/sys/class/tty/%.32s/device/../serial", dev_name);
-    if (len <= 0) { return LDG_ERR_NOT_FOUND; }
+    if (ldg_str_fmt(attr_path, LDG_IO_SERIAL_SYSFS_MAX, &len, "/sys/class/tty/%.32s/device/../serial", dev_name) != LDG_ERR_AOK) { return LDG_ERR_NOT_FOUND; }
 
     ret = serial_sysfs_rd(attr_path, serial, LDG_IO_SERIAL_ATTR_MAX);
     if (ret != LDG_ERR_AOK) { serial[0] = LDG_STR_TERM; }
 
-    len = snprintf(out, cap, "USB\\VID_%.8s&PID_%.8s\\%.64s", vendor, product, serial);
-    if (len <= 0) { return LDG_ERR_NOT_FOUND; }
+    ret = ldg_str_fmt(out, cap, &len, "USB\\VID_%.8s&PID_%.8s\\%.64s", vendor, product, serial);
+    if (ret == LDG_ERR_STR_TRUNC) { return LDG_ERR_MEM_STR_TRUNC; }
 
-    if ((uint64_t)len >= cap) { return LDG_ERR_MEM_STR_TRUNC; }
+    if (ret != LDG_ERR_AOK) { return LDG_ERR_NOT_FOUND; }
 
     return LDG_ERR_AOK;
 }
@@ -224,7 +220,7 @@ uint32_t ldg_io_serial_port_list(ldg_io_serial_port_t *out, uint64_t cap, uint64
     uint64_t found = 0;
     uint64_t group = 0;
     uint64_t idx = 0;
-    int32_t len = 0;
+    uint64_t len = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -237,14 +233,11 @@ uint32_t ldg_io_serial_port_list(ldg_io_serial_port_t *out, uint64_t cap, uint64
     {
         for (idx = 0; idx < LDG_IO_SERIAL_PROBE_MAX; idx++)
         {
-            len = snprintf(path, LDG_IO_SERIAL_PATH_MAX, "%.16s%" PRIu32, prefix[group], (uint32_t)idx);
-            if (len <= 0) { continue; }
-
-            if ((uint64_t)len >= LDG_IO_SERIAL_PATH_MAX) { continue; }
+            if (ldg_str_fmt(path, LDG_IO_SERIAL_PATH_MAX, &len, "%.16s%u32", prefix[group], (uint32_t)idx) != LDG_ERR_AOK) { continue; }
 
             if (access(path, F_OK) != 0) { continue; }
 
-            ret = ldg_mem_secure_cpy(out[found].path, path, (uint64_t)len + LDG_STR_TERM_SIZE);
+            ret = ldg_mem_secure_cpy(out[found].path, path, len + LDG_STR_TERM_SIZE);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
             ret = serial_id_build(&path[LDG_IO_SERIAL_DEV_PREFIX_LEN], out[found].id, LDG_IO_SERIAL_ID_MAX);

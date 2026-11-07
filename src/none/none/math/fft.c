@@ -10,6 +10,7 @@
 #define LDG_MATH_FFT_SPAN_TRIVIAL 1
 #define LDG_MATH_FFT_EMPTY_PRODUCT 1
 #define LDG_MATH_FFT_NYQUIST_BIN 1
+#define LDG_MATH_FFT_FACTORED_REMAINDER 1
 
 static uint32_t fft_alloc_complex(uint64_t cunt, ldg_math_complex_t **out)
 {
@@ -259,7 +260,7 @@ static void fft_inverse_run(const ldg_math_fft_ctx_t *ctx, const ldg_math_comple
     }
 }
 
-static void fft_real_even_forward(const ldg_math_fft_ctx_t *ctx, const double *src, ldg_math_complex_t *dst)
+static uint32_t fft_real_even_forward(const ldg_math_fft_ctx_t *ctx, const double *src, ldg_math_complex_t *dst)
 {
     uint64_t half_len = ctx->len / 2;
     uint64_t idx = 0;
@@ -273,6 +274,8 @@ static void fft_real_even_forward(const ldg_math_fft_ctx_t *ctx, const double *s
     double fold_im = 0.0;
     double spin_re = 0.0;
     double spin_im = 0.0;
+
+    if (LDG_UNLIKELY(half_len == 0)) { return LDG_ERR_NOT_INIT; }
 
     for (idx = 0; idx < half_len; idx++)
     {
@@ -297,6 +300,8 @@ static void fft_real_even_forward(const ldg_math_fft_ctx_t *ctx, const double *s
         dst[idx].re = even_re + spin_re * odd_re - spin_im * odd_im;
         dst[idx].im = even_im + spin_re * odd_im + spin_im * odd_re;
     }
+
+    return LDG_ERR_AOK;
 }
 
 static void fft_real_even_inverse(const ldg_math_fft_ctx_t *ctx, const ldg_math_complex_t *src, double *dst)
@@ -412,6 +417,7 @@ static uint32_t fft_ctx_build(uint64_t len, uint8_t real_support, ldg_math_fft_c
     uint64_t idx = 0;
     double angle = 0.0;
     uint32_t ret = 0;
+    uint8_t bluestein = LDG_TRUTH_FALSE;
 
     *out = 0x0;
 
@@ -429,11 +435,12 @@ static uint32_t fft_ctx_build(uint64_t len, uint8_t real_support, ldg_math_fft_c
     fft_factor_fill(len, ctx->factor, &ctx->factor_cunt, &remainder);
     scratch_len = len;
 
-    if (remainder != 1)
+    if (remainder != LDG_MATH_FFT_FACTORED_REMAINDER)
     {
+        bluestein = LDG_TRUTH_TRUE;
         ctx->is_bluestein = LDG_TRUTH_TRUE;
         ret = ldg_arith_uint64_mul(len, 2, &doubled);
-        if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK || doubled == 0))
         {
             fft_ctx_destroy(ctx);
             return LDG_ERR_OVERFLOW;
@@ -480,7 +487,7 @@ static uint32_t fft_ctx_build(uint64_t len, uint8_t real_support, ldg_math_fft_c
         return ret;
     }
 
-    if (ctx->is_bluestein == LDG_TRUTH_TRUE)
+    if (bluestein == LDG_TRUTH_TRUE)
     {
         ret = fft_alloc_complex(engine_len, &ctx->twiddle_engine);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
@@ -631,8 +638,9 @@ LDG_EXPORT uint32_t ldg_math_fft_real_forward_compute(ldg_math_fft_ctx_t *ctx, c
 
     if (LDG_UNLIKELY(!dst)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (ctx->len % 2 == 0) { fft_real_even_forward(ctx, src, dst); }
-    else { fft_real_odd_forward(ctx, src, dst); }
+    if (ctx->len % 2 == 0) { return fft_real_even_forward(ctx, src, dst); }
+
+    fft_real_odd_forward(ctx, src, dst);
 
     return LDG_ERR_AOK;
 }

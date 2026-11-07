@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <wincred.h>
 
 #include <dangling/io/path.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 
 #define LDG_SYS_URL_SCHEME_HTTP "http:"
 #define LDG_SYS_URL_SCHEME_HTTPS "https:"
@@ -234,6 +234,17 @@ uint32_t ldg_sys_env_get(const char *name, char *buff, uint64_t buff_size)
     return ldg_str_rbrcpy(buff, val, (uint64_t)buff_size);
 }
 
+uint32_t ldg_sys_env_set(const char *name, const char *val)
+{
+    if (LDG_UNLIKELY(!name)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(name[0] == LDG_STR_TERM)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(_putenv_s(name, val ? val : "") != 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    return LDG_ERR_AOK;
+}
+
 uint32_t ldg_sys_pid_get(uint64_t *pid)
 {
     if (LDG_UNLIKELY(!pid)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -331,6 +342,7 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
     char cmd_line[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     WCHAR wide_exec[LDG_SYS_EXEC_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     DWORD exec_len = 0;
+    uint64_t fmt_len = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!scheme)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -350,13 +362,13 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
         if (LDG_UNLIKELY(WideCharToMultiByte(CP_UTF8, LDG_SYS_MB_NO_FLAG, wide_exec, LDG_SYS_MB_NULL_TERM, exec_buff, LDG_SYS_EXEC_BUFF_MAX, 0x0, 0x0) <= 0)) { return LDG_ERR_MEM_STR_TRUNC; }
     }
 
-    if (LDG_UNLIKELY(snprintf(key_path, sizeof(key_path), "%.*s%.*s", (int32_t)sizeof(LDG_SYS_CLASSES_KEY), LDG_SYS_CLASSES_KEY, (int32_t)LDG_SYS_URL_SCHEME_MAX, scheme) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(key_path, sizeof(key_path), &fmt_len, "%.*s%.*s", (uint32_t)sizeof(LDG_SYS_CLASSES_KEY), LDG_SYS_CLASSES_KEY, (uint32_t)LDG_SYS_URL_SCHEME_MAX, scheme) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(snprintf(cmd_path, sizeof(cmd_path), "%.*s%.*s", (int32_t)LDG_SYS_KEY_BUFF_MAX, key_path, (int32_t)sizeof(LDG_SYS_CMD_SUBKEY), LDG_SYS_CMD_SUBKEY) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(cmd_path, sizeof(cmd_path), &fmt_len, "%.*s%.*s", (uint32_t)LDG_SYS_KEY_BUFF_MAX, key_path, (uint32_t)sizeof(LDG_SYS_CMD_SUBKEY), LDG_SYS_CMD_SUBKEY) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(snprintf(desc, sizeof(desc), "%.*s%.*s", (int32_t)sizeof(LDG_SYS_URL_DESC_PREFIX), LDG_SYS_URL_DESC_PREFIX, (int32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(desc, sizeof(desc), &fmt_len, "%.*s%.*s", (uint32_t)sizeof(LDG_SYS_URL_DESC_PREFIX), LDG_SYS_URL_DESC_PREFIX, (uint32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(snprintf(cmd_line, sizeof(cmd_line), "\"%.*s\" %.*s", (int32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (int32_t)sizeof(LDG_SYS_CMD_ARG_TOK), LDG_SYS_CMD_ARG_TOK) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(cmd_line, sizeof(cmd_line), &fmt_len, "\"%.*s\" %.*s", (uint32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (uint32_t)sizeof(LDG_SYS_CMD_ARG_TOK), LDG_SYS_CMD_ARG_TOK) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
     ret = sys_reg_str_set(key_path, 0x0, desc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -369,11 +381,12 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
 
 static uint32_t sys_secret_target_build(const char *app, const char *key, WCHAR *wide, int32_t wide_cap)
 {
-    char target[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
+    char tgt[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
+    uint64_t tgt_len = 0;
 
-    if (LDG_UNLIKELY(snprintf(target, sizeof(target), "%.*s/%.*s", (int32_t)LDG_SYS_SECRET_APP_MAX, app, (int32_t)LDG_SYS_SECRET_KEY_MAX, key) < 0)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(tgt, sizeof(tgt), &tgt_len, "%.*s/%.*s", (uint32_t)LDG_SYS_SECRET_APP_MAX, app, (uint32_t)LDG_SYS_SECRET_KEY_MAX, key) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(MultiByteToWideChar(CP_UTF8, LDG_SYS_MB_NO_FLAG, target, LDG_SYS_MB_NULL_TERM, wide, wide_cap) <= 0)) { return LDG_ERR_MEM_STR_TRUNC; }
+    if (LDG_UNLIKELY(MultiByteToWideChar(CP_UTF8, LDG_SYS_MB_NO_FLAG, tgt, LDG_SYS_MB_NULL_TERM, wide, wide_cap) <= 0)) { return LDG_ERR_MEM_STR_TRUNC; }
 
     return LDG_ERR_AOK;
 }

@@ -24,6 +24,7 @@
 #define LDG_SYS_PROC_BATCH_EXT_CMD ".cmd"
 #define LDG_SYS_PROC_BATCH_META "\"%&|<>^!\r\n"
 #define LDG_SYS_PROC_DOT_CHAR '.'
+#define LDG_SYS_PROC_EXEC_EXT ".exe"
 
 #include <dangling/sys/proc.h>
 #include <dangling/mem/secure.h>
@@ -556,6 +557,33 @@ static uint8_t proc_name_match_is(const char *lhs, const char *rhs)
     }
 
     return (lhs[idx] == LDG_STR_TERM && rhs[idx] == LDG_STR_TERM) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+}
+
+uint32_t ldg_sys_proc_path_find(const char *name, char *buff, uint64_t buff_size)
+{
+    DWORD cap = 0;
+    DWORD len = 0;
+
+    if (LDG_UNLIKELY(!name || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    buff[0] = LDG_STR_TERM;
+
+    if (LDG_UNLIKELY(name[0] == LDG_STR_TERM)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    cap = (buff_size < (uint64_t)MAXDWORD) ? (DWORD)buff_size : MAXDWORD;
+
+    len = SearchPathA(0x0, name, LDG_SYS_PROC_EXEC_EXT, cap, buff, 0x0);
+    if (len == 0) { return LDG_ERR_NOT_FOUND; }
+
+    if (LDG_UNLIKELY(len >= cap))
+    {
+        buff[0] = LDG_STR_TERM;
+        return LDG_ERR_STR_TRUNC;
+    }
+
+    return LDG_ERR_AOK;
 }
 
 uint32_t ldg_sys_proc_list(ldg_sys_proc_info_t *out, uint64_t cap, uint64_t *out_cunt)

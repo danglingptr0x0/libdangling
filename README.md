@@ -52,7 +52,7 @@ after install, query the lib with `pkg-config --cflags --libs dangling`.
 
 ## API
 
-the API sits at level `DANGLING_6.0`. `libdangling.map` is the authoritative export list: ~1645 syms across six version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` ships alongside it.
+the API sits at level `DANGLING_6.0`. `libdangling.map` is the authoritative export list: ~1660 syms across six version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` ships alongside it.
 
 the ABI ck requires `abi-dumper` and `abi-compliance-checker`:
 

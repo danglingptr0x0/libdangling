@@ -1070,6 +1070,8 @@ uint32_t ldg_math_phys_compute_vk_region_arm(ldg_math_phys_ctx_t *ctx, uint32_t 
         if (LDG_UNLIKELY(err != LDG_ERR_AOK))
         {
             ret = compute_slot_buff_release(bridge->dev, &slot->psi);
+            if (ret != LDG_ERR_AOK) { LDG_ERRLOG_WARN("phys: compute slot rollback failed"); }
+
             slot->open = 0;
             ret = ldg_math_phys_compute_slot_release(bridge, slot);
             return (ret != LDG_ERR_AOK) ? ret : err;
@@ -1108,6 +1110,8 @@ uint32_t ldg_math_phys_compute_vk_region_arm(ldg_math_phys_ctx_t *ctx, uint32_t 
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         ret = ldg_mem_dealloc(coeff_scratch);
+        if (ret != LDG_ERR_AOK) { LDG_ERRLOG_WARN("phys: compute slot rollback failed"); }
+
         ret = ldg_math_phys_compute_slot_release(bridge, slot);
         return (ret != LDG_ERR_AOK) ? ret : err;
     }
@@ -1202,6 +1206,8 @@ uint32_t ldg_math_phys_compute_vk_region_arm(ldg_math_phys_ctx_t *ctx, uint32_t 
         if (LDG_UNLIKELY(err != LDG_ERR_AOK))
         {
             ret = compute_slot_buff_release(bridge->dev, &slot->port_param);
+            if (ret != LDG_ERR_AOK) { LDG_ERRLOG_WARN("phys: compute slot rollback failed"); }
+
             slot->port_pm_cunt = 0;
             ret = ldg_math_phys_compute_slot_release(bridge, slot);
             return (ret != LDG_ERR_AOK) ? ret : err;
@@ -1379,7 +1385,6 @@ uint32_t ldg_math_phys_compute_vk_pack_set(ldg_math_phys_ctx_t *ctx, uint32_t re
     slot->vol_stride = vol_stride;
     slot->slice_z = slice_z;
     slot->pack_plane = info.nx * info.ny;
-    vol_cell = 1;
     if (vol_stride > 0)
     {
         slot->vol_dim[0] = (info.nx + vol_stride - 1) / vol_stride;

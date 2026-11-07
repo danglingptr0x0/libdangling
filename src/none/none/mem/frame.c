@@ -299,6 +299,8 @@ uint32_t ldg_mem_frame_init(const ldg_mem_extent_t *extent, uint32_t cunt)
         host_base = (extent[idx].base + LDG_MEM_FRAME_ALIGN_BIAS) & ~LDG_MEM_FRAME_ALIGN_BIAS;
         host_end = (extent[idx].base + extent[idx].width) & ~LDG_MEM_FRAME_ALIGN_BIAS;
 
+        if (host_base == 0) { host_base = LDG_MEM_FRAME_WIDTH; }
+
         if (host_end <= host_base) { continue; }
 
         if (host_end - host_base >= bitmap_width)

@@ -1,5 +1,3 @@
-#include <inttypes.h>
-#include <stdio.h>
 #include <string.h>
 #include <windows.h>
 #include <setupapi.h>
@@ -26,10 +24,11 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/str/str.h>
+#include <dangling/str/fmt.h>
 
 static uint32_t serial_baud_translate(ldg_io_serial_baud_t baud, DWORD *out)
 {
-    switch (baud)
+    switch ((uint32_t)baud)
     {
         case LDG_IO_SERIAL_BAUD_1200:
             *out = CBR_1200;
@@ -73,7 +72,7 @@ static uint32_t serial_baud_translate(ldg_io_serial_baud_t baud, DWORD *out)
 
 static uint32_t serial_data_translate(ldg_io_serial_data_t data, BYTE *out)
 {
-    switch (data)
+    switch ((uint32_t)data)
     {
         case LDG_IO_SERIAL_DATA_5:
             *out = LDG_IO_SERIAL_DATA_BITS_5;
@@ -210,7 +209,7 @@ uint32_t ldg_io_serial_port_list(ldg_io_serial_port_t *out, uint64_t cap, uint64
     char path[LDG_IO_SERIAL_PATH_MAX] = LDG_ARR_ZERO_INIT;
     uint64_t found = 0;
     DWORD idx = 0;
-    int32_t len = 0;
+    uint64_t len = 0;
     uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -229,12 +228,9 @@ uint32_t ldg_io_serial_port_list(ldg_io_serial_port_t *out, uint64_t cap, uint64
         ret = serial_port_name_rd(info_set, &dev, name, LDG_IO_SERIAL_PATH_MAX);
         if (ret != LDG_ERR_AOK) { continue; }
 
-        len = snprintf(path, LDG_IO_SERIAL_PATH_MAX, "\\\\.\\%.32s", name);
-        if (len <= 0) { continue; }
+        if (ldg_str_fmt(path, LDG_IO_SERIAL_PATH_MAX, &len, "\\\\.\\%.32s", name) != LDG_ERR_AOK) { continue; }
 
-        if ((uint64_t)len >= LDG_IO_SERIAL_PATH_MAX) { continue; }
-
-        ret = ldg_mem_secure_cpy(out[found].path, path, (uint64_t)len + LDG_STR_TERM_SIZE);
+        ret = ldg_mem_secure_cpy(out[found].path, path, len + LDG_STR_TERM_SIZE);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             SetupDiDestroyDeviceInfoList(info_set);

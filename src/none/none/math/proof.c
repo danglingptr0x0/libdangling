@@ -33,6 +33,8 @@ static uint32_t proof_vanish_inverse_fill(uint32_t log_domain, ldg_math_field_el
     ldg_math_field_elem_t *mid = 0x0;
     ldg_math_field_elem_t *inverted = 0x0;
 
+    if (LDG_UNLIKELY(blowup == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     ret = ldg_math_field_root_get(log_domain, &root);
 
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }

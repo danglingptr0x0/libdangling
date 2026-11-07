@@ -254,6 +254,8 @@ static uint32_t ldg_math_phys_sweep_sphere_seg_solve(const ldg_math_phys_sweep_d
 
     toi = hi;
     gap_mid = ldg_math_phys_sweep_sphere_seg_gap(sweep, tgt->center, thr, toi, closest);
+    if (LDG_UNLIKELY(gap_mid > 0.0)) { *hit = LDG_TRUTH_FALSE; return LDG_ERR_AOK; }
+
     ldg_math_phys_sweep_sphere_normal_set(closest, tgt->center, tgt->radius, out->normal, out->point);
     out->toi = toi;
     *hit = LDG_TRUTH_TRUE;

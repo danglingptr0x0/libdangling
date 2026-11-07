@@ -377,6 +377,13 @@ static void portmode_field_sample(const portmode_mesh_t *mesh, const double *mu_
     if (cross_sum < 0.0) { for (idx = 0; idx < 2 * face_cunt; idx++) { out_h[idx] = 0.0 - out_h[idx]; } }
 }
 
+static uint32_t portmode_first_fault_keep(uint32_t ret, uint32_t step)
+{
+    if (ret != LDG_ERR_AOK) { return ret; }
+
+    return step;
+}
+
 uint32_t ldg_math_phys_em_portmode_solve(const double *eps_r, const double *mu_r, const uint8_t *pec, uint64_t grid_a, uint64_t grid_b, double spacing, double k0, uint32_t mode_idx, double *out_e, double *out_h, double *out_beta)
 {
     portmode_mesh_t mesh = LDG_STRUCT_ZERO_INIT;
@@ -638,52 +645,53 @@ uint32_t ldg_math_phys_em_portmode_solve(const double *eps_r, const double *mu_r
         }
     }
 
-    if (lu != 0x0) { err = ldg_math_lu_ctx_destroy(&lu); }
+    if (lu != 0x0) { ret = portmode_first_fault_keep(ret, ldg_math_lu_ctx_destroy(&lu)); }
 
-    if (schur != 0x0) { err = ldg_math_eigen_schur_ctx_destroy(&schur); }
+    if (schur != 0x0) { ret = portmode_first_fault_keep(ret, ldg_math_eigen_schur_ctx_destroy(&schur)); }
 
-    if (chol_e != 0x0) { err = ldg_math_cholesky_ctx_destroy(&chol_e); }
+    if (chol_e != 0x0) { ret = portmode_first_fault_keep(ret, ldg_math_cholesky_ctx_destroy(&chol_e)); }
 
-    if (chol_z != 0x0) { err = ldg_math_cholesky_ctx_destroy(&chol_z); }
+    if (chol_z != 0x0) { ret = portmode_first_fault_keep(ret, ldg_math_cholesky_ctx_destroy(&chol_z)); }
 
-    if (z_dof != 0x0) { err = ldg_mem_dealloc(z_dof); }
+    if (z_dof != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(z_dof)); }
 
-    if (e_dof != 0x0) { err = ldg_mem_dealloc(e_dof); }
+    if (e_dof != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(e_dof)); }
 
-    if (vec_c != 0x0) { err = ldg_mem_dealloc(vec_c); }
+    if (vec_c != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(vec_c)); }
 
-    if (lam != 0x0) { err = ldg_mem_dealloc(lam); }
+    if (lam != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(lam)); }
 
-    if (stage != 0x0) { err = ldg_mem_dealloc(stage); }
+    if (stage != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(stage)); }
 
-    if (m_std != 0x0) { err = ldg_mem_dealloc(m_std); }
+    if (m_std != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(m_std)); }
 
-    if (wz_map != 0x0) { err = ldg_mem_dealloc(wz_map); }
+    if (wz_map != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(wz_map)); }
 
-    if (tz_eps != 0x0) { err = ldg_mem_dealloc(tz_eps); }
+    if (tz_eps != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(tz_eps)); }
 
-    if (g_eps != 0x0) { err = ldg_mem_dealloc(g_eps); }
+    if (g_eps != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(g_eps)); }
 
-    if (g_mu != 0x0) { err = ldg_mem_dealloc(g_mu); }
+    if (g_mu != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(g_mu)); }
 
-    if (t_mu != 0x0) { err = ldg_mem_dealloc(t_mu); }
+    if (t_mu != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(t_mu)); }
 
-    if (a_ee != 0x0) { err = ldg_mem_dealloc(a_ee); }
+    if (a_ee != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(a_ee)); }
 
-    if (mesh.tri_in != 0x0) { err = ldg_mem_dealloc(mesh.tri_in); }
+    if (mesh.tri_in != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.tri_in)); }
 
-    if (mesh.edge_use != 0x0) { err = ldg_mem_dealloc(mesh.edge_use); }
+    if (mesh.edge_use != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.edge_use)); }
 
-    if (mesh.node_dof != 0x0) { err = ldg_mem_dealloc(mesh.node_dof); }
+    if (mesh.node_dof != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.node_dof)); }
 
-    if (mesh.edge_dof != 0x0) { err = ldg_mem_dealloc(mesh.edge_dof); }
+    if (mesh.edge_dof != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.edge_dof)); }
 
-    if (mesh.tri_edge != 0x0) { err = ldg_mem_dealloc(mesh.tri_edge); }
+    if (mesh.tri_edge != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.tri_edge)); }
 
-    if (mesh.tri_node != 0x0) { err = ldg_mem_dealloc(mesh.tri_node); }
+    if (mesh.tri_node != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.tri_node)); }
 
-    if (mesh.tri_area != 0x0) { err = ldg_mem_dealloc(mesh.tri_area); }
+    if (mesh.tri_area != 0x0) { ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.tri_area)); }
 
-    err = ldg_mem_dealloc(mesh.bary_grad);
+    ret = portmode_first_fault_keep(ret, ldg_mem_dealloc(mesh.bary_grad));
+
     return ret;
 }

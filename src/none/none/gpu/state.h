@@ -15,6 +15,7 @@
 #define LDG_GPU_PUSH_CONST_SIZE 128
 #define LDG_GPU_BIND_INFO_QWORDS 4
 #define LDG_GPU_BIND_WR_QWORDS 12
+#define LDG_GPU_VALIDATION_INST_EXT_CUNT 1
 
 #define LDG_GPU_ALIGN_UP(x, a) (((uint64_t)(x) + ((uint64_t)(a) - 1)) & ~((uint64_t)(a) - 1))
 

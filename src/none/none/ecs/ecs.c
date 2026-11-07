@@ -50,7 +50,6 @@ static uint32_t cmd_buff_apply(ldg_ecs_ctx_t *ctx, ldg_ecs_cmd_buff_t *buff)
     for (cmd_idx = 0; cmd_idx < cunt; cmd_idx++)
     {
         rec = &buff->cmd[cmd_idx];
-        step = LDG_ERR_AOK;
         entity = rec->entity;
 
         if (rec->op != LDG_ECS_CMD_OP_ENTITY_CREATE && (entity & LDG_ECS_CMD_ENTITY_DEFERRED_TAG) != 0)

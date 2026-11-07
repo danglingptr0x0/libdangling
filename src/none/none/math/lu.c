@@ -79,7 +79,8 @@ LDG_EXPORT uint32_t ldg_math_lu_ctx_create(uint64_t dim, ldg_math_lu_ctx_t **out
     ctx = (ldg_math_lu_ctx_t *)blk;
     if (LDG_UNLIKELY(ldg_mem_zero(ctx, sizeof(ldg_math_lu_ctx_t)) != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: lu ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -87,7 +88,8 @@ LDG_EXPORT uint32_t ldg_math_lu_ctx_create(uint64_t dim, ldg_math_lu_ctx_t **out
     ret = ldg_mem_alloc(square * (uint64_t)sizeof(ldg_math_complex_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: lu ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 
@@ -95,8 +97,10 @@ LDG_EXPORT uint32_t ldg_math_lu_ctx_create(uint64_t dim, ldg_math_lu_ctx_t **out
     ret = ldg_mem_alloc(dim * (uint64_t)sizeof(uint64_t), &blk);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
-        ret = ldg_mem_dealloc(ctx->factor);
-        ret = ldg_mem_dealloc(ctx);
+        if (ldg_mem_dealloc(ctx->factor) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: lu ctx rollback failed"); }
+
+        if (ldg_mem_dealloc(ctx) != LDG_ERR_AOK) { LDG_ERRLOG_WARN("math: lu ctx rollback failed"); }
+
         return LDG_ERR_ALLOC_NULL;
     }
 

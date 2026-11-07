@@ -1,7 +1,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdio.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/timex.h>
@@ -10,6 +9,7 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 #include <dangling/time/time.h>
 #include <dangling/thread/spsc.h>
 #include <dangling/thread/sync.h>
@@ -51,20 +51,20 @@
 #define LDG_HW_SENSOR_PATH_CPUFREQ "/sys/devices/system/cpu"
 #define LDG_HW_SENSOR_PATH_RAPL "/sys/class/powercap"
 
-#define LDG_HW_SENSOR_FMT_CHIP "%s/hwmon%u/name"
-#define LDG_HW_SENSOR_FMT_TEMP "%s/hwmon%u/temp%u_input"
-#define LDG_HW_SENSOR_FMT_TEMP_LABEL "%s/hwmon%u/temp%u_label"
-#define LDG_HW_SENSOR_FMT_VOLTAGE "%s/hwmon%u/in%u_input"
-#define LDG_HW_SENSOR_FMT_VOLTAGE_LABEL "%s/hwmon%u/in%u_label"
-#define LDG_HW_SENSOR_FMT_CURRENT "%s/hwmon%u/curr%u_input"
-#define LDG_HW_SENSOR_FMT_POWER "%s/hwmon%u/power%u_input"
-#define LDG_HW_SENSOR_FMT_FAN "%s/hwmon%u/fan%u_input"
-#define LDG_HW_SENSOR_FMT_PWM "%s/hwmon%u/pwm%u"
-#define LDG_HW_SENSOR_FMT_ZONE "%s/thermal_zone%u/temp"
-#define LDG_HW_SENSOR_FMT_ZONE_KIND "%s/thermal_zone%u/type"
-#define LDG_HW_SENSOR_FMT_FREQ "%s/cpu%u/cpufreq/scaling_cur_freq"
-#define LDG_HW_SENSOR_FMT_RAPL_NAME "%s/intel-rapl/intel-rapl:%u/name"
-#define LDG_HW_SENSOR_FMT_RAPL_POWER "%s/intel-rapl/intel-rapl:%u/power_uw"
+#define LDG_HW_SENSOR_FMT_CHIP "%s/hwmon%u32/name"
+#define LDG_HW_SENSOR_FMT_TEMP "%s/hwmon%u32/temp%u32_input"
+#define LDG_HW_SENSOR_FMT_TEMP_LABEL "%s/hwmon%u32/temp%u32_label"
+#define LDG_HW_SENSOR_FMT_VOLTAGE "%s/hwmon%u32/in%u32_input"
+#define LDG_HW_SENSOR_FMT_VOLTAGE_LABEL "%s/hwmon%u32/in%u32_label"
+#define LDG_HW_SENSOR_FMT_CURRENT "%s/hwmon%u32/curr%u32_input"
+#define LDG_HW_SENSOR_FMT_POWER "%s/hwmon%u32/power%u32_input"
+#define LDG_HW_SENSOR_FMT_FAN "%s/hwmon%u32/fan%u32_input"
+#define LDG_HW_SENSOR_FMT_PWM "%s/hwmon%u32/pwm%u32"
+#define LDG_HW_SENSOR_FMT_ZONE "%s/thermal_zone%u32/temp"
+#define LDG_HW_SENSOR_FMT_ZONE_KIND "%s/thermal_zone%u32/type"
+#define LDG_HW_SENSOR_FMT_FREQ "%s/cpu%u32/cpufreq/scaling_cur_freq"
+#define LDG_HW_SENSOR_FMT_RAPL_NAME "%s/intel-rapl/intel-rapl:%u32/name"
+#define LDG_HW_SENSOR_FMT_RAPL_POWER "%s/intel-rapl/intel-rapl:%u32/power_uw"
 
 #define LDG_HW_SENSOR_NEEDLE_CORE "core"
 #define LDG_HW_SENSOR_NEEDLE_PACKAGE "package"
@@ -319,13 +319,14 @@ static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
     char label[LDG_HW_SENSOR_LABEL_CAP] = LDG_ARR_ZERO_INIT;
     hw_sensor_chip_t chip = HW_SENSOR_CHIP_OTHER;
     int64_t raw = 0;
+    uint64_t path_len = 0;
     uint32_t hwmon_idx = 0;
     uint32_t input_idx = 0;
     uint32_t converted = 0;
 
     for (hwmon_idx = LDG_HW_SENSOR_IDX_FIRST; hwmon_idx < LDG_HW_SENSOR_HWMON_MAX; hwmon_idx++)
     {
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_CHIP, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx) < 0) { continue; }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_CHIP, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx) != LDG_ERR_AOK) { continue; }
 
         if (hw_sensor_sysfs_rd(path, chip_name, sizeof(chip_name)) != LDG_ERR_AOK) { continue; }
 
@@ -333,28 +334,28 @@ static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
 
         for (input_idx = LDG_HW_SENSOR_INPUT_FIRST; input_idx < LDG_HW_SENSOR_INPUT_MAX; input_idx++)
         {
-            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_TEMPERATURE) != 0) { if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_TEMP, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK)
+            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_TEMPERATURE) != 0) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_TEMP, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK)
                 {
                     label[LDG_HW_SENSOR_IDX_FIRST] = LDG_HW_SENSOR_TERM;
-                    if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_TEMP_LABEL, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0) { hw_sensor_sysfs_rd(path, label, sizeof(label)); }
+                    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_TEMP_LABEL, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK) { hw_sensor_sysfs_rd(path, label, sizeof(label)); }
 
                     if (hw_sensor_millikelvin_get(raw, &converted) == LDG_ERR_AOK) { hw_sensor_temperature_place(out, chip, label, converted); }
                 }
             }
 
-            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_VOLTAGE) != 0) { if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_VOLTAGE, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
+            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_VOLTAGE) != 0) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_VOLTAGE, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
                 {
                     label[LDG_HW_SENSOR_IDX_FIRST] = LDG_HW_SENSOR_TERM;
-                    if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_VOLTAGE_LABEL, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0) { hw_sensor_sysfs_rd(path, label, sizeof(label)); }
+                    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_VOLTAGE_LABEL, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK) { hw_sensor_sysfs_rd(path, label, sizeof(label)); }
 
                     hw_sensor_voltage_place(out, chip, label, (uint32_t)raw);
                 }
             }
 
-            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_CURRENT) != 0) { if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_CURRENT, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { if (chip == HW_SENSOR_CHIP_GPU) { if (out->gpu_current == LDG_HW_SENSOR_ABSENT) { out->gpu_current = (uint32_t)raw; } }
+            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_CURRENT) != 0) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_CURRENT, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { if (chip == HW_SENSOR_CHIP_GPU) { if (out->gpu_current == LDG_HW_SENSOR_ABSENT) { out->gpu_current = (uint32_t)raw; } }
                     else if (out->core_current == LDG_HW_SENSOR_ABSENT) { out->core_current = (uint32_t)raw; } } }
 
-            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_POWER) != 0) { if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_POWER, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
+            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_POWER) != 0) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_POWER, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
                 {
                     converted = (uint32_t)(raw / LDG_HW_SENSOR_MICROWATT_PER_MILLIWATT);
                     if (chip == HW_SENSOR_CHIP_GPU) { if (out->gpu_power == LDG_HW_SENSOR_ABSENT) { out->gpu_power = converted; } }
@@ -362,10 +363,10 @@ static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
                 }
             }
 
-            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_FAN) != 0 && out->fan_cunt < LDG_HW_SENSOR_FAN_MAX) { if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_FAN, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
+            if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_FAN) != 0 && out->fan_cunt < LDG_HW_SENSOR_FAN_MAX) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_FAN, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
                 {
                     out->fan_rpm[out->fan_cunt] = (uint32_t)raw;
-                    if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_PWM, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) > 0 && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { out->fan_pwm[out->fan_cunt] = (uint32_t)raw; }
+                    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_PWM, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { out->fan_pwm[out->fan_cunt] = (uint32_t)raw; }
 
                     out->fan_cunt++;
                 }
@@ -379,12 +380,13 @@ static void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char kind[LDG_HW_SENSOR_LABEL_CAP] = LDG_ARR_ZERO_INIT;
     int64_t raw = 0;
+    uint64_t path_len = 0;
     uint32_t zone_idx = 0;
     uint32_t converted = 0;
 
     for (zone_idx = LDG_HW_SENSOR_IDX_FIRST; zone_idx < LDG_HW_SENSOR_ZONE_MAX; zone_idx++)
     {
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_ZONE, LDG_HW_SENSOR_PATH_THERMAL, zone_idx) < 0) { continue; }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_ZONE, LDG_HW_SENSOR_PATH_THERMAL, zone_idx) != LDG_ERR_AOK) { continue; }
 
         if (hw_sensor_sysfs_int_rd(path, &raw) != LDG_ERR_AOK) { continue; }
 
@@ -392,7 +394,7 @@ static void hw_sensor_thermal_collect(ldg_hw_sensor_t *out)
 
         kind[LDG_HW_SENSOR_IDX_FIRST] = LDG_HW_SENSOR_TERM;
 
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_ZONE_KIND, LDG_HW_SENSOR_PATH_THERMAL, zone_idx) > 0) { hw_sensor_sysfs_rd(path, kind, sizeof(kind)); }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_ZONE_KIND, LDG_HW_SENSOR_PATH_THERMAL, zone_idx) == LDG_ERR_AOK) { hw_sensor_sysfs_rd(path, kind, sizeof(kind)); }
 
         if (hw_sensor_label_has(kind, LDG_HW_SENSOR_NEEDLE_CORE) == LDG_TRUTH_TRUE || hw_sensor_label_has(kind, LDG_HW_SENSOR_NEEDLE_PACKAGE) == LDG_TRUTH_TRUE) { if (out->cpu_temperature == LDG_HW_SENSOR_ABSENT) { out->cpu_temperature = converted; } }
         else if (out->board_temperature == LDG_HW_SENSOR_ABSENT) { out->board_temperature = converted; }
@@ -403,11 +405,12 @@ static void hw_sensor_freq_collect(ldg_hw_sensor_t *out)
 {
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     int64_t raw = 0;
+    uint64_t path_len = 0;
     uint32_t core_idx = 0;
 
     for (core_idx = LDG_HW_SENSOR_IDX_FIRST; core_idx < LDG_HW_SENSOR_CORE_MAX; core_idx++)
     {
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_FREQ, LDG_HW_SENSOR_PATH_CPUFREQ, core_idx) < 0) { break; }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_FREQ, LDG_HW_SENSOR_PATH_CPUFREQ, core_idx) != LDG_ERR_AOK) { break; }
 
         if (hw_sensor_sysfs_int_rd(path, &raw) != LDG_ERR_AOK) { break; }
 
@@ -423,15 +426,16 @@ static void hw_sensor_rapl_collect(ldg_hw_sensor_t *out)
     char path[LDG_HW_SENSOR_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char name[LDG_HW_SENSOR_LABEL_CAP] = LDG_ARR_ZERO_INIT;
     int64_t raw = 0;
+    uint64_t path_len = 0;
     uint32_t rapl_idx = 0;
 
     for (rapl_idx = LDG_HW_SENSOR_IDX_FIRST; rapl_idx < LDG_HW_SENSOR_RAPL_MAX; rapl_idx++)
     {
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_RAPL_NAME, LDG_HW_SENSOR_PATH_RAPL, rapl_idx) < 0) { continue; }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_RAPL_NAME, LDG_HW_SENSOR_PATH_RAPL, rapl_idx) != LDG_ERR_AOK) { continue; }
 
         if (hw_sensor_sysfs_rd(path, name, sizeof(name)) != LDG_ERR_AOK) { continue; }
 
-        if (snprintf(path, sizeof(path), LDG_HW_SENSOR_FMT_RAPL_POWER, LDG_HW_SENSOR_PATH_RAPL, rapl_idx) < 0) { continue; }
+        if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_RAPL_POWER, LDG_HW_SENSOR_PATH_RAPL, rapl_idx) != LDG_ERR_AOK) { continue; }
 
         if (hw_sensor_sysfs_int_rd(path, &raw) != LDG_ERR_AOK || raw < 0) { continue; }
 

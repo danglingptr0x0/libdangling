@@ -59,5 +59,6 @@ LDG_EXPORT uint32_t ldg_sys_proc_self_priority_set(ldg_sys_proc_priority_t lvl);
 LDG_EXPORT uint32_t ldg_sys_proc_self_priority_get(ldg_sys_proc_priority_t *out);
 LDG_EXPORT uint32_t ldg_sys_proc_self_affinity_set(uint64_t mask);
 LDG_EXPORT uint32_t ldg_sys_proc_self_affinity_get(uint64_t *out);
+LDG_EXPORT uint32_t ldg_sys_proc_path_find(const char *name, char *buff, uint64_t buff_size);
 
 #endif

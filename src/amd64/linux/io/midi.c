@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -13,14 +12,15 @@
 #define LDG_IO_MIDI_PATH_MAX 64
 #define LDG_IO_MIDI_PROC_MAX 96
 #define LDG_IO_MIDI_RD_MAX 256
-#define LDG_IO_MIDI_NODE_FMT "/dev/snd/midiC%" PRIu32 "D%" PRIu32
-#define LDG_IO_MIDI_PROC_FMT "/proc/asound/card%" PRIu32 "/midi%" PRIu32
+#define LDG_IO_MIDI_NODE_FMT "/dev/snd/midiC%u32D%u32"
+#define LDG_IO_MIDI_PROC_FMT "/proc/asound/card%u32/midi%u32"
 #define LDG_IO_MIDI_NAME_FMT "%.63s"
 #define LDG_IO_MIDI_ONE_DATA_LHS 0xC0U
 #define LDG_IO_MIDI_ONE_DATA_RHS 0xD0U
 
 #include <dangling/io/midi.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/arch/amd64/atomic.h>
@@ -135,16 +135,14 @@ static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char
     FILE *file = 0x0;
     char *got = 0x0;
     uint64_t idx = 0;
-    int32_t len = 0;
+    uint64_t len = 0;
 
-    len = snprintf(proc_path, LDG_IO_MIDI_PROC_MAX, LDG_IO_MIDI_PROC_FMT, card, dev);
-    if (len <= 0) { return LDG_ERR_IO_FMT; }
+    if (ldg_str_fmt(proc_path, LDG_IO_MIDI_PROC_MAX, &len, LDG_IO_MIDI_PROC_FMT, card, dev) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
     file = fopen(proc_path, "r");
     if (!file)
     {
-        len = snprintf(out, cap, LDG_IO_MIDI_NAME_FMT, path);
-        if (len <= 0) { return LDG_ERR_IO_FMT; }
+        if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, path) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
         return LDG_ERR_AOK;
     }
@@ -155,8 +153,7 @@ static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char
 
     if (!got)
     {
-        len = snprintf(out, cap, LDG_IO_MIDI_NAME_FMT, path);
-        if (len <= 0) { return LDG_ERR_IO_FMT; }
+        if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, path) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
         return LDG_ERR_AOK;
     }
@@ -168,8 +165,7 @@ static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char
         idx++;
     }
 
-    len = snprintf(out, cap, LDG_IO_MIDI_NAME_FMT, line);
-    if (len <= 0) { return LDG_ERR_IO_FMT; }
+    if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, line) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
     return LDG_ERR_AOK;
 }
@@ -180,21 +176,19 @@ static uint32_t midi_node_at_get(uint64_t want, char *out, uint64_t cap, uint32_
     uint64_t found = 0;
     uint32_t card = 0;
     uint32_t dev = 0;
-    int32_t len = 0;
+    uint64_t len = 0;
 
     for (card = 0; card < LDG_IO_MIDI_CARD_MAX; card++)
     {
         for (dev = 0; dev < LDG_IO_MIDI_DEV_MAX; dev++)
         {
-            len = snprintf(path, LDG_IO_MIDI_PATH_MAX, LDG_IO_MIDI_NODE_FMT, card, dev);
-            if (len <= 0) { continue; }
+            if (ldg_str_fmt(path, LDG_IO_MIDI_PATH_MAX, &len, LDG_IO_MIDI_NODE_FMT, card, dev) != LDG_ERR_AOK) { continue; }
 
             if (access(path, F_OK) == LDG_IO_MIDI_SYSCALL_FAIL) { continue; }
 
             if (found == want)
             {
-                len = snprintf(out, cap, LDG_IO_MIDI_NAME_FMT, path);
-                if (len <= 0) { return LDG_ERR_IO_FMT; }
+                if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, path) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
                 *out_card = card;
                 *out_dev = dev;
@@ -215,14 +209,13 @@ static uint32_t midi_port_list_build(ldg_io_midi_port_t *out, uint64_t cap, uint
     uint64_t found = 0;
     uint32_t card = 0;
     uint32_t dev = 0;
-    int32_t len = 0;
+    uint64_t len = 0;
 
     for (card = 0; card < LDG_IO_MIDI_CARD_MAX && found < cap; card++)
     {
         for (dev = 0; dev < LDG_IO_MIDI_DEV_MAX && found < cap; dev++)
         {
-            len = snprintf(path, LDG_IO_MIDI_PATH_MAX, LDG_IO_MIDI_NODE_FMT, card, dev);
-            if (len <= 0) { continue; }
+            if (ldg_str_fmt(path, LDG_IO_MIDI_PATH_MAX, &len, LDG_IO_MIDI_NODE_FMT, card, dev) != LDG_ERR_AOK) { continue; }
 
             if (access(path, F_OK) == LDG_IO_MIDI_SYSCALL_FAIL) { continue; }
 

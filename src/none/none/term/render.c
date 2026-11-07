@@ -2052,6 +2052,8 @@ static void render_cell_resolve(const ldg_term_render_t *render, uint32_t col, u
     uint8_t chosen_scale = LDG_TRUTH_FALSE;
 
     cell_sample_cunt = (int64_t)render->sample_col_cunt * (int64_t)render->sample_row_cunt;
+    if (LDG_UNLIKELY(cell_sample_cunt == 0)) { return; }
+
     cell_base = render->sample_color + ((((uint64_t)row * render->sample_row_cunt * render->width) + ((uint64_t)col * render->sample_col_cunt)) * LDG_TERM_RENDER_RGB_CUNT);
 
     for (sample_row = 0; sample_row < render->sample_row_cunt; sample_row++)

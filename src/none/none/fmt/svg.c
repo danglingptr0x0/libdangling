@@ -332,7 +332,7 @@ static int64_t svg_atan2_get(int64_t pos_y, int64_t pos_x)
 
     if (pos_x == 0 && pos_y == 0) { return angle; }
 
-    if (svg_abs_get(pos_x) >= svg_abs_get(pos_y))
+    if (pos_x != 0 && (pos_y == 0 || svg_abs_get(pos_x) >= svg_abs_get(pos_y)))
     {
         angle = svg_atan_unit_get(svg_fixed_div(pos_y, pos_x));
 
@@ -1309,7 +1309,7 @@ static uint32_t svg_shape_parse(svg_sink_t *sink, uint64_t lo, uint64_t hi)
     ret = svg_path_parse(sink, &pen, &data);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (sink->svg)
+    if (shape)
     {
         shape->contour_cunt = (uint32_t)(sink->contour_cunt - contour_first);
         shape_src = &sink->shape_src[sink->shape_cunt];

@@ -1358,6 +1358,8 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
     struct spa_pod_builder builder = LDG_STRUCT_ZERO_INIT;
     struct spa_audio_info_raw info = { .format = SPA_AUDIO_FORMAT_UNKNOWN };
     struct pw_properties *props = 0x0;
+    enum pw_stream_flags stream_flags = PW_STREAM_FLAG_NONE;
+    uint32_t stream_flag_bits = PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS;
     uint32_t fmt = 0;
 
     if (LDG_UNLIKELY(g_audio_ctx.is_init != LDG_TRUTH_TRUE)) { return LDG_ERR_AUDIO_NOT_INIT; }
@@ -1366,6 +1368,8 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
 
     fmt = audio_pcm_fmt_get(bit_depth);
     if (LDG_UNLIKELY(fmt == SPA_AUDIO_FORMAT_UNKNOWN)) { return LDG_ERR_UNSUPPORTED; }
+
+    if (LDG_UNLIKELY(ldg_mem_cpy(&stream_flags, &stream_flag_bits, sizeof(stream_flags)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Music", (const char *)0x0);
     if (LDG_UNLIKELY(!props)) { return LDG_ERR_ALLOC_NULL; }
@@ -1390,7 +1394,7 @@ uint32_t ldg_audio_sink_pcm_open(uint32_t rate, uint16_t channel_cunt, uint16_t 
 
     g_audio_pcm.frame_size = (uint32_t)channel_cunt * ((uint32_t)bit_depth / LDG_AUDIO_PCM_BITS_PER_BYTE);
 
-    if (LDG_UNLIKELY(pw_stream_connect(g_audio_pcm.stream, PW_DIRECTION_OUTPUT, PW_ID_ANY, (enum pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS), params, LDG_AUDIO_PCM_PARAM_CUNT) < 0))
+    if (LDG_UNLIKELY(pw_stream_connect(g_audio_pcm.stream, PW_DIRECTION_OUTPUT, PW_ID_ANY, stream_flags, params, LDG_AUDIO_PCM_PARAM_CUNT) < 0))
     {
         pw_stream_destroy(g_audio_pcm.stream);
         g_audio_pcm.stream = 0x0;

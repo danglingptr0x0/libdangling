@@ -132,8 +132,11 @@ endif()
 
 if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows" OR LDG_ARCH STREQUAL "dangcsa")
     list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/sock.c)
+    if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
+        list(APPEND LDG_OPT_SOURCES ${LDG_PLATFORM_DIR}/net/diag.c)
+    endif()
     if(LDG_PLATFORM STREQUAL "windows")
-        list(APPEND LDG_OPT_LIBRARIES ws2_32)
+        list(APPEND LDG_OPT_LIBRARIES ws2_32 iphlpapi)
     endif()
     message(STATUS "sock: on")
 else()
@@ -467,9 +470,15 @@ if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
         ${LDG_PLATFORM_DIR}/sys/window.c
         ${LDG_PLATFORM_DIR}/hw/sensor.c
         ${LDG_PLATFORM_DIR}/sys/clipboard.c
+        ${LDG_PLATFORM_DIR}/mem/exec.c
+        ${LDG_PLATFORM_DIR}/sys/guard.c
+        ${LDG_PLATFORM_DIR}/sys/scan.c
+        ${LDG_PLATFORM_DIR}/io/ipc.c
     )
     if(LDG_PLATFORM STREQUAL "windows")
         list(APPEND LDG_SOURCES ${LDG_PLATFORM_DIR}/sys/media.c)
+    else()
+        set_source_files_properties(${LDG_PLATFORM_DIR}/thread/sync.c ${LDG_PLATFORM_DIR}/sys/guard.c PROPERTIES COMPILE_OPTIONS "-Wno-disabled-macro-expansion")
     endif()
 elseif(LDG_PLATFORM STREQUAL "DANGLING")
     list(APPEND LDG_SOURCES
@@ -606,7 +615,7 @@ foreach(LDG_TARGET ${LDG_TARGETS})
         target_link_libraries(${LDG_TARGET} PUBLIC m ${CMAKE_DL_LIBS})
     endif()
     if(LDG_PLATFORM STREQUAL "windows")
-        target_link_libraries(${LDG_TARGET} PUBLIC kernel32 bcrypt ws2_32 advapi32 shell32 user32 setupapi winmm)
+        target_link_libraries(${LDG_TARGET} PUBLIC kernel32 bcrypt ws2_32 iphlpapi advapi32 shell32 user32 setupapi winmm)
     endif()
     target_compile_definitions(${LDG_TARGET} PRIVATE ${LDG_OPT_DEFINES})
 
@@ -691,7 +700,7 @@ if(LDG_WITH_GPU AND (VULKAN_FOUND OR VULKAN_LIBRARIES))
 endif()
 
 if(LDG_PLATFORM STREQUAL "windows")
-    string(APPEND LDG_PC_LIBS " -lkernel32 -lbcrypt -lws2_32 -ladvapi32 -lshell32 -luser32 -lruntimeobject -lole32 -lsetupapi -lwinmm")
+    string(APPEND LDG_PC_LIBS " -lkernel32 -lbcrypt -lws2_32 -liphlpapi -ladvapi32 -lshell32 -luser32 -lruntimeobject -lole32 -lsetupapi -lwinmm")
 endif()
 
 configure_file(

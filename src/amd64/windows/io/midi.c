@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <windows.h>
 #include <mmsystem.h>
 
@@ -6,6 +5,7 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 #include <dangling/arch/amd64/atomic.h>
 #include <dangling/arch/amd64/fence.h>
 
@@ -92,9 +92,9 @@ uint32_t ldg_io_midi_in_port_list(ldg_io_midi_port_t *out, uint64_t cap, uint64_
 {
     MIDIINCAPSA caps = LDG_STRUCT_ZERO_INIT;
     uint64_t found = 0;
+    uint64_t len = 0;
     UINT total = 0;
     UINT idx = 0;
-    int32_t len = 0;
 
     if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -108,8 +108,7 @@ uint32_t ldg_io_midi_in_port_list(ldg_io_midi_port_t *out, uint64_t cap, uint64_
     {
         if (midiInGetDevCapsA(idx, &caps, (UINT)sizeof(MIDIINCAPSA)) != MMSYSERR_NOERROR) { continue; }
 
-        len = snprintf(out[found].name, LDG_IO_MIDI_PORT_NAME_MAX, LDG_IO_MIDI_NAME_FMT, caps.szPname);
-        if (len <= 0) { continue; }
+        if (ldg_str_fmt(out[found].name, LDG_IO_MIDI_PORT_NAME_MAX, &len, LDG_IO_MIDI_NAME_FMT, caps.szPname) != LDG_ERR_AOK || len == 0) { continue; }
 
         found++;
     }
@@ -123,9 +122,9 @@ uint32_t ldg_io_midi_out_port_list(ldg_io_midi_port_t *out, uint64_t cap, uint64
 {
     MIDIOUTCAPSA caps = LDG_STRUCT_ZERO_INIT;
     uint64_t found = 0;
+    uint64_t len = 0;
     UINT total = 0;
     UINT idx = 0;
-    int32_t len = 0;
 
     if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -139,8 +138,7 @@ uint32_t ldg_io_midi_out_port_list(ldg_io_midi_port_t *out, uint64_t cap, uint64
     {
         if (midiOutGetDevCapsA(idx, &caps, (UINT)sizeof(MIDIOUTCAPSA)) != MMSYSERR_NOERROR) { continue; }
 
-        len = snprintf(out[found].name, LDG_IO_MIDI_PORT_NAME_MAX, LDG_IO_MIDI_NAME_FMT, caps.szPname);
-        if (len <= 0) { continue; }
+        if (ldg_str_fmt(out[found].name, LDG_IO_MIDI_PORT_NAME_MAX, &len, LDG_IO_MIDI_NAME_FMT, caps.szPname) != LDG_ERR_AOK || len == 0) { continue; }
 
         found++;
     }

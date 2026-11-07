@@ -1,14 +1,16 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <stdio.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 
 #include <dangling/str/str.h>
+#include <dangling/str/fmt.h>
 
 #define LDG_SYS_PROC_PATH_PROC "/proc"
 #define LDG_SYS_PROC_FMT_COMM "/proc/%s/comm"
@@ -22,6 +24,12 @@
 #define LDG_SYS_PROC_DEC_CAP 16
 #define LDG_SYS_PROC_NO_PARENT UINT32_MAX
 #define LDG_SYS_PROC_PPID_FIELD 2
+#define LDG_SYS_PROC_PATH_ENV "PATH"
+#define LDG_SYS_PROC_PATH_LIST_SEP ':'
+#define LDG_SYS_PROC_DIR_SEP '/'
+#define LDG_SYS_PROC_DIR_SEP_LEN 1
+#define LDG_SYS_PROC_DIR_CURR "."
+#define LDG_SYS_PROC_DIR_CURR_LEN 1
 
 #define LDG_SYS_PROC_PIPE_RD 0
 #define LDG_SYS_PROC_PIPE_WR 1
@@ -191,6 +199,17 @@ static uint32_t proc_exit_timed_wait(ldg_sys_proc_t *proc, uint64_t timeout)
     }
 }
 
+__attribute__((noreturn)) static void proc_child_exec(const char *path, const char *const *argv)
+{
+    char *const *exec_argv = 0x0;
+
+    if (ldg_mem_secure_cpy(&exec_argv, &argv, sizeof(exec_argv)) != LDG_ERR_AOK) { _exit(LDG_SYS_PROC_EXEC_FAIL); }
+
+    execv(path, exec_argv);
+
+    _exit(LDG_SYS_PROC_EXEC_FAIL);
+}
+
 static uint32_t proc_inherit_spawn(const char *path, const char *const *argv, const char *cwd, ldg_sys_proc_t *out)
 {
     int32_t pid = 0;
@@ -202,9 +221,7 @@ static uint32_t proc_inherit_spawn(const char *path, const char *const *argv, co
     {
         if (cwd != 0x0) { if (chdir(cwd) != 0) { _exit(LDG_SYS_PROC_EXEC_FAIL); } }
 
-        execv(path, (char *const *)argv);
-
-        _exit(LDG_SYS_PROC_EXEC_FAIL);
+        proc_child_exec(path, argv);
     }
 
     out->pid = (uint32_t)pid;
@@ -281,9 +298,7 @@ uint32_t ldg_sys_proc_spawn(const char *path, const char *const *argv, const cha
 
         if (cwd != 0x0) { if (chdir(cwd) != 0) { _exit(LDG_SYS_PROC_EXEC_FAIL); } }
 
-        execv(path, (char *const *)argv);
-
-        _exit(LDG_SYS_PROC_EXEC_FAIL);
+        proc_child_exec(path, argv);
     }
 
     close(pipe_in[LDG_SYS_PROC_PIPE_RD]);
@@ -513,8 +528,9 @@ static uint32_t proc_parent_get(const char *pid_text)
     uint64_t idx = 0;
     uint64_t field = 0;
     uint64_t span = 0;
+    uint64_t path_len = 0;
 
-    if (snprintf(path, sizeof(path), LDG_SYS_PROC_FMT_STAT, pid_text) < 0) { return LDG_SYS_PROC_NO_PARENT; }
+    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_SYS_PROC_FMT_STAT, pid_text) != LDG_ERR_AOK) { return LDG_SYS_PROC_NO_PARENT; }
 
     if (proc_text_rd(path, stat, sizeof(stat)) != LDG_ERR_AOK) { return LDG_SYS_PROC_NO_PARENT; }
 
@@ -545,6 +561,83 @@ static uint32_t proc_parent_get(const char *pid_text)
     return parent;
 }
 
+static uint8_t proc_exec_file_is(const char *path)
+{
+    struct stat st = LDG_STRUCT_ZERO_INIT;
+
+    if (stat(path, &st) != 0) { return LDG_TRUTH_FALSE; }
+
+    if (!S_ISREG(st.st_mode)) { return LDG_TRUTH_FALSE; }
+
+    if (access(path, X_OK) != 0) { return LDG_TRUTH_FALSE; }
+
+    return LDG_TRUTH_TRUE;
+}
+
+static uint8_t proc_path_candidate_is(const char *dir, uint64_t dir_len, const char *name, uint64_t name_len, char *buff, uint64_t buff_size)
+{
+    if (dir_len + LDG_SYS_PROC_DIR_SEP_LEN + name_len + LDG_STR_TERM_SIZE > buff_size) { return LDG_TRUTH_FALSE; }
+
+    if (ldg_mem_secure_cpy(buff, dir, dir_len) != LDG_ERR_AOK) { return LDG_TRUTH_FALSE; }
+
+    buff[dir_len] = LDG_SYS_PROC_DIR_SEP;
+
+    if (ldg_mem_secure_cpy(buff + dir_len + LDG_SYS_PROC_DIR_SEP_LEN, name, name_len) != LDG_ERR_AOK) { return LDG_TRUTH_FALSE; }
+
+    buff[dir_len + LDG_SYS_PROC_DIR_SEP_LEN + name_len] = LDG_STR_TERM;
+
+    return proc_exec_file_is(buff);
+}
+
+uint32_t ldg_sys_proc_path_find(const char *name, char *buff, uint64_t buff_size)
+{
+    const char *list = 0x0;
+    uint64_t name_len = 0;
+    uint64_t seg_start = 0;
+    uint64_t pos = 0;
+    uint64_t idx = 0;
+
+    if (LDG_UNLIKELY(!name || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    buff[0] = LDG_STR_TERM;
+
+    if (LDG_UNLIKELY(ldg_str_len_get(name, buff_size, &name_len) != LDG_ERR_AOK)) { return LDG_ERR_STR_TRUNC; }
+
+    if (LDG_UNLIKELY(name_len == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    for (idx = 0; idx < name_len; idx++)
+    {
+        if (name[idx] != LDG_SYS_PROC_DIR_SEP) { continue; }
+
+        if (proc_exec_file_is(name) != LDG_TRUTH_TRUE) { return LDG_ERR_NOT_FOUND; }
+
+        return ldg_str_rbrcpy(buff, name, buff_size);
+    }
+
+    list = getenv(LDG_SYS_PROC_PATH_ENV);
+    if (!list) { return LDG_ERR_NOT_FOUND; }
+
+    while (LDG_TRUTH_TRUE)
+    {
+        seg_start = pos;
+
+        while (list[pos] != LDG_STR_TERM && list[pos] != LDG_SYS_PROC_PATH_LIST_SEP) { pos++; }
+
+        if (pos == seg_start) { if (proc_path_candidate_is(LDG_SYS_PROC_DIR_CURR, LDG_SYS_PROC_DIR_CURR_LEN, name, name_len, buff, buff_size) == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; } }
+        else if (proc_path_candidate_is(list + seg_start, pos - seg_start, name, name_len, buff, buff_size) == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+        if (list[pos] == LDG_STR_TERM) { break; }
+
+        pos++;
+    }
+
+    buff[0] = LDG_STR_TERM;
+
+    return LDG_ERR_NOT_FOUND;
+}
+
 uint32_t ldg_sys_proc_list(ldg_sys_proc_info_t *out, uint64_t cap, uint64_t *out_cunt)
 {
     DIR *dir = 0x0;
@@ -554,6 +647,7 @@ uint32_t ldg_sys_proc_list(ldg_sys_proc_info_t *out, uint64_t cap, uint64_t *out
     dword_t pid = 0;
     uint64_t found = 0;
     uint64_t idx = 0;
+    uint64_t path_len = 0;
 
     if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -568,7 +662,7 @@ uint32_t ldg_sys_proc_list(ldg_sys_proc_info_t *out, uint64_t cap, uint64_t *out
 
     while (ent != 0x0 && found < cap)
     {
-        if (proc_digits_only_is(ent->d_name) == LDG_TRUTH_TRUE && snprintf(path, sizeof(path), LDG_SYS_PROC_FMT_COMM, ent->d_name) > 0 && proc_text_rd(path, comm, sizeof(comm)) == LDG_ERR_AOK)
+        if (proc_digits_only_is(ent->d_name) == LDG_TRUTH_TRUE && ldg_str_fmt(path, sizeof(path), &path_len, LDG_SYS_PROC_FMT_COMM, ent->d_name) == LDG_ERR_AOK && proc_text_rd(path, comm, sizeof(comm)) == LDG_ERR_AOK)
         {
             for (idx = 0; comm[idx] != LDG_STR_TERM; idx++) { if (comm[idx] == LDG_SYS_PROC_NEWLINE)
                 {
@@ -612,6 +706,7 @@ uint8_t ldg_sys_proc_name_running_is(const char *name)
     char path[LDG_SYS_PROC_PATH_CAP] = LDG_ARR_ZERO_INIT;
     char comm[LDG_SYS_PROC_NAME_MAX] = LDG_ARR_ZERO_INIT;
     uint64_t idx = 0;
+    uint64_t path_len = 0;
     uint8_t res = LDG_TRUTH_FALSE;
 
     if (LDG_UNLIKELY(!name)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -623,7 +718,7 @@ uint8_t ldg_sys_proc_name_running_is(const char *name)
 
     while (ent != 0x0 && res != LDG_TRUTH_TRUE)
     {
-        if (proc_digits_only_is(ent->d_name) == LDG_TRUTH_TRUE && snprintf(path, sizeof(path), LDG_SYS_PROC_FMT_COMM, ent->d_name) > 0 && proc_text_rd(path, comm, sizeof(comm)) == LDG_ERR_AOK)
+        if (proc_digits_only_is(ent->d_name) == LDG_TRUTH_TRUE && ldg_str_fmt(path, sizeof(path), &path_len, LDG_SYS_PROC_FMT_COMM, ent->d_name) == LDG_ERR_AOK && proc_text_rd(path, comm, sizeof(comm)) == LDG_ERR_AOK)
         {
             for (idx = 0; comm[idx] != LDG_STR_TERM; idx++) { if (comm[idx] == LDG_SYS_PROC_NEWLINE)
                 {

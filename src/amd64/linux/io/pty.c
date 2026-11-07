@@ -1,8 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,12 +22,13 @@
 #define LDG_IO_PTY_SHELL_DEFAULT "/bin/sh"
 #define LDG_IO_PTY_TERM_DEFAULT "xterm-256color"
 #define LDG_IO_PTY_PTMX_PATH "/dev/ptmx"
-#define LDG_IO_PTY_SLAVE_FMT "/dev/pts/%" PRIu32
+#define LDG_IO_PTY_SLAVE_FMT "/dev/pts/%u32"
 #define LDG_IO_PTY_SHELL_FLAG "-i"
 #define LDG_IO_PTY_TERM_ENV "TERM"
 
 #include <dangling/io/pty.h>
 #include <dangling/mem/secure.h>
+#include <dangling/str/fmt.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 
@@ -111,9 +110,9 @@ uint32_t ldg_io_pty_open(const ldg_io_pty_conf_t *conf, ldg_io_pty_t *out)
     int32_t master = 0;
     int32_t slave = 0;
     int32_t unlock = LDG_IO_PTY_UNLOCK;
+    uint64_t node_len = 0;
     uint32_t idx = 0;
     uint32_t ret = 0;
-    int32_t len = 0;
     pid_t child = 0;
 
     if (LDG_UNLIKELY(!conf || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -146,8 +145,7 @@ uint32_t ldg_io_pty_open(const ldg_io_pty_conf_t *conf, ldg_io_pty_t *out)
         return LDG_ERR_IO_OPEN;
     }
 
-    len = snprintf(node, LDG_IO_PTY_NODE_MAX, LDG_IO_PTY_SLAVE_FMT, idx);
-    if (LDG_UNLIKELY(len <= 0))
+    if (LDG_UNLIKELY(ldg_str_fmt(node, LDG_IO_PTY_NODE_MAX, &node_len, LDG_IO_PTY_SLAVE_FMT, idx) != LDG_ERR_AOK))
     {
         close(master);
         return LDG_ERR_IO_FMT;
