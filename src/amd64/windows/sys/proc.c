@@ -25,6 +25,7 @@
 #define LDG_SYS_PROC_BATCH_META "\"%&|<>^!\r\n"
 #define LDG_SYS_PROC_DOT_CHAR '.'
 #define LDG_SYS_PROC_EXEC_EXT ".exe"
+#define LDG_SYS_PROC_IMG_NAME_WIN32 0
 
 #include <dangling/sys/proc.h>
 #include <dangling/mem/secure.h>
@@ -786,6 +787,60 @@ uint32_t ldg_sys_proc_self_affinity_get(uint64_t *out)
     if (GetProcessAffinityMask(GetCurrentProcess(), &proc_mask, &sys_mask) == FALSE) { return LDG_ERR_DENIED; }
 
     *out = (uint64_t)proc_mask;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_open(uint32_t pid, ldg_sys_proc_t *out)
+{
+    HANDLE handle = 0x0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(out, sizeof(ldg_sys_proc_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    out->handle = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_in = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_out = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_err = LDG_SYS_PROC_HANDLE_NONE;
+
+    if (LDG_UNLIKELY(pid == 0 || pid == LDG_SYS_PROC_PID_NONE)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    handle = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE, FALSE, (DWORD)pid);
+    if (!handle) { return (GetLastError() == ERROR_INVALID_PARAMETER) ? LDG_ERR_NOT_FOUND : LDG_ERR_DENIED; }
+
+    out->handle = (uint64_t)(uintptr_t)handle;
+    out->pid = pid;
+    out->alive = LDG_TRUTH_TRUE;
+    out->attached = LDG_TRUTH_TRUE;
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_img_path_get(const ldg_sys_proc_t *proc, char *buff, uint64_t buff_size)
+{
+    DWORD len = 0;
+
+    if (LDG_UNLIKELY(!proc || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0 || buff_size > (uint64_t)MAXDWORD)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    len = (DWORD)buff_size;
+
+    if (!QueryFullProcessImageNameA((HANDLE)(uintptr_t)proc->handle, LDG_SYS_PROC_IMG_NAME_WIN32, buff, &len)) { return (GetLastError() == ERROR_INSUFFICIENT_BUFFER) ? LDG_ERR_STR_TRUNC : LDG_ERR_DENIED; }
+
+    return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_term(ldg_sys_proc_t *proc, uint32_t exit_code)
+{
+    if (LDG_UNLIKELY(!proc)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    if (LDG_UNLIKELY(!TerminateProcess((HANDLE)(uintptr_t)proc->handle, (UINT)exit_code))) { return LDG_ERR_DENIED; }
 
     return LDG_ERR_AOK;
 }

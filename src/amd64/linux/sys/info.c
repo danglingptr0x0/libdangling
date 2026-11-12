@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/utsname.h>
 
 #include <dangling/io/path.h>
 #include <dangling/io/file.h>
@@ -12,6 +13,7 @@
 #include <dangling/mem/secure.h>
 #include <dangling/str/fmt.h>
 
+#define LDG_SYS_UNAME_FMT "%s %s %s %s %s"
 #define LDG_SYS_URL_SCHEME_HTTP "http:"
 #define LDG_SYS_URL_SCHEME_HTTPS "https:"
 #define LDG_SYS_URL_OPEN_CMD "xdg-open"
@@ -371,6 +373,22 @@ uint32_t ldg_sys_pid_get(uint64_t *pid)
     *pid = (uint64_t)getpid();
 
     return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_uname_get(char *buff, uint64_t buff_size)
+{
+    struct utsname name = LDG_STRUCT_ZERO_INIT;
+    uint64_t len = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    buff[0] = LDG_STR_TERM;
+
+    if (LDG_UNLIKELY(uname(&name) != 0)) { return LDG_ERR_UNSUPPORTED; }
+
+    return ldg_str_fmt(buff, buff_size, &len, LDG_SYS_UNAME_FMT, name.sysname, name.nodename, name.release, name.version, name.machine);
 }
 
 static uint8_t sys_url_scheme_allowed_is(const char *url)

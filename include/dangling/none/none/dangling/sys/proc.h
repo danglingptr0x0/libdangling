@@ -34,7 +34,8 @@ typedef struct ldg_sys_proc
     uint32_t pid;
     uint32_t exit_code;
     uint8_t alive;
-    uint8_t pudding[7];
+    uint8_t attached;
+    uint8_t pudding[6];
 } ldg_sys_proc_t;
 
 typedef struct ldg_sys_proc_info
@@ -60,5 +61,8 @@ LDG_EXPORT uint32_t ldg_sys_proc_self_priority_get(ldg_sys_proc_priority_t *out)
 LDG_EXPORT uint32_t ldg_sys_proc_self_affinity_set(uint64_t mask);
 LDG_EXPORT uint32_t ldg_sys_proc_self_affinity_get(uint64_t *out);
 LDG_EXPORT uint32_t ldg_sys_proc_path_find(const char *name, char *buff, uint64_t buff_size);
+LDG_EXPORT uint32_t ldg_sys_proc_open(uint32_t pid, ldg_sys_proc_t *out);
+LDG_EXPORT uint32_t ldg_sys_proc_img_path_get(const ldg_sys_proc_t *proc, char *buff, uint64_t buff_size);
+LDG_EXPORT uint32_t ldg_sys_proc_term(ldg_sys_proc_t *proc, uint32_t exit_code);
 
 #endif

@@ -19,6 +19,7 @@ LDG_EXPORT uint32_t ldg_sys_cpu_class_get(uint32_t cpu_idx, uint32_t *out);
 LDG_EXPORT uint32_t ldg_sys_env_get(const char *name, char *buff, uint64_t buff_size);
 LDG_EXPORT uint32_t ldg_sys_env_set(const char *name, const char *val);
 LDG_EXPORT uint32_t ldg_sys_pid_get(uint64_t *pid);
+LDG_EXPORT uint32_t ldg_sys_uname_get(char *buff, uint64_t buff_size);
 LDG_EXPORT uint32_t ldg_sys_url_open(const char *url);
 LDG_EXPORT uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const char *app_name);
 LDG_EXPORT uint32_t ldg_sys_secret_set(const char *app, const char *key, const char *secret);

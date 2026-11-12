@@ -2046,3 +2046,60 @@ DANGLING_6.0 {
         ldg_net_diag_ping;
         ldg_net_diag_dns_list;
 } DANGLING_5.0;
+
+DANGLING_6.1 {
+    global:
+        /* io/ipc */
+        ldg_io_ipc_accept_timed;
+        ldg_io_ipc_accept_cancel;
+        ldg_io_ipc_rd_timed;
+        ldg_io_ipc_list;
+
+        /* sys/proc */
+        ldg_sys_proc_open;
+        ldg_sys_proc_img_path_get;
+        ldg_sys_proc_term;
+
+        /* sys/info */
+        ldg_sys_uname_get;
+
+        /* mem/region */
+        ldg_mem_region_get;
+        ldg_mem_region_list;
+
+        /* mem/vmem */
+        ldg_mem_vmem_rd;
+        ldg_mem_vmem_wr;
+        ldg_mem_vmem_flush;
+
+        /* sys/mod */
+        ldg_sys_mod_list;
+        ldg_sys_mod_find;
+        ldg_sys_mod_addr_find;
+        ldg_sys_mod_sym_get;
+        ldg_sys_mod_pin;
+
+        /* thread/ref */
+        ldg_thread_id_list;
+        ldg_thread_id_self_get;
+        ldg_thread_ref_open;
+        ldg_thread_ref_exited_is;
+        ldg_thread_ref_suspend;
+        ldg_thread_ref_resume;
+        ldg_thread_ref_regs_get;
+        ldg_thread_ref_regs_set;
+        ldg_thread_ref_close;
+
+        /* thread/trap */
+        ldg_thread_trap_init;
+        ldg_thread_trap_shutdown;
+        ldg_thread_trap_break_arm;
+        ldg_thread_trap_break_disarm;
+
+        /* arch/amd64 */
+        ldg_call_frame_run;
+        ldg_cpuid_topology_get;
+        ldg_cpuid_freq_get;
+        ldg_syscall5;
+        ldg_syscall6;
+} DANGLING_6.0;

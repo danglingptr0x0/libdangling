@@ -7,7 +7,7 @@
 ## LDG 6.0.0 is finally here!!
 added a bunch of stuff needed by my other projects
 
-libdangling is my personal util lib. I grew tired of writing the same things over and over or copying chunks of code, so I wrote this lib to solve that problem. it largely follows C99 and POSIX.1-2008, and it runs on both the AMD64 and the i386. there's a GNU/Linux-native build and a windows (sadly, some of my work requires windows) cross-compile via mingw-w64 (i386 ships a freestanding 32-bit subset). it serves as the canonical source of types, err codes, mem, threading, strings, timing, timers, scheduling, an entity-component-system, net, audio, gpu compute and graphics, math (dense and sparse linear algebra, iterative solvers, graph algorithms), parsing, binary protocols, compression, I/O, and system utilities for all my projects.
+libdangling is my personal util lib. I grew tired of writing the same things over and over or copying chunks of code, so I wrote this lib to solve that problem. it largely follows C99 and POSIX.1-2008, and it runs on both the AMD64 and the i386. there's a GNU/Linux-native build and a windows (sadly, some of my work requires windows) cross-compile via mingw-w64 (the i386 build is a freestanding 32-bit subset). it is the canonical source of types, err codes, mem, threading, strings, timing, timers, scheduling, an entity-component-system, net, audio, gpu compute and graphics, math (dense and sparse linear algebra, iterative solvers, graph algorithms), parsing, binary protocols, compression, I/O, and system utilities for all my projects.
 
 all versions prior to 6.0.0 have no support.
 
@@ -42,7 +42,7 @@ build flags control the optional deps, and each one defaults to `ON`:
 `LDG_WITH_FMT` embeds the uncrustify cfg.
 `LDG_WITH_GPU` enables Vulkan compute and graphics.
 
-this strips everything optional:
+this disables everything optional:
 
 ```sh
 cmake -B build -DLDG_WITH_AUDIO=OFF -DLDG_WITH_NET=OFF -DLDG_WITH_FMT=OFF -DLDG_WITH_GPU=OFF
@@ -52,7 +52,7 @@ after install, query the lib with `pkg-config --cflags --libs dangling`.
 
 ## API
 
-the API sits at level `DANGLING_6.0`. `libdangling.map` is the authoritative export list: ~1660 syms across six version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` ships alongside it.
+the API level is `DANGLING_6.1`. `libdangling.map` is the authoritative export list: ~1705 syms across seven version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` is built alongside it.
 
 the ABI ck requires `abi-dumper` and `abi-compliance-checker`:
 
@@ -68,13 +68,13 @@ make -C build abi-check
 
 `core/types.h` defines `ldg_byte_t`, `ldg_word_t`, `ldg_dword_t`, and `ldg_qword_t`, plus the short aliases `byte_t`, `word_t`, `dword_t`, and `qword_t`.
 
-`core/err.h` reserves err codes 0-690 for libdangling and leaves 700-1199 for projects; every subroutine returns `uint32_t`, and `LDG_ERR_AOK` equals 0. the macros `LDG_ERRLOG_ERR/WARN/INFO()` log diagnostics.
+`core/err.h` reserves err codes 0-690 for libdangling and 700-1199 for projects; every subroutine returns `uint32_t`, and `LDG_ERR_AOK` equals 0. the macros `LDG_ERRLOG_ERR/WARN/INFO()` log diagnostics.
 
 `core/macros.h` supplies `LDG_LIKELY/UNLIKELY`, `LDG_KIB/MIB/GIB`, `LDG_MS_PER_SEC`, `LDG_NS_PER_SEC`, `LDG_STRUCT_ZERO_INIT`, `LDG_AMD64_CACHE_LINE_WIDTH`, and `LDG_ALIGNED_UP/DOWN()`.
 
 `core/bits.h` supplies `LDG_BYTE_BITS/MASK`, `LDG_NIBBLE_BITS/MASK`, and `LDG_IS_POW2()`.
 
-`core/arith.h` implements overflow-checked arithmetic in hand-written assembly; `ldg_arith_32/64_add/sub/mul/div()` write their result through an out-param and return `uint32_t`. overflow detection rides the hardware carry flag, and each divide guards against a zero divisor before it runs. amd64 provides all eight subroutines (System V and Microsoft x64), and i386 provides the four 32-bit subroutines only.
+`core/arith.h` implements overflow-checked arithmetic in hand-written assembly; `ldg_arith_32/64_add/sub/mul/div()` write their result through an out-param and return `uint32_t`. overflow detection uses the hardware carry flag, and each divide checks for a zero divisor before it executes. amd64 provides all eight subroutines (System V and Microsoft x64), and i386 provides the four 32-bit subroutines only.
 
 ### mem
 
@@ -117,7 +117,7 @@ ldg_mem_pool_destroy(&var_pool);
 
 `time/perf.h` measures frame timing through `ldg_time_ctx_t`; the caller invokes `ldg_time_tick()` per frame and then reads `ldg_time_dt_get(ctx, &out)`, `ldg_time_fps_get(ctx, &out)`, and `ldg_time_frame_cunt_get()`. `ldg_tsc_ctx_t` calibrates and samples the TSC.
 
-`time/timer.h` runs a hashed timer wheel (1024 buckets, up to 4096 timers); `ldg_time_timer_create()` arms one-shot or repeating timers, `ldg_time_timer_wheel_tick()` advances the wheel and fires due callbacks, and `ldg_time_timer_destroy/rst/interval_set()` manage them.
+`time/timer.h` runs a hashed timer wheel (1024 buckets, up to 4096 timers); `ldg_time_timer_create()` creates one-shot or repeating timers, `ldg_time_timer_wheel_tick()` advances the wheel and calls due callbacks, and `ldg_time_timer_destroy/rst/interval_set()` manage them.
 
 ### thread
 
@@ -135,9 +135,9 @@ ldg_mpmc_wait(&queue, &out, 5000);
 ldg_mpmc_shutdown(&queue);
 ```
 
-`thread/pool.h` runs a thread pool in two modes: long-running workers via `ldg_thread_pool_start`, or job submission via `ldg_thread_pool_submit` (backed by MPMC). the two modes exclude each other.
+`thread/pool.h` runs a thread pool in two modes: long-running workers via `ldg_thread_pool_start`, or job submission via `ldg_thread_pool_submit` (backed by MPMC). the two modes are mutually exclusive.
 
-`thread/yield.h` offers `ldg_thread_yield(uint64_t ns)` for ns-granularity sleep. Linux calls `nanosleep` and returns `LDG_ERR_INTERRUPTED` on signal; Windows calls `Sleep`, rounds a sub-ms request up to 1ms, and treats `ns == 0` as a no-op.
+`thread/yield.h` provides `ldg_thread_yield(uint64_t ns)` for ns-granularity sleep. Linux calls `nanosleep` and returns `LDG_ERR_INTERRUPTED` on signal; Windows calls `Sleep` and rounds a sub-ms request up to 1ms, and `ns == 0` is a no-op.
 
 ### io
 
@@ -157,17 +157,17 @@ ldg_mpmc_shutdown(&queue);
 
 ### net
 
-`net/curl.h` houses cURL `multi` (concurrent transfers with progress via `ldg_net_curl_multi_progress_get(ctx, &out)`) and `easy` (single transfer with a streaming cb) interfaces, and it offers hdr-list helpers. on Windows the backend uses WinHTTP and drops the libcurl and OpenSSL dependency while it keeps the same API.
+`net/curl.h` contains cURL `multi` (concurrent transfers with progress via `ldg_net_curl_multi_progress_get(ctx, &out)`) and `easy` (single transfer with a streaming cb) interfaces, and it provides hdr-list helpers. on Windows the backend uses WinHTTP, has no libcurl or OpenSSL dependency, and has the same API.
 
 `net/gql.h` provides a GraphQL client; `ldg_net_gql_ctx_create/destroy()` and `ldg_net_gql_exec()` wrap cURL easy for a JSON POST to a GQL endpoint.
 
 ### audio
 
-`audio/audio.h` prefers pipewire and falls back to alsa on Linux, and it uses WASAPI on Windows. it controls master volume and per-stream volume and mute, enumerates sinks and sources, registers a self-stream, and stacks ducking requests.
+`audio/audio.h` uses pipewire when it is available and alsa otherwise on Linux, and it uses WASAPI on Windows. it controls master volume and per-stream volume and mute, enumerates sinks and sources, registers a self-stream, and stacks ducking requests.
 
 ### gpu
 
-`gpu/gpu.h` exposes Vulkan 1.2 compute and graphics through an opaque API that keeps `vulkan.h` out of the public hdr. the caller owns the ctx, which `ldg_gpu_init` allocates and `ldg_gpu_shutdown` frees, so the module holds no globals. it selects a device automatically (it prefers a discrete GPU and falls back to integrated, or it honors an explicit idx). a slab-based GPU mem suballocator spills from VRAM to host memory when the caller sets `LDG_GPU_FLAG_SPILL_ENABLE`. staging transfers feed device-local buffs, and host-visible buffs map directly. `ldg_gpu_buff_fill` fills on the GPU side (it wraps `vkCmdFillBuffer` with no staging and no CPU upload). a generic 8-binding descriptor layout binds partially (Vk 1.2 core, `VK_SHADER_STAGE_ALL`). the dispatch path runs sync or async with a full fence lifecycle. debug builds enable the validation layers, and the loader reads SPIR-V from files or from embedded data.
+`gpu/gpu.h` exposes Vulkan 1.2 compute and graphics through an opaque API; the public hdr does not include `vulkan.h`. the caller owns the ctx, which `ldg_gpu_init` allocates and `ldg_gpu_shutdown` frees, so the module has no globals. it selects a device automatically (a discrete GPU first, then an integrated one, unless an explicit idx is given). a slab-based GPU mem suballocator spills from VRAM to host memory when the caller sets `LDG_GPU_FLAG_SPILL_ENABLE`. staging transfers fill device-local buffs, and host-visible buffs map directly. `ldg_gpu_buff_fill` fills on the GPU side (it wraps `vkCmdFillBuffer` with no staging and no CPU upload). a generic 8-binding descriptor layout binds partially (Vk 1.2 core, `VK_SHADER_STAGE_ALL`). the dispatch path runs sync or async with a full fence lifecycle. debug builds enable the validation layers, and the loader reads SPIR-V from files or from embedded data.
 
 a compute dispatch runs a pipeline over a buffer:
 
@@ -198,7 +198,7 @@ ldg_gpu_pipeline_destroy(gpu, pipeline);
 ldg_gpu_shutdown(gpu);
 ```
 
-the graphics path covers surface, swapchain, renderpass, pipeline, and frame. the caller creates a `VkSurfaceKHR` (via GLFW or an equivalent) and hands it to `ldg_gpu_surface_create`. the swapchain owns the framebuffers and an optional depth image. the renderer keeps 3 frames in flight with per-frame fences and semaphores, exposes 128B push constants across the vert and frag stages, and shares one pipeline registry (compute and graphics, 64 slots, tagged by kind). `instance_extensions` in `ldg_gpu_init_desc_t` carries the WSI extensions.
+the graphics path covers surface, swapchain, renderpass, pipeline, and frame. the caller creates a `VkSurfaceKHR` (via GLFW or an equivalent) and passes it to `ldg_gpu_surface_create`. the swapchain owns the framebuffers and an optional depth image. the renderer uses 3 frames in flight with per-frame fences and semaphores, exposes 128B push constants across the vert and frag stages, and uses one pipeline registry (compute and graphics, 64 slots, tagged by kind). `instance_extensions` in `ldg_gpu_init_desc_t` contains the WSI extensions.
 
 ```c
 uint32_t extension_cunt = 0;
@@ -245,7 +245,7 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 `math/math.h` defines the math subsystem's own err codes (`LDG_ERR_MATH_STATE` through `LDG_ERR_MATH_PATTERN_MISMATCH`) and constants (`LDG_MATH_PI`, `LDG_MATH_TAU`, `LDG_MATH_DEG_TO_RAD`, `LDG_MATH_RAD_TO_DEG`).
 
-`math/vec.h` provides header-only dense vector ops (`ldg_math_vec_zero/set/cpy/scale/axpy/sub/mul_elem`, dot, and the L1, L2, and inf norms); it stays `static inline` and depends only on the math header.
+`math/vec.h` provides header-only dense vector ops (`ldg_math_vec_zero/set/cpy/scale/axpy/sub/mul_elem`, dot, and the L1, L2, and inf norms); it is `static inline` and depends only on the math header.
 
 `math/sparse.h` stores a CSR sparse matrix; `ldg_math_sparse_create/entry_add/finalize` assemble it from triplets, `ldg_math_sparse_mv` multiplies it by a vector, and `ldg_math_sparse_diag_get/symmetric_is/nnz_get` query it.
 
@@ -253,23 +253,23 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 `math/laplace.h` solves the weighted graph Laplacian Dirichlet problem; `ldg_math_laplace_solve` and `ldg_math_laplace_anchor_solve` compute node potentials, while `ldg_math_laplace_resistance_get`, `ldg_math_laplace_tree_cunt_get`, and `ldg_math_laplace_kron_reduce` derive effective resistance, spanning-tree count, and Kron reduction.
 
-`math/astar.h` runs A* over a caller-described graph; `ldg_math_astar_solve` returns a shortest path and `ldg_math_astar_traverse` returns the visit order, both driven by successor and heuristic callbacks.
+`math/astar.h` runs A* over a caller-described graph; `ldg_math_astar_solve` returns a shortest path and `ldg_math_astar_traverse` returns the visit order; both use successor and heuristic callbacks.
 
-`math/linalg.h` stays header-only; `ldg_math_vec3_*` covers add, sub, scale, dot, cross, len, and scaled add, while `ldg_math_mat3_*` covers add, sub, mul, vec mul, inv, det, trace, transpose, and polar decomposition. it stays `static inline` and depends only on `<stdint.h>`.
+`math/linalg.h` is header-only; `ldg_math_vec3_*` covers add, sub, scale, dot, cross, len, and scaled add, while `ldg_math_mat3_*` covers add, sub, mul, vec mul, inv, det, trace, transpose, and polar decomposition. it is `static inline` and depends only on `<stdint.h>`.
 
 ### sched
 
-`sched/sched.h` runs a frame-oriented job scheduler. it ticks through phases (start, spin begin, fixed step, step, late step, spin end, stop), runs jobs on a work-stealing thread pool, and orders them with an A*-based planner under a frame deadline. it estimates each job's duration with one of three strategies (manual, a linear SVM, or a Bayesian model, both from `math/stat.h`) and the caller selects one through `ldg_sched_ctx_est_strat_set`. `sched/event.h` provides a filtered pub-sub event pool, `sched/job.h` provides the job pool, dependency graph, and per-worker deques, and `sched/trace.h` records a TSC-stamped trace ring.
+`sched/sched.h` runs a frame-oriented job scheduler. a tick consists of phases (start, spin begin, fixed step, step, late step, spin end, stop). it runs jobs on a work-stealing thread pool, and orders them with an A*-based planner under a frame deadline. it estimates each job's duration with one of three strategies (manual, a linear SVM, or a Bayesian model, both from `math/stat.h`) and the caller selects one through `ldg_sched_ctx_est_strat_set`. `sched/event.h` provides a filtered pub-sub event pool, `sched/job.h` provides the job pool, dependency graph, and per-worker deques, and `sched/trace.h` records a TSC-stamped trace ring.
 
 ### ecs
 
-`ecs/ecs.h` runs an entity-component-system world. `ecs/entity.h` stores entities in a sparse set with generational handles, `ecs/comp.h` stores each component type in its own sparse set over a pool arena, and `ecs/taxon.h` classifies entities by required, optional, and forbidden component masks. `ecs/query.h` iterates the entities that hold a set of components, and `ecs/cmd.h` records structural changes (entity create and destroy, component add and remove) in a mutex-guarded command buffer that flushes at a safe point. systems declare read and write masks and run either sequentially (`ldg_ecs_ctx_sys_all_seq_run`) or across the scheduler (`ldg_ecs_ctx_sys_all_sched_run`, bridged by `ldg_ecs_sched_init/shutdown`). global rules and forbidden-mask checks validate entities on commit.
+`ecs/ecs.h` runs an entity-component-system world. `ecs/entity.h` stores entities in a sparse set with generational handles, `ecs/comp.h` stores each component type in its own sparse set over a pool arena, and `ecs/taxon.h` classifies entities by required, optional, and forbidden component masks. `ecs/query.h` iterates the entities that have a set of components, and `ecs/cmd.h` records structural changes (entity create and destroy, component add and remove) in a mutex-protected command buffer that is flushed at a safe point. systems declare read and write masks and run either sequentially (`ldg_ecs_ctx_sys_all_seq_run`) or across the scheduler (`ldg_ecs_ctx_sys_all_sched_run`, set up by `ldg_ecs_sched_init/shutdown`). global rules and forbidden-mask checks validate entities on commit.
 
 ### compress
 
 `compress/inflate.h` inflates a zlib stream (DEFLATE under a zlib hdr, with an Adler-32 trailer) without any heap allocation; `ldg_compress_inflate(src, src_len, dst, dst_cap, out_len)` writes the inflated bytes into a caller-supplied buffer and reports the produced length.
 
-`compress/deflate.h` produces the matching zlib stream; `ldg_compress_deflate_ctx_create(pool, &ctx)` draws the hash tables from a caller-supplied pool sized by `ldg_compress_deflate_ctx_pool_size_get()`, `ldg_compress_deflate(ctx, src, src_len, dst, dst_cap, out_len)` compresses, and `ldg_compress_deflate_ctx_destroy(&ctx)` returns the pool space.
+`compress/deflate.h` produces the matching zlib stream; `ldg_compress_deflate_ctx_create(pool, &ctx)` allocates the hash tables from a caller-supplied pool sized by `ldg_compress_deflate_ctx_pool_size_get()`, `ldg_compress_deflate(ctx, src, src_len, dst, dst_cap, out_len)` compresses, and `ldg_compress_deflate_ctx_destroy(&ctx)` releases the pool space.
 
 ### parse
 
@@ -279,7 +279,7 @@ ldg_gpu_swapchain_present(gpu, swapchain.id, img_idx);
 
 `proto/emiru.h` encodes, decodes, and validates the EMIRU binary fmt, a 32B hdr for user-space executables; its fields cover magic, rev, ring, flags, entry, and the text, data, and bss sizes.
 
-`proto/emiemi.h` frames the EMIEMI transfer protocol as `<<EMIEMI>XXXXXX>..payload..<<EMIEMI>>`; it streams recv through a cb, encodes and decodes whole buffs, checks integrity with FNV-1a, and caps the payload at 16M.
+`proto/emiemi.h` frames the EMIEMI transfer protocol as `<<EMIEMI>XXXXXX>..payload..<<EMIEMI>>`; it streams recv through a cb, encodes and decodes whole buffs, checks integrity with FNV-1a, and limits the payload to 16M.
 
 ### arch/amd64
 

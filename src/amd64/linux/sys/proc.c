@@ -50,8 +50,15 @@
 #define LDG_SYS_PROC_NICE_IDLE_EDGE 15
 #define LDG_SYS_PROC_MASK_SIZE 8
 #define LDG_SYS_PROC_WAIT_NAP_NS 1000000
+#define LDG_SYS_PROC_SIG_PROBE 0
+#define LDG_SYS_PROC_PROBE_REGION_CUNT 8
+#define LDG_SYS_PROC_PROBE_BASE 0
+#define LDG_SYS_PROC_FMT_EXE "/proc/%u32/exe"
 
 #include <dangling/sys/proc.h>
+#include <dangling/io/path.h>
+#include <dangling/mem/vmem.h>
+#include <dangling/mem/region.h>
 #include <dangling/mem/secure.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
@@ -122,6 +129,13 @@ static uint32_t proc_exit_poll(ldg_sys_proc_t *proc)
     int32_t res = 0;
 
     if (proc->alive != LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+
+    if (proc->attached == LDG_TRUTH_TRUE)
+    {
+        if (kill((int32_t)proc->pid, LDG_SYS_PROC_SIG_PROBE) != 0 && errno == ESRCH) { proc->alive = LDG_TRUTH_FALSE; }
+
+        return LDG_ERR_AOK;
+    }
 
     res = (int32_t)waitpid((int32_t)proc->pid, &status, WNOHANG);
     if (res == 0) { return LDG_ERR_AOK; }
@@ -426,7 +440,7 @@ uint32_t ldg_sys_proc_wait(ldg_sys_proc_t *proc, uint64_t timeout, uint32_t *out
 
     if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
 
-    if (timeout == LDG_SYS_PROC_WAIT_INFINITE) { ret = proc_exit_blk_wait(proc); }
+    if (timeout == LDG_SYS_PROC_WAIT_INFINITE && proc->attached != LDG_TRUTH_TRUE) { ret = proc_exit_blk_wait(proc); }
     else { ret = proc_exit_timed_wait(proc, timeout); }
 
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -878,4 +892,82 @@ uint32_t ldg_sys_proc_self_affinity_get(uint64_t *out)
     *out = local;
 
     return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_proc_open(uint32_t pid, ldg_sys_proc_t *out)
+{
+    ldg_mem_region_t region[LDG_SYS_PROC_PROBE_REGION_CUNT] = LDG_ARR_ZERO_INIT;
+    uint64_t cunt = 0;
+    uint64_t got = 0;
+    uint64_t idx = 0;
+    uint32_t ret = 0;
+    ldg_byte_t probe = 0;
+
+    if (LDG_UNLIKELY(!out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(ldg_mem_secure_zero(out, sizeof(ldg_sys_proc_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
+    out->handle = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_in = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_out = LDG_SYS_PROC_HANDLE_NONE;
+    out->pipe_err = LDG_SYS_PROC_HANDLE_NONE;
+
+    if (LDG_UNLIKELY(pid == 0 || pid == LDG_SYS_PROC_PID_NONE)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (kill((int32_t)pid, LDG_SYS_PROC_SIG_PROBE) != 0) { return (errno == ESRCH) ? LDG_ERR_NOT_FOUND : LDG_ERR_DENIED; }
+
+    out->handle = (uint64_t)pid;
+    out->pid = pid;
+    out->alive = LDG_TRUTH_TRUE;
+    out->attached = LDG_TRUTH_TRUE;
+
+    if (pid == (uint32_t)getpid()) { return LDG_ERR_AOK; }
+
+    ret = ldg_mem_region_list(out, LDG_SYS_PROC_PROBE_BASE, region, LDG_SYS_PROC_PROBE_REGION_CUNT, &cunt);
+
+    for (idx = 0; ret == LDG_ERR_AOK && idx < cunt; idx++)
+    {
+        if (region[idx].readable != LDG_TRUTH_TRUE) { continue; }
+
+        ret = ldg_mem_vmem_rd(out, region[idx].base, &probe, sizeof(ldg_byte_t), &got);
+        break;
+    }
+
+    if (ret == LDG_ERR_AOK || ret == LDG_ERR_MEM_BAD) { return LDG_ERR_AOK; }
+
+    out->handle = LDG_SYS_PROC_HANDLE_NONE;
+    out->alive = LDG_TRUTH_FALSE;
+    out->attached = LDG_TRUTH_FALSE;
+
+    return ret;
+}
+
+uint32_t ldg_sys_proc_img_path_get(const ldg_sys_proc_t *proc, char *buff, uint64_t buff_size)
+{
+    char link[LDG_SYS_PROC_PATH_CAP] = LDG_ARR_ZERO_INIT;
+    uint64_t link_len = 0;
+    uint64_t len = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!proc || !buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    ret = ldg_str_fmt(link, LDG_SYS_PROC_PATH_CAP, &link_len, LDG_SYS_PROC_FMT_EXE, proc->pid);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_io_link_rd(link, buff, buff_size, &len);
+}
+
+uint32_t ldg_sys_proc_term(ldg_sys_proc_t *proc, uint32_t exit_code)
+{
+    if (LDG_UNLIKELY(!proc)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(proc->handle == LDG_SYS_PROC_HANDLE_NONE)) { return LDG_ERR_NOT_INIT; }
+
+    if (proc->pid == (uint32_t)getpid()) { _Exit((int32_t)exit_code); }
+
+    return ldg_sys_proc_kill(proc);
 }

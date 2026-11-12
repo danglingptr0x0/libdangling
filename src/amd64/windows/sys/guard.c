@@ -39,6 +39,8 @@ static uint8_t sys_guard_range_hit_is(const ldg_sys_guard_t *guard, uint64_t at,
 
 static void sys_guard_land(void)
 {
+    g_sys_guard.live->armed = LDG_TRUTH_FALSE;
+
     longjmp(g_sys_guard.live->bail, LDG_SYS_GUARD_BAIL);
 }
 
@@ -59,7 +61,6 @@ static LONG CALLBACK sys_guard_veh_cb(PEXCEPTION_POINTERS info)
     guard->fault_addr = at;
     guard->fault_slot = slot;
     guard->fault_cunt++;
-    guard->armed = LDG_TRUTH_FALSE;
 
     info->ContextRecord->Rip = (DWORD64)(uintptr_t)sys_guard_land;
 

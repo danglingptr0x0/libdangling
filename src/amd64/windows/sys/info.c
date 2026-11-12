@@ -39,11 +39,21 @@
 #define LDG_SYS_NOTIFY_CLASS L"ldg_notify_wnd"
 #define LDG_SYS_NOTIFY_NONE 0
 #define LDG_SYS_NOTIFY_ICON_APP 32512
+#define LDG_SYS_UNAME_FMT "Windows_NT %s %u32.%u32.%u32 %s"
+#define LDG_SYS_UNAME_HOST_MAX 256
+#define LDG_SYS_UNAME_CORE_LIB "ntdll.dll"
+#define LDG_SYS_UNAME_VER_SYM "RtlGetVersion"
+#define LDG_SYS_UNAME_MACHINE_AMD64 "x86_64"
+#define LDG_SYS_UNAME_MACHINE_ARM64 "aarch64"
+#define LDG_SYS_UNAME_MACHINE_OTHER "unknown"
 
 #include <dangling/sys/info.h>
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
+#include <dangling/mem/cpy.h>
 #include <dangling/str/str.h>
+
+typedef LONG (WINAPI *ldg_sys_uname_ver_cb_t)(RTL_OSVERSIONINFOW *ver);
 
 uint32_t ldg_sys_hostname_get(char *buff, uint64_t buff_size)
 {
@@ -252,6 +262,47 @@ uint32_t ldg_sys_pid_get(uint64_t *pid)
     *pid = (uint64_t)GetCurrentProcessId();
 
     return LDG_ERR_AOK;
+}
+
+uint32_t ldg_sys_uname_get(char *buff, uint64_t buff_size)
+{
+    char host[LDG_SYS_UNAME_HOST_MAX] = LDG_ARR_ZERO_INIT;
+    RTL_OSVERSIONINFOW ver = LDG_STRUCT_ZERO_INIT;
+    SYSTEM_INFO info = LDG_STRUCT_ZERO_INIT;
+    ldg_sys_uname_ver_cb_t ver_get = 0x0;
+    FARPROC raw = 0x0;
+    HMODULE core = 0x0;
+    const char *machine = LDG_SYS_UNAME_MACHINE_OTHER;
+    uint64_t len = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!buff)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(buff_size == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    buff[0] = LDG_STR_TERM;
+
+    core = GetModuleHandleA(LDG_SYS_UNAME_CORE_LIB);
+    if (LDG_UNLIKELY(!core)) { return LDG_ERR_UNSUPPORTED; }
+
+    raw = GetProcAddress(core, LDG_SYS_UNAME_VER_SYM);
+    if (LDG_UNLIKELY(!raw)) { return LDG_ERR_UNSUPPORTED; }
+
+    ret = ldg_mem_cpy(&ver_get, &raw, sizeof(FARPROC));
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ver.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
+    if (LDG_UNLIKELY(ver_get(&ver) != 0)) { return LDG_ERR_UNSUPPORTED; }
+
+    GetNativeSystemInfo(&info);
+
+    if (info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64) { machine = LDG_SYS_UNAME_MACHINE_AMD64; }
+    else if (info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64) { machine = LDG_SYS_UNAME_MACHINE_ARM64; }
+
+    ret = ldg_sys_hostname_get(host, LDG_SYS_UNAME_HOST_MAX);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_str_fmt(buff, buff_size, &len, LDG_SYS_UNAME_FMT, host, (uint32_t)ver.dwMajorVersion, (uint32_t)ver.dwMinorVersion, (uint32_t)ver.dwBuildNumber, machine);
 }
 
 static uint8_t sys_url_scheme_allowed_is(const char *url)

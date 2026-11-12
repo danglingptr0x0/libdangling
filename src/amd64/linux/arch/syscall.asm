@@ -8,22 +8,22 @@ section .text
 
 global ldg_syscall0
 ldg_syscall0:
-    mov     rax, rdi
+    mov rax, rdi
     syscall
     ret
 
 global ldg_syscall1
 ldg_syscall1:
-    mov     rax, rdi
-    mov     rdi, rsi
+    mov rax, rdi
+    mov rdi, rsi
     syscall
     ret
 
 global ldg_syscall2
 ldg_syscall2:
-    mov     rax, rdi
-    mov     rdi, rsi
-    mov     rsi, rdx
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
     syscall
     ret
 
@@ -46,20 +46,43 @@ ldg_syscall4:
     syscall
     ret
 
+global ldg_syscall5
+ldg_syscall5:
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8, r9
+    syscall
+    ret
+
+global ldg_syscall6
+ldg_syscall6:
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8, r9
+    mov r9, [rsp + 8]
+    syscall
+    ret
+
 global ldg_rdtsc
 ldg_rdtsc:
     rdtsc
-    shl     rdx, 32
-    or      rax, rdx
+    shl rdx, 32
+    or rax, rdx
     ret
 
 global ldg_rdtscp
 ldg_rdtscp:
     rdtscp
-    shl     rdx, 32
-    or      rax, rdx
-    test    rdi, rdi
-    jz      .done
-    mov     [rdi], ecx
+    shl rdx, 32
+    or rax, rdx
+    test rdi, rdi
+    jz .done
+    mov [rdi], ecx
 .done:
     ret

@@ -10,6 +10,8 @@ LDG_EXPORT int64_t ldg_syscall1(int64_t n, int64_t a1);
 LDG_EXPORT int64_t ldg_syscall2(int64_t n, int64_t a1, int64_t a2);
 LDG_EXPORT int64_t ldg_syscall3(int64_t n, int64_t a1, int64_t a2, int64_t a3);
 LDG_EXPORT int64_t ldg_syscall4(int64_t n, int64_t a1, int64_t a2, int64_t a3, int64_t a4);
+LDG_EXPORT int64_t ldg_syscall5(int64_t num, int64_t a1, int64_t a2, int64_t a3, int64_t a4, int64_t a5);
+LDG_EXPORT int64_t ldg_syscall6(int64_t num, int64_t a1, int64_t a2, int64_t a3, int64_t a4, int64_t a5, int64_t a6);
 #endif
 
 LDG_EXPORT uint64_t ldg_rdtsc(void);
@@ -27,13 +29,19 @@ LDG_EXPORT uint64_t ldg_rdtscp(uint32_t *aux);
 #define LDG_SYS_DUP2 33
 #define LDG_SYS_NANOSLEEP 35
 #define LDG_SYS_GETPID 39
+#define LDG_SYS_PTRACE 101
 #define LDG_SYS_GETPRIORITY 140
 #define LDG_SYS_SETPRIORITY 141
 #define LDG_SYS_GETTID 186
+#define LDG_SYS_FUTEX 202
 #define LDG_SYS_SCHED_SETAFFINITY 203
 #define LDG_SYS_SCHED_GETAFFINITY 204
 #define LDG_SYS_CLOCK_GETTIME 228
+#define LDG_SYS_TGKILL 234
 #define LDG_SYS_OPENAT 257
+#define LDG_SYS_PERF_EVENT_OPEN 298
+#define LDG_SYS_PROC_VMEM_RD 310
+#define LDG_SYS_PROC_VMEM_WR 311
 #define LDG_SYS_GETRANDOM 318
 #endif
 

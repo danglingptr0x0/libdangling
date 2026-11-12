@@ -9,8 +9,8 @@ section .text
 global ldg_rdtsc
 ldg_rdtsc:
     rdtsc
-    shl     rdx, 32
-    or      rax, rdx
+    shl rdx, 32
+    or rax, rdx
     ret
 
 global ldg_rdtscp

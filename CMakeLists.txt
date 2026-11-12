@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 6.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 6.1.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -474,11 +474,16 @@ if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
         ${LDG_PLATFORM_DIR}/sys/guard.c
         ${LDG_PLATFORM_DIR}/sys/scan.c
         ${LDG_PLATFORM_DIR}/io/ipc.c
+        ${LDG_PLATFORM_DIR}/mem/region.c
+        ${LDG_PLATFORM_DIR}/mem/vmem.c
+        ${LDG_PLATFORM_DIR}/sys/mod.c
+        ${LDG_PLATFORM_DIR}/thread/ref.c
+        ${LDG_PLATFORM_DIR}/thread/trap.c
     )
     if(LDG_PLATFORM STREQUAL "windows")
         list(APPEND LDG_SOURCES ${LDG_PLATFORM_DIR}/sys/media.c)
     else()
-        set_source_files_properties(${LDG_PLATFORM_DIR}/thread/sync.c ${LDG_PLATFORM_DIR}/sys/guard.c PROPERTIES COMPILE_OPTIONS "-Wno-disabled-macro-expansion")
+        set_source_files_properties(${LDG_PLATFORM_DIR}/thread/sync.c ${LDG_PLATFORM_DIR}/sys/guard.c ${LDG_PLATFORM_DIR}/thread/ref.c ${LDG_PLATFORM_DIR}/thread/trap.c PROPERTIES COMPILE_OPTIONS "-Wno-disabled-macro-expansion")
     endif()
 elseif(LDG_PLATFORM STREQUAL "DANGLING")
     list(APPEND LDG_SOURCES
@@ -514,6 +519,7 @@ if(LDG_ARCH STREQUAL "amd64")
         ${LDG_PLATFORM_DIR}/arch/syscall.asm
         ${LDG_PLATFORM_DIR}/arch/cpuid.asm
         ${LDG_PLATFORM_DIR}/arch/arith.asm
+        ${LDG_PLATFORM_DIR}/arch/call.asm
     )
     set_source_files_properties(${LDG_ARCH_SOURCES} PROPERTIES LANGUAGE ASM_NASM)
     if(LDG_PLATFORM STREQUAL "windows")
