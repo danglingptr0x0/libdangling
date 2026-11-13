@@ -85,6 +85,8 @@ static uint16_t cal_year_day_get(uint32_t year, uint8_t month, uint8_t day)
     return (uint16_t)(total + day - LDG_TIME_CAL_STEP);
 }
 
+#define LDG_TIME_CAL_DAY_MAX 0x7FFFFFFFULL
+
 uint32_t ldg_time_cal_get(uint64_t epoch_sec, ldg_time_cal_t *out)
 {
     int64_t days = 0;
@@ -108,6 +110,8 @@ uint32_t ldg_time_cal_get(uint64_t epoch_sec, ldg_time_cal_t *out)
     out->minute = 0;
     out->second = 0;
     out->weekday = 0;
+
+    if (LDG_UNLIKELY(epoch_sec / LDG_TIME_SECS_PER_DAY > LDG_TIME_CAL_DAY_MAX)) { return LDG_ERR_RANGE; }
 
     days = (int64_t)(epoch_sec / LDG_TIME_SECS_PER_DAY);
     rest = epoch_sec % LDG_TIME_SECS_PER_DAY;

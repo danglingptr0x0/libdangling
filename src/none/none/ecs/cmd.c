@@ -155,7 +155,13 @@ LDG_EXPORT uint32_t ldg_ecs_cmd_comp_add(ldg_ecs_cmd_buff_t *buff, uint64_t enti
         return LDG_ERR_ECS_CMD_OVERFLOW;
     }
 
-    ldg_mem_cpy(payload, src, (uint32_t)src_size);
+    ret = ldg_mem_cpy(payload, src, (uint32_t)src_size);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
+    {
+        ldg_mut_unlock(&buff->lock);
+        return ret;
+    }
+
     rec = &buff->cmd[buff->cmd_cunt];
     rec->entity = entity;
     rec->payload = payload;

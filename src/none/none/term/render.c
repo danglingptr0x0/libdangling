@@ -1932,9 +1932,11 @@ static void render_candidate_hamming_eval(const ldg_term_render_t *render, const
     {
         bits = &render->glyph_bits[glyph * LDG_TERM_RENDER_BIT_WORD_CUNT];
         dist = render_popcount_get(bits[0] ^ cell_bits[0]) + render_popcount_get(bits[LDG_TERM_RENDER_STEP] ^ cell_bits[LDG_TERM_RENDER_STEP]);
-        inverse = (uint32_t)cell_sample_cunt - dist;
-
-        if (inverse < dist) { dist = inverse; }
+        if ((int64_t)dist <= cell_sample_cunt)
+        {
+            inverse = (uint32_t)cell_sample_cunt - dist;
+            if (inverse < dist) { dist = inverse; }
+        }
 
         if (candidate_cunt == LDG_TERM_RENDER_CANDIDATE_CUNT && dist >= candidate_dist[candidate_cunt - LDG_TERM_RENDER_STEP]) { continue; }
 

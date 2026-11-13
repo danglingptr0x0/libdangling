@@ -23,5 +23,8 @@ typedef struct ldg_sys_window_flash_conf
 LDG_EXPORT uint32_t ldg_sys_window_flash_conf_default_get(ldg_sys_window_flash_conf_t *out);
 LDG_EXPORT uint32_t ldg_sys_window_flash(void *native_window, const ldg_sys_window_flash_conf_t *conf);
 LDG_EXPORT uint32_t ldg_sys_window_flash_stop(void *native_window);
+LDG_EXPORT uint32_t ldg_sys_window_term_get(void **out);
+LDG_EXPORT uint32_t ldg_sys_window_capture_exclude_set(void *native_window, uint8_t en);
+LDG_EXPORT uint8_t ldg_sys_window_capture_active_is(void);
 
 #endif

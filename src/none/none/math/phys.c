@@ -4016,7 +4016,7 @@ static uint32_t ldg_math_phys_body_wr(ldg_math_phys_ctx_t *ctx, uint32_t region,
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         rollback_err = ldg_ecs_ctx_entity_destroy(ctx->world, entity);
-        if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+        if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
         return err;
     }
@@ -4924,7 +4924,7 @@ LDG_EXPORT uint32_t ldg_math_phys_region_add(ldg_math_phys_ctx_t *ctx, const ldg
                 if (LDG_UNLIKELY(err != LDG_ERR_AOK))
                 {
                     rollback_err = ldg_mem_dealloc(field_blk);
-                    if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+                    if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
                     return err;
                 }
@@ -6148,9 +6148,15 @@ LDG_EXPORT uint32_t ldg_math_phys_water_step_advance(ldg_math_phys_ctx_t *ctx, u
         err = ldg_math_phys_fluid_p2g_xfer(ldg_math_phys_water_particle_get(&ctx->region[region]), hdr->particle_cunt, vel_x, vel_y, vel_z, ldg_math_phys_water_vel_get(&ctx->region[region], 6), ldg_math_phys_water_vel_get(&ctx->region[region], 7), ldg_math_phys_water_vel_get(&ctx->region[region], 8), ldg_math_phys_water_mask_get(&ctx->region[region]), hdr->nx, hdr->ny, hdr->nz, spacing);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
-        ldg_mem_cpy(vel_x_old, vel_x, face_x_cunt * sizeof(double));
-        ldg_mem_cpy(vel_y_old, vel_y, face_y_cunt * sizeof(double));
-        ldg_mem_cpy(vel_z_old, vel_z, face_z_cunt * sizeof(double));
+        err = ldg_mem_cpy(vel_x_old, vel_x, face_x_cunt * sizeof(double));
+        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+        err = ldg_mem_cpy(vel_y_old, vel_y, face_y_cunt * sizeof(double));
+        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
+        err = ldg_mem_cpy(vel_z_old, vel_z, face_z_cunt * sizeof(double));
+        if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
+
         err = ldg_math_phys_fluid_grid_advance(vel_x, vel_y, vel_z, ldg_math_phys_water_pressure_get(&ctx->region[region]), ldg_math_phys_water_divergence_get(&ctx->region[region]), ldg_math_phys_water_mask_get(&ctx->region[region]), hdr->nx, hdr->ny, hdr->nz, spacing, dt, LDG_MATH_PHYS_WATER_DENSITY, LDG_MATH_PHYS_WATER_GRAVITY, hdr->iter_cunt);
         if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
 
@@ -6529,7 +6535,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_destroy(ldg_math_phys_ctx_t *ctx, uint64_
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         rollback_err = ldg_math_phys_region_total_add(region_ptr, &body_val, 0);
-        if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+        if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
         return err;
     }
@@ -8586,7 +8592,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_split(ldg_math_phys_ctx_t *ctx, uint64_t 
             for (rollback_idx = 0; rollback_idx < child_idx; rollback_idx++)
             {
                 rollback_err = ldg_math_phys_body_destroy(ctx, out[rollback_idx]);
-                if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+                if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
                 out[rollback_idx] = 0;
             }
@@ -8600,7 +8606,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_split(ldg_math_phys_ctx_t *ctx, uint64_t 
         for (rollback_idx = 0; rollback_idx < cunt; rollback_idx++)
         {
             rollback_err = ldg_math_phys_body_destroy(ctx, out[rollback_idx]);
-            if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+            if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
             out[rollback_idx] = 0;
         }
@@ -9561,7 +9567,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_region_set(ldg_math_phys_ctx_t *ctx, uint
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         rollback_err = ldg_math_phys_body_destroy(ctx, moved);
-        if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+        if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
         return err;
     }
@@ -9570,7 +9576,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_region_set(ldg_math_phys_ctx_t *ctx, uint
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         rollback_err = ldg_math_phys_body_destroy(ctx, moved);
-        if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+        if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
 
         return err;
     }
@@ -9726,7 +9732,7 @@ LDG_EXPORT uint32_t ldg_math_phys_body_condense(ldg_math_phys_ctx_t *ctx, uint32
         if (energy > 0.0)
         {
             rollback_err = ldg_math_phys_field_point_energy_xfer(region_ptr, pos, energy, dt, 0);
-            if (rollback_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = rollback_err; }
+            if (LDG_UNLIKELY(rollback_err != LDG_ERR_AOK)) { err = rollback_err; }
         }
 
         return err;

@@ -381,7 +381,6 @@ static void vt_reply_num_wr(ldg_term_vt_t *vt, uint32_t val)
     uint8_t digit[LDG_TERM_VT_NUM_CAP] = LDG_ARR_ZERO_INIT;
     uint32_t rest = val;
     uint32_t cunt = 0;
-    uint32_t idx = 0;
 
     do
     {
@@ -393,7 +392,11 @@ static void vt_reply_num_wr(ldg_term_vt_t *vt, uint32_t val)
     }
     while (rest > 0);
 
-    for (idx = cunt; idx > 0; idx--) { vt_reply_byte_wr(vt, digit[idx - LDG_TERM_VT_STEP]); }
+    while (cunt > 0)
+    {
+        cunt--;
+        vt_reply_byte_wr(vt, digit[cunt]);
+    }
 }
 
 static void vt_reply_da_wr(ldg_term_vt_t *vt)
@@ -650,29 +653,35 @@ static void vt_unhandled_mark(ldg_term_vt_t *vt, uint8_t final)
 
 static void vt_title_push(ldg_term_vt_t *vt)
 {
+    uint32_t len = 0;
     uint32_t idx = 0;
 
     if (vt->title_depth >= LDG_TERM_VT_TITLE_STACK_MAX) { return; }
 
-    for (idx = 0; idx < vt->title_len && idx < LDG_TERM_VT_TITLE_MAX; idx++) { vt->title_stack[vt->title_depth][idx] = vt->title[idx]; }
+    len = (vt->title_len < LDG_TERM_VT_TITLE_MAX) ? vt->title_len : LDG_TERM_VT_TITLE_MAX - LDG_TERM_VT_STEP;
 
-    vt->title_stack[vt->title_depth][vt->title_len] = LDG_STR_TERM;
-    vt->title_stack_len[vt->title_depth] = vt->title_len;
+    for (idx = 0; idx < len; idx++) { vt->title_stack[vt->title_depth][idx] = vt->title[idx]; }
+
+    vt->title_stack[vt->title_depth][len] = LDG_STR_TERM;
+    vt->title_stack_len[vt->title_depth] = len;
     vt->title_depth++;
 }
 
 static void vt_title_pop(ldg_term_vt_t *vt)
 {
+    uint32_t len = 0;
     uint32_t idx = 0;
 
     if (vt->title_depth == 0) { return; }
 
     vt->title_depth--;
-    vt->title_len = vt->title_stack_len[vt->title_depth];
+    len = vt->title_stack_len[vt->title_depth];
+    if (len >= LDG_TERM_VT_TITLE_MAX) { len = LDG_TERM_VT_TITLE_MAX - LDG_TERM_VT_STEP; }
 
-    for (idx = 0; idx < vt->title_len && idx < LDG_TERM_VT_TITLE_MAX; idx++) { vt->title[idx] = vt->title_stack[vt->title_depth][idx]; }
+    for (idx = 0; idx < len; idx++) { vt->title[idx] = vt->title_stack[vt->title_depth][idx]; }
 
-    vt->title[vt->title_len] = LDG_STR_TERM;
+    vt->title[len] = LDG_STR_TERM;
+    vt->title_len = len;
 }
 
 static void vt_winop_apply(ldg_term_vt_t *vt, uint32_t op)
@@ -2353,7 +2362,6 @@ static uint32_t vt_out_num_wr(ldg_byte_t *out, uint64_t cap, uint64_t *len, uint
     uint8_t digit[LDG_TERM_VT_NUM_CAP] = LDG_ARR_ZERO_INIT;
     uint32_t rest = val;
     uint32_t cunt = 0;
-    uint32_t idx = 0;
     uint32_t ret = 0;
 
     do
@@ -2366,9 +2374,11 @@ static uint32_t vt_out_num_wr(ldg_byte_t *out, uint64_t cap, uint64_t *len, uint
     }
     while (rest > 0);
 
-    for (idx = cunt; idx > 0; idx--)
+    while (cunt > 0)
     {
-        ret = vt_out_byte_wr(out, cap, len, digit[idx - LDG_TERM_VT_STEP]);
+        cunt--;
+
+        ret = vt_out_byte_wr(out, cap, len, digit[cunt]);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 

@@ -620,6 +620,7 @@ uint32_t ldg_audio_play_frames_pull(void *buff, uint64_t buff_size, uint32_t exp
     uint64_t frame_cunt = 0;
     uint64_t want = 0;
     uint64_t remain = 0;
+    uint64_t rd_size = 0;
     uint64_t rd_cunt = 0;
     uint32_t ret = 0;
 
@@ -668,9 +669,16 @@ uint32_t ldg_audio_play_frames_pull(void *buff, uint64_t buff_size, uint32_t exp
         return LDG_ERR_EOF;
     }
 
+    rd_size = want * frame_size;
+    if (LDG_UNLIKELY(rd_size > buff_size))
+    {
+        ldg_mut_unlock(&g_audio_play.mut);
+        return LDG_ERR_OVERFLOW;
+    }
+
     if (g_audio_play.curr->raw != 0x0)
     {
-        rd_cunt = want * frame_size;
+        rd_cunt = rd_size;
 
         ret = ldg_mem_secure_cpy(buff, g_audio_play.curr->raw + g_audio_play.curr->data_off + (g_audio_play.frame_pos * frame_size), rd_cunt);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
@@ -681,7 +689,7 @@ uint32_t ldg_audio_play_frames_pull(void *buff, uint64_t buff_size, uint32_t exp
     }
     else
     {
-        ret = ldg_io_file_rd(g_audio_play.file, buff, want * frame_size, &rd_cunt);
+        ret = ldg_io_file_rd(g_audio_play.file, buff, rd_size, &rd_cunt);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
         {
             ldg_mut_unlock(&g_audio_play.mut);

@@ -104,6 +104,7 @@ LDG_EXPORT uint32_t ldg_ecs_comp_add(ldg_ecs_comp_t *comp, uint64_t entity, cons
 {
     uint32_t idx = 0x0;
     uint32_t pos = 0x0;
+    uint32_t ret = 0;
 
     if (LDG_UNLIKELY(!comp)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -117,8 +118,10 @@ LDG_EXPORT uint32_t ldg_ecs_comp_add(ldg_ecs_comp_t *comp, uint64_t entity, cons
     if (LDG_UNLIKELY(comp->dense_cunt >= comp->cap)) { return LDG_ERR_FULL; }
 
     pos = comp->dense_cunt;
-    if (src != 0x0) { ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, src, (uint32_t)comp->item_size); }
-    else { ldg_mem_zero(comp->dense + (uint64_t)pos * comp->stride, (uint32_t)comp->item_size); }
+    if (src != 0x0) { ret = ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, src, (uint32_t)comp->item_size); }
+    else { ret = ldg_mem_zero(comp->dense + (uint64_t)pos * comp->stride, (uint32_t)comp->item_size); }
+
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     comp->back[pos] = entity;
     comp->sparse[idx] = pos;
@@ -149,7 +152,8 @@ LDG_EXPORT uint32_t ldg_ecs_comp_remove(ldg_ecs_comp_t *comp, uint64_t entity)
     {
         last_entity = comp->back[last_pos];
         last_idx = (uint32_t)(last_entity & 0xFFFFFFFFULL);
-        ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, comp->dense + (uint64_t)last_pos * comp->stride, (uint32_t)comp->item_size);
+        if (LDG_UNLIKELY(ldg_mem_cpy(comp->dense + (uint64_t)pos * comp->stride, comp->dense + (uint64_t)last_pos * comp->stride, (uint32_t)comp->item_size) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+
         comp->back[pos] = last_entity;
         comp->sparse[last_idx] = pos;
     }

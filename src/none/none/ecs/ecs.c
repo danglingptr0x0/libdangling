@@ -818,7 +818,13 @@ LDG_EXPORT uint32_t ldg_ecs_ctx_tick(ldg_ecs_ctx_t *ctx)
             continue;
         }
 
-        ldg_mem_cpy(&cb, slot, sizeof(cb));
+        if (LDG_UNLIKELY(ldg_mem_cpy(&cb, slot, sizeof(cb)) != LDG_ERR_AOK))
+        {
+            if (ret == LDG_ERR_AOK) { ret = LDG_ERR_MEM_BAD; }
+
+            continue;
+        }
+
         if (cb == 0x0) { continue; }
 
         ret = ecs_first_fault_keep(ret, cb(ctx, entity));

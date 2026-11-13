@@ -325,13 +325,18 @@ uint32_t ldg_sys_mod_sym_get(const ldg_sys_proc_t *proc, const ldg_sys_mod_t *mo
 
 uint32_t ldg_sys_mod_pin(const ldg_sys_proc_t *proc, const ldg_sys_mod_t *mod)
 {
+    void *lib = 0x0;
+
     if (LDG_UNLIKELY(!proc || !mod)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     if (LDG_UNLIKELY(proc->pid != (uint32_t)getpid())) { return LDG_ERR_UNSUPPORTED; }
 
     if (sys_mod_prog_is(proc, mod) == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
 
-    if (!dlopen(mod->path, RTLD_NOLOAD | RTLD_NODELETE | RTLD_NOW)) { return LDG_ERR_NOT_FOUND; }
+    lib = dlopen(mod->path, RTLD_NOLOAD | RTLD_NODELETE | RTLD_NOW);
+    if (!lib) { return LDG_ERR_NOT_FOUND; }
+
+    if (LDG_UNLIKELY(dlclose(lib) != 0)) { return LDG_ERR_IO_CLOSE; }
 
     return LDG_ERR_AOK;
 }

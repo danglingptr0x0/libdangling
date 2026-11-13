@@ -2103,3 +2103,11 @@ DANGLING_6.1 {
         ldg_syscall5;
         ldg_syscall6;
 } DANGLING_6.0;
+
+DANGLING_6.2 {
+    global:
+        /* sys/window */
+        ldg_sys_window_term_get;
+        ldg_sys_window_capture_exclude_set;
+        ldg_sys_window_capture_active_is;
+} DANGLING_6.1;
