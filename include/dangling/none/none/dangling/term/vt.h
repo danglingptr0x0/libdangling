@@ -16,6 +16,8 @@
 #define LDG_TERM_VT_TITLE_STACK_MAX 8
 #define LDG_TERM_VT_KBD_STACK_MAX 16
 #define LDG_TERM_VT_KBD_SCREEN_CUNT 2
+#define LDG_TERM_VT_SIXEL_REG_MAX 256
+#define LDG_TERM_VT_SIXEL_ARG_MAX 5
 
 #define LDG_TERM_VT_KBD_DISAMBIGUATE 0x1
 #define LDG_TERM_VT_KBD_EVENT_TYPE 0x2
@@ -87,7 +89,8 @@ typedef enum ldg_term_vt_mode
     LDG_TERM_VT_MODE_ARM = 0x1000,
     LDG_TERM_VT_MODE_INLM = 0x2000,
     LDG_TERM_VT_MODE_ANSI = 0x4000,
-    LDG_TERM_VT_MODE_RESIZE = 0x8000
+    LDG_TERM_VT_MODE_RESIZE = 0x8000,
+    LDG_TERM_VT_MODE_SDM = 0x10000
 } ldg_term_vt_mode_t;
 
 #define LDG_TERM_VT_UNHANDLED_MODE_MAX 16
@@ -164,6 +167,28 @@ typedef struct ldg_term_key_event
     uint8_t pudding[2];
 } ldg_term_key_event_t;
 
+typedef struct ldg_term_vt_sixel
+{
+    uint8_t reg[LDG_TERM_VT_SIXEL_REG_MAX][LDG_TERM_RGB_CUNT];
+    uint32_t arg[LDG_TERM_VT_SIXEL_ARG_MAX];
+    uint32_t arg_cunt;
+    uint32_t width;
+    uint32_t height;
+    uint32_t col;
+    uint32_t row;
+    uint32_t ext_width;
+    uint32_t ext_height;
+    uint32_t filled_height;
+    uint32_t repeat;
+    uint32_t slot;
+    uint32_t dot_height;
+    uint32_t seq;
+    uint8_t cmd;
+    uint8_t opaque;
+    uint8_t active;
+    uint8_t drawn;
+} ldg_term_vt_sixel_t;
+
 typedef struct ldg_term_vt
 {
     ldg_term_t *term;
@@ -200,8 +225,7 @@ typedef struct ldg_term_vt
     uint32_t other_keys;
     uint32_t cell_px_width;
     uint32_t cell_px_height;
-    uint32_t sixel_seq;
-    uint32_t pudding_seq;
+    ldg_term_vt_sixel_t sixel;
     uint64_t unhandled_lo;
     uint64_t unhandled_hi;
     uint8_t last_ch;

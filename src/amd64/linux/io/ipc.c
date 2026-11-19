@@ -10,6 +10,7 @@
 
 #include <dangling/io/ipc.h>
 #include <dangling/core/err.h>
+#include <dangling/core/arith.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/cpy.h>
 #include <dangling/mem/secure.h>
@@ -134,11 +135,11 @@ static void io_ipc_list_line_take(const char *line, uint64_t len, const char *pr
 
     if (name_len < prefix_len || name_len - prefix_len >= LDG_IO_IPC_NAME_MAX) { return; }
 
-    if (prefix_len > 0 && (ldg_mem_cmp(name, prefix, prefix_len, &order) != LDG_ERR_AOK || order != 0)) { return; }
+    if (prefix_len > 0 && (ldg_mem_cmp(name, prefix, prefix_len, &order) != LDG_ERR_AOK || order != LDG_MEM_ORD_EQ)) { return; }
 
     name += prefix_len;
 
-    for (idx = 0; idx < *cunt; idx++) { if (ldg_str_cmp(out[idx].text, name, LDG_IO_IPC_NAME_MAX, &order) == LDG_ERR_AOK && order == 0) { return; } }
+    for (idx = 0; idx < *cunt; idx++) { if (ldg_str_cmp(out[idx].text, name, LDG_IO_IPC_NAME_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ) { return; } }
 
     if (ldg_str_rbrcpy(out[*cunt].text, name, LDG_IO_IPC_NAME_MAX) != LDG_ERR_AOK) { return; }
 

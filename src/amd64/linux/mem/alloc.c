@@ -14,8 +14,7 @@
 
 typedef struct ldg_mem_hdr
 {
-    uint32_t sentinel_front;
-    uint8_t pudding_inner[4];
+    uint64_t sentinel_front;
     struct ldg_mem_hdr *next;
     struct ldg_mem_hdr *prev;
     uint64_t size;
@@ -58,11 +57,11 @@ static uint32_t ldg_mem_unlocked_leaks_dump(void)
 
 static uint32_t ldg_mem_sentinel_wr(uint8_t *user_ptr, uint64_t size)
 {
-    uint32_t sentinel = LDG_MEM_SENTINEL;
+    uint64_t sentinel = LDG_MEM_SENTINEL;
 
     if (LDG_UNLIKELY(!user_ptr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(ldg_mem_secure_cpy(user_ptr + size, &sentinel, (uint64_t)sizeof(uint32_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(user_ptr + size, &sentinel, (uint64_t)sizeof(uint64_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     return LDG_ERR_AOK;
 }
@@ -70,12 +69,12 @@ static uint32_t ldg_mem_sentinel_wr(uint8_t *user_ptr, uint64_t size)
 static uint32_t ldg_mem_sentinel_back_check(const ldg_mem_hdr_t *hdr)
 {
     uint8_t *user_ptr = 0x0;
-    uint32_t sentinel = 0;
+    uint64_t sentinel = 0;
 
     if (LDG_UNLIKELY(!hdr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     user_ptr = (uint8_t *)(uintptr_t)hdr + (uint64_t)sizeof(ldg_mem_hdr_t);
-    if (LDG_UNLIKELY(ldg_mem_secure_cpy(&sentinel, user_ptr + hdr->size, (uint64_t)sizeof(uint32_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
+    if (LDG_UNLIKELY(ldg_mem_secure_cpy(&sentinel, user_ptr + hdr->size, (uint64_t)sizeof(uint64_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
     if (LDG_UNLIKELY(sentinel != LDG_MEM_SENTINEL)) { return LDG_ERR_MEM_BAD; }
 
@@ -123,7 +122,7 @@ static uint32_t ldg_mem_unlocked_alloc(uint64_t size, void **out)
     ret = ldg_arith_uint64_add((uint64_t)sizeof(ldg_mem_hdr_t), size, &total_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
 
-    ret = ldg_arith_uint64_add(total_size, (uint64_t)sizeof(uint32_t), &total_size);
+    ret = ldg_arith_uint64_add(total_size, (uint64_t)sizeof(uint64_t), &total_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
 
     ret = ldg_arith_uint64_add(total_size, (uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1), &total_size);
@@ -204,7 +203,7 @@ static uint32_t ldg_mem_unlocked_dealloc(void *ptr)
     ret = ldg_arith_uint64_add((uint64_t)sizeof(ldg_mem_hdr_t), hdr->size, &poison_len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
 
-    ret = ldg_arith_uint64_add(poison_len, (uint64_t)sizeof(uint32_t), &poison_len);
+    ret = ldg_arith_uint64_add(poison_len, (uint64_t)sizeof(uint64_t), &poison_len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_MEM_CORRUPTION; }
 
     if (LDG_UNLIKELY(poison_len > hdr->total_size)) { return LDG_ERR_MEM_CORRUPTION; }

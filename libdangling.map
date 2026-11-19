@@ -2111,3 +2111,53 @@ DANGLING_6.2 {
         ldg_sys_window_capture_exclude_set;
         ldg_sys_window_capture_active_is;
 } DANGLING_6.1;
+
+DANGLING_7.0 {
+    global:
+        /* shell */
+        ldg_shell_conf_default_get;
+        ldg_shell_pool_size_get;
+        ldg_shell_create;
+        ldg_shell_uncreate;
+        ldg_shell_rst;
+        ldg_shell_line_exec;
+        ldg_shell_file_exec;
+        ldg_shell_status_get;
+        ldg_shell_var_set;
+        ldg_shell_var_get;
+        ldg_shell_var_unset;
+        ldg_shell_alias_set;
+        ldg_shell_alias_get;
+        ldg_shell_alias_unset;
+        ldg_shell_out_push;
+        ldg_shell_out_cb_set;
+        ldg_shell_out_seq_get;
+        ldg_shell_out_get;
+        ldg_shell_candidate_get;
+        ldg_shell_cmd_reg;
+        ldg_shell_cmd_get;
+        ldg_shell_cmd_cunt_get;
+        ldg_shell_cmd_find;
+        ldg_shell_hist_push;
+        ldg_shell_hist_get;
+        ldg_shell_hist_cunt_get;
+        ldg_shell_hist_ld;
+        ldg_shell_hist_st;
+        ldg_shell_hist_io_set;
+        /* term/line */
+        ldg_term_line_conf_default_get;
+        ldg_term_line_pool_size_get;
+        ldg_term_line_create;
+        ldg_term_line_uncreate;
+        ldg_term_line_rst;
+        ldg_term_line_key_put;
+        ldg_term_line_text_get;
+        ldg_term_line_text_set;
+        ldg_term_line_take;
+        ldg_term_line_prompt_set;
+        ldg_term_line_hist_cb_set;
+        ldg_term_line_candidate_cb_set;
+        ldg_term_line_view_get;
+        ldg_term_line_draw;
+        ldg_term_line_encode;
+} DANGLING_6.2;

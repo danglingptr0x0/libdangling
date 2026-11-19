@@ -478,7 +478,7 @@ uint32_t ldg_io_ipc_list(const char *prefix, ldg_io_ipc_name_t *out, uint64_t ca
 
         if (name_len < prefix_len || name_len - prefix_len >= LDG_IO_IPC_NAME_MAX) { continue; }
 
-        if (prefix_len > 0 && (ldg_mem_cmp(entry.cFileName, prefix, prefix_len, &order) != LDG_ERR_AOK || order != 0)) { continue; }
+        if (prefix_len > 0 && (ldg_mem_cmp(entry.cFileName, prefix, prefix_len, &order) != LDG_ERR_AOK || order != LDG_MEM_ORD_EQ)) { continue; }
 
         if (ldg_str_rbrcpy(out[*out_cunt].text, entry.cFileName + prefix_len, LDG_IO_IPC_NAME_MAX) != LDG_ERR_AOK) { continue; }
 

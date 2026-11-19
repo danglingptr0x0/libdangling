@@ -4,12 +4,12 @@
 
 # libdangling
 
-## LDG 6.0.0 is finally here!!
+## LDG 7.0.0 is finally here!!
 added a bunch of stuff needed by my other projects
 
 libdangling is my personal util lib. I grew tired of writing the same things over and over or copying chunks of code, so I wrote this lib to solve that problem. it largely follows C99 and POSIX.1-2008, and it runs on both the AMD64 and the i386. there's a GNU/Linux-native build and a windows (sadly, some of my work requires windows) cross-compile via mingw-w64 (the i386 build is a freestanding 32-bit subset). it is the canonical source of types, err codes, mem, threading, strings, timing, timers, scheduling, an entity-component-system, net, audio, gpu compute and graphics, math (dense and sparse linear algebra, iterative solvers, graph algorithms), parsing, binary protocols, compression, I/O, and system utilities for all my projects.
 
-all versions prior to 6.0.0 have no support.
+all versions prior to 7.0.0 have no support.
 
 ## build
 
@@ -52,7 +52,7 @@ after install, query the lib with `pkg-config --cflags --libs dangling`.
 
 ## API
 
-the API level is `DANGLING_6.2`. `libdangling.map` is the authoritative export list: ~1710 syms across eight version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` is built alongside it.
+the API level is `DANGLING_7.0`. `libdangling.map` is the authoritative export list: ~1740 syms across nine version nodes, enforced at link time through `-fvisibility=hidden` and a GNU ld version script, so the `.so` exports only `LDG_EXPORT`-marked syms. on Windows, the build generates `libdangling.def` from the same map, so `libdangling.dll` (import lib `libdangling.dll.a`) exports exactly the mapped syms; the static `libdangling.a` is built alongside it.
 
 the ABI ck requires `abi-dumper` and `abi-compliance-checker`:
 

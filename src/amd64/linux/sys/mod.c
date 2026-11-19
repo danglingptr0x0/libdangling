@@ -6,6 +6,7 @@
 
 #include <dangling/sys/mod.h>
 #include <dangling/core/err.h>
+#include <dangling/core/arith.h>
 #include <dangling/core/macros.h>
 #include <dangling/core/bits.h>
 #include <dangling/core/types.h>
@@ -76,9 +77,9 @@ static uint8_t sys_mod_pending_hit_is(const ldg_sys_mod_walk_t *walk)
 
     if (walk->kind == LDG_SYS_MOD_WALK_ADDR) { return (walk->addr >= walk->pending.base && walk->addr - walk->pending.base < walk->pending.size) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; }
 
-    if (walk->kind == LDG_SYS_MOD_WALK_NAME) { return (ldg_str_cmp(walk->pending.name, walk->key, LDG_SYS_MOD_NAME_MAX, &order) == LDG_ERR_AOK && order == 0) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; }
+    if (walk->kind == LDG_SYS_MOD_WALK_NAME) { return (ldg_str_cmp(walk->pending.name, walk->key, LDG_SYS_MOD_NAME_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; }
 
-    return (ldg_str_cmp(walk->pending.path, walk->key, LDG_SYS_MOD_PATH_MAX, &order) == LDG_ERR_AOK && order == 0) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    return (ldg_str_cmp(walk->pending.path, walk->key, LDG_SYS_MOD_PATH_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
 }
 
 static void sys_mod_pending_emit(ldg_sys_mod_walk_t *walk)
@@ -104,7 +105,7 @@ static uint8_t sys_mod_elf_is(const ldg_sys_proc_t *proc, uint64_t base)
 
     if (ldg_mem_vmem_rd(proc, base, magic, LDG_SYS_MOD_ELF_MAGIC_LEN, &got) != LDG_ERR_AOK) { return LDG_TRUTH_FALSE; }
 
-    if (ldg_mem_cmp(magic, LDG_SYS_MOD_ELF_MAGIC, LDG_SYS_MOD_ELF_MAGIC_LEN, &order) != LDG_ERR_AOK || order != 0) { return LDG_TRUTH_FALSE; }
+    if (ldg_mem_cmp(magic, LDG_SYS_MOD_ELF_MAGIC, LDG_SYS_MOD_ELF_MAGIC_LEN, &order) != LDG_ERR_AOK || order != LDG_MEM_ORD_EQ) { return LDG_TRUTH_FALSE; }
 
     return LDG_TRUTH_TRUE;
 }
@@ -138,7 +139,7 @@ static void sys_mod_line_take(ldg_sys_mod_walk_t *walk, const char *line, uint64
 
     path = line + path_idx;
 
-    if (walk->pending_live == LDG_TRUTH_TRUE && ldg_str_cmp(walk->pending.path, path, LDG_SYS_MOD_PATH_MAX, &order) == LDG_ERR_AOK && order == 0)
+    if (walk->pending_live == LDG_TRUTH_TRUE && ldg_str_cmp(walk->pending.path, path, LDG_SYS_MOD_PATH_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ)
     {
         walk->pending.size = end - walk->pending.base;
         return;
@@ -247,7 +248,7 @@ static uint8_t sys_mod_prog_is(const ldg_sys_proc_t *proc, const ldg_sys_mod_t *
 
     if (ldg_sys_proc_img_path_get(proc, prog, LDG_SYS_MOD_PATH_MAX) != LDG_ERR_AOK) { return LDG_TRUTH_FALSE; }
 
-    if (ldg_str_cmp(prog, mod->path, LDG_SYS_MOD_PATH_MAX, &order) != LDG_ERR_AOK || order != 0) { return LDG_TRUTH_FALSE; }
+    if (ldg_str_cmp(prog, mod->path, LDG_SYS_MOD_PATH_MAX, &order) != LDG_ERR_AOK || order != LDG_ARITH_ORD_EQ) { return LDG_TRUTH_FALSE; }
 
     return LDG_TRUTH_TRUE;
 }

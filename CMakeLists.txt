@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 6.2.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 7.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -348,6 +348,10 @@ if(NOT LDG_ARCH STREQUAL "i386")
         src/none/none/term/svg.c
         src/none/none/term/caption.c
         src/none/none/term/fx.c
+        src/none/none/term/line.c
+        src/none/none/shell/shell.c
+        src/none/none/shell/cmd.c
+        src/none/none/shell/hist.c
         src/none/none/fmt/svg.c
         src/none/none/fmt/bmp.c
         src/none/none/math/sparse.c

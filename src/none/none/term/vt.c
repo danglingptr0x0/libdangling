@@ -255,6 +255,7 @@ static void vt_sgr_apply(ldg_term_vt_t *vt)
 #define LDG_TERM_VT_RQM_RST 2
 #define LDG_TERM_VT_RQM_UNKNOWN 0
 #define LDG_TERM_VT_DEC_PASTE 2004
+#define LDG_TERM_VT_DEC_SDM 80
 
 static void vt_mode_bit_set(ldg_term_vt_t *vt, uint32_t bit, uint8_t en)
 {
@@ -327,6 +328,7 @@ static void vt_mode_apply(ldg_term_vt_t *vt, uint8_t en)
         else if (code == LDG_TERM_VT_DEC_LRMM) { ldg_term_margin_side_en(vt->term, en); }
         else if (code == LDG_TERM_VT_DEC_RESIZE) { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_RESIZE, en); }
         else if (code == LDG_TERM_VT_DEC_PASTE) { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_PASTE_BRACKET, en); }
+        else if (code == LDG_TERM_VT_DEC_SDM) { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_SDM, en); }
         else if (code == LDG_TERM_VT_MODE_CURSOR) { ldg_term_cursor_visible_set(vt->term, en); }
         else if (code == LDG_TERM_VT_MODE_ALT_CURSOR) { if (en == LDG_TRUTH_TRUE) { ldg_term_cursor_save(vt->term); }
             else { ldg_term_cursor_restore(vt->term); } }
@@ -364,6 +366,8 @@ static void vt_mode_apply(ldg_term_vt_t *vt, uint8_t en)
 #define LDG_TERM_VT_NUM_CAP 8
 #define LDG_TERM_VT_SPACE_INTER 0x20
 #define LDG_TERM_VT_DA_KIND 6
+#define LDG_TERM_VT_DA_LEVEL 62
+#define LDG_TERM_VT_DA_SIXEL 4
 #define LDG_TERM_VT_DSR_STATUS 5
 #define LDG_TERM_VT_DSR_CURSOR 6
 #define LDG_TERM_VT_DSR_OK 0
@@ -404,7 +408,15 @@ static void vt_reply_da_wr(ldg_term_vt_t *vt)
     vt_reply_byte_wr(vt, LDG_TERM_VT_ESC_BYTE);
     vt_reply_byte_wr(vt, LDG_TERM_VT_CSI_LEAD);
     vt_reply_byte_wr(vt, '?');
-    vt_reply_num_wr(vt, LDG_TERM_VT_DA_KIND);
+
+    if (vt->term->buff)
+    {
+        vt_reply_num_wr(vt, LDG_TERM_VT_DA_LEVEL);
+        vt_reply_byte_wr(vt, ';');
+        vt_reply_num_wr(vt, LDG_TERM_VT_DA_SIXEL);
+    }
+    else { vt_reply_num_wr(vt, LDG_TERM_VT_DA_KIND); }
+
     vt_reply_byte_wr(vt, 'c');
 }
 
@@ -585,6 +597,8 @@ static uint32_t vt_mode_state_get(const ldg_term_vt_t *vt, uint32_t code)
     if (code == LDG_TERM_VT_DEC_FOCUS) { return (vt->mode & LDG_TERM_VT_MODE_FOCUS) ? LDG_TERM_VT_RQM_SET : LDG_TERM_VT_RQM_RST; }
 
     if (code == LDG_TERM_VT_DEC_PASTE) { return (vt->mode & LDG_TERM_VT_MODE_PASTE_BRACKET) ? LDG_TERM_VT_RQM_SET : LDG_TERM_VT_RQM_RST; }
+
+    if (code == LDG_TERM_VT_DEC_SDM) { return (vt->mode & LDG_TERM_VT_MODE_SDM) ? LDG_TERM_VT_RQM_SET : LDG_TERM_VT_RQM_RST; }
 
     if (code == LDG_TERM_VT_DEC_MOUSE_NORMAL) { return (vt->mode & LDG_TERM_VT_MODE_MOUSE_NORMAL) ? LDG_TERM_VT_RQM_SET : LDG_TERM_VT_RQM_RST; }
 
@@ -1837,181 +1851,425 @@ static void vt_gfx_dispatch(ldg_term_vt_t *vt)
 #define LDG_TERM_VT_SIXEL_CR '$'
 #define LDG_TERM_VT_SIXEL_LF '-'
 #define LDG_TERM_VT_SIXEL_SEP ';'
+#define LDG_TERM_VT_SIXEL_CMD_NONE 0
+#define LDG_TERM_VT_SIXEL_MODEL_HLS 1
 #define LDG_TERM_VT_SIXEL_MODEL_RGB 2
 #define LDG_TERM_VT_SIXEL_SCALE 255
 #define LDG_TERM_VT_SIXEL_FULL 100
-#define LDG_TERM_VT_SIXEL_MAP 256
-#define LDG_TERM_VT_SIXEL_DIM_MAX 256
+#define LDG_TERM_VT_SIXEL_UNIT (LDG_TERM_VT_SIXEL_FULL * LDG_TERM_VT_SIXEL_FULL)
+#define LDG_TERM_VT_SIXEL_LEVEL_NONE 0
+#define LDG_TERM_VT_SIXEL_LIGHT_MID 50
+#define LDG_TERM_VT_SIXEL_MIRROR_MUL 2
+#define LDG_TERM_VT_SIXEL_HUE_TURN 360
+#define LDG_TERM_VT_SIXEL_HUE_ORIG 240
+#define LDG_TERM_VT_SIXEL_HUE_RISE 60
+#define LDG_TERM_VT_SIXEL_HUE_HOLD 180
+#define LDG_TERM_VT_SIXEL_HUE_FALL 240
+#define LDG_TERM_VT_SIXEL_HUE_RED 120
+#define LDG_TERM_VT_SIXEL_HUE_GREEN 0
+#define LDG_TERM_VT_SIXEL_HUE_BLUE 240
+#define LDG_TERM_VT_SIXEL_PRESET_CUNT 16
+#define LDG_TERM_VT_SIXEL_CHAN 4
+#define LDG_TERM_VT_SIXEL_ALPHA_IDX 3
+#define LDG_TERM_VT_SIXEL_ALPHA_SOLID 0xFF
+#define LDG_TERM_VT_SIXEL_ALPHA_CLEAR 0
+#define LDG_TERM_VT_SIXEL_WIDTH_MAX 4096
+#define LDG_TERM_VT_SIXEL_HEIGHT_MAX 4096
+#define LDG_TERM_VT_SIXEL_PARAM_MACRO 0
+#define LDG_TERM_VT_SIXEL_PARAM_BG 1
+#define LDG_TERM_VT_SIXEL_BG_KEEP 1
+#define LDG_TERM_VT_SIXEL_MACRO_TALL 2
+#define LDG_TERM_VT_SIXEL_MACRO_MID_LOW 3
+#define LDG_TERM_VT_SIXEL_MACRO_MID_HIGH 4
+#define LDG_TERM_VT_SIXEL_MACRO_SQUARE_LOW 7
+#define LDG_TERM_VT_SIXEL_MACRO_SQUARE_HIGH 9
+#define LDG_TERM_VT_SIXEL_DOT_DEFAULT 2
+#define LDG_TERM_VT_SIXEL_DOT_TALL 5
+#define LDG_TERM_VT_SIXEL_DOT_MID 3
+#define LDG_TERM_VT_SIXEL_DOT_SQUARE 1
+#define LDG_TERM_VT_SIXEL_DOT_MAX 16
+#define LDG_TERM_VT_SIXEL_ROUND_DIV 2
+#define LDG_TERM_VT_SIXEL_ARG_LIMIT 100000
+#define LDG_TERM_VT_SIXEL_ARG_PAN 0
+#define LDG_TERM_VT_SIXEL_ARG_PAD 1
+#define LDG_TERM_VT_SIXEL_ARG_PH 2
+#define LDG_TERM_VT_SIXEL_ARG_PV 3
+#define LDG_TERM_VT_SIXEL_ARG_SLOT 0
+#define LDG_TERM_VT_SIXEL_ARG_MODEL 1
+#define LDG_TERM_VT_SIXEL_ARG_X 2
+#define LDG_TERM_VT_SIXEL_ARG_Y 3
+#define LDG_TERM_VT_SIXEL_ARG_Z 4
+#define LDG_TERM_VT_SIXEL_RATIO_CUNT 2
+#define LDG_TERM_VT_SIXEL_EXTENT_CUNT 4
+#define LDG_TERM_VT_SIXEL_COLOR_DEF_CUNT 5
 #define LDG_TERM_VT_SIXEL_ID_BASE LDG_TERM_IMG_ID_TRANSIENT_BASE
 #define LDG_TERM_VT_SIXEL_SEQ_MAX 0x0FFFFFFFU
 #define LDG_TERM_VT_SIXEL_SEQ_FIRST 0
 #define LDG_TERM_VT_SIXEL_FINAL 'q'
 
-static uint64_t vt_sixel_num_get(const ldg_term_vt_t *vt, uint64_t idx, uint32_t *out)
+static uint8_t vt_sixel_hls_chan_get(uint32_t low, uint32_t high, uint32_t hue)
 {
-    uint32_t val = 0;
+    uint32_t val = low;
 
-    while (idx < vt->osc_len && vt->osc[idx] >= LDG_TERM_VT_DIGIT_LOW && vt->osc[idx] <= LDG_TERM_VT_DIGIT_HIGH)
-    {
-        val = (val * LDG_TERM_VT_DECIMAL) + (uint32_t)((uint8_t)vt->osc[idx] - LDG_TERM_VT_DIGIT_LOW);
-        idx++;
-    }
+    if (hue < LDG_TERM_VT_SIXEL_HUE_RISE) { val = low + (((high - low) * hue) / LDG_TERM_VT_SIXEL_HUE_RISE); }
+    else if (hue < LDG_TERM_VT_SIXEL_HUE_HOLD) { val = high; }
+    else if (hue < LDG_TERM_VT_SIXEL_HUE_FALL) { val = low + (((high - low) * (LDG_TERM_VT_SIXEL_HUE_FALL - hue)) / LDG_TERM_VT_SIXEL_HUE_RISE); }
 
-    *out = val;
-
-    return idx;
+    return (uint8_t)((val * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_UNIT);
 }
 
-static void vt_sixel_dispatch(ldg_term_vt_t *vt)
+static void vt_sixel_hls_set(uint8_t *out, uint32_t hue, uint32_t light, uint32_t sat)
 {
-    ldg_term_placement_t placement = LDG_STRUCT_ZERO_INIT;
-    uint8_t map[LDG_TERM_VT_SIXEL_MAP][LDG_TERM_RGB_CUNT] = LDG_ARR_ZERO_INIT;
-    uint64_t idx = 0;
-    uint32_t col = 0;
-    uint32_t row = 0;
-    uint32_t width = 0;
-    uint32_t height = 0;
-    uint32_t repeat = 0;
+    uint32_t turn = 0;
+    uint32_t high = 0;
+    uint32_t low = 0;
+
+    turn = ((hue % LDG_TERM_VT_SIXEL_HUE_TURN) + LDG_TERM_VT_SIXEL_HUE_ORIG) % LDG_TERM_VT_SIXEL_HUE_TURN;
+
+    if (light < LDG_TERM_VT_SIXEL_LIGHT_MID) { high = light * (LDG_TERM_VT_SIXEL_FULL + sat); }
+    else { high = ((light + sat) * LDG_TERM_VT_SIXEL_FULL) - (light * sat); }
+
+    low = (light * LDG_TERM_VT_SIXEL_FULL * LDG_TERM_VT_SIXEL_MIRROR_MUL) - high;
+
+    out[LDG_TERM_VT_RED_IDX] = vt_sixel_hls_chan_get(low, high, (turn + LDG_TERM_VT_SIXEL_HUE_RED) % LDG_TERM_VT_SIXEL_HUE_TURN);
+    out[LDG_TERM_VT_GREEN_IDX] = vt_sixel_hls_chan_get(low, high, (turn + LDG_TERM_VT_SIXEL_HUE_GREEN) % LDG_TERM_VT_SIXEL_HUE_TURN);
+    out[LDG_TERM_VT_BLUE_IDX] = vt_sixel_hls_chan_get(low, high, (turn + LDG_TERM_VT_SIXEL_HUE_BLUE) % LDG_TERM_VT_SIXEL_HUE_TURN);
+}
+
+static void vt_sixel_rst(ldg_term_vt_t *vt)
+{
+    const uint8_t preset[LDG_TERM_VT_SIXEL_PRESET_CUNT][LDG_TERM_RGB_CUNT] = { { LDG_TERM_VT_SIXEL_LEVEL_NONE, LDG_TERM_VT_SIXEL_LEVEL_NONE, LDG_TERM_VT_SIXEL_LEVEL_NONE }, { 20, 20, 80 }, { 80, 13, 13 }, { 20, 80, 20 }, { 80, 20, 80 }, { 20, 80, 80 }, { 80, 80, 20 }, { 53, 53, 53 }, { 26, 26, 26 }, { 33, 33, 60 }, { 60, 26, 26 }, { 33, 60, 33 }, { 60, 33, 60 }, { 33, 60, 60 }, { 60, 60, 33 }, { 80, 80, 80 } };
     uint32_t slot = 0;
-    uint32_t model = 0;
-    uint32_t red = 0;
-    uint32_t green = 0;
-    uint32_t blue = 0;
-    uint32_t bit = 0;
-    uint32_t span = 0;
-    uint32_t curr_col = 0;
-    uint32_t curr_row = 0;
-    uint32_t ext_width = 0;
-    uint32_t ext_height = 0;
-    uint32_t img_id = 0;
-    uint8_t val = 0;
+    uint32_t chan = 0;
+
+    for (slot = 0; slot < LDG_TERM_VT_SIXEL_REG_MAX; slot++) { for (chan = 0; chan < LDG_TERM_RGB_CUNT; chan++) { if (slot < LDG_TERM_VT_SIXEL_PRESET_CUNT) { vt->sixel.reg[slot][chan] = (uint8_t)(((uint32_t)preset[slot][chan] * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL); }
+            else { vt->sixel.reg[slot][chan] = vt->term->palette[slot][chan]; } } }
+
+    vt->sixel.active = LDG_TRUTH_FALSE;
+    vt->sixel.cmd = LDG_TERM_VT_SIXEL_CMD_NONE;
+}
+
+static void vt_sixel_row_fill(ldg_term_vt_t *vt, uint32_t stop)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    uint8_t *px = 0x0;
+    uint64_t idx = 0;
+    uint64_t end = 0;
+    uint32_t limit = stop;
+    uint8_t alpha = LDG_TERM_VT_SIXEL_ALPHA_CLEAR;
+
+    if (limit > sixel->height) { limit = sixel->height; }
+
+    if (limit <= sixel->filled_height) { return; }
+
+    if (sixel->opaque == LDG_TRUTH_TRUE) { alpha = LDG_TERM_VT_SIXEL_ALPHA_SOLID; }
+
+    end = (uint64_t)limit * sixel->width;
+
+    for (idx = (uint64_t)sixel->filled_height * sixel->width; idx < end; idx++)
+    {
+        px = &vt->term->buff[idx * LDG_TERM_VT_SIXEL_CHAN];
+        px[LDG_TERM_VT_RED_IDX] = vt->term->default_bg[LDG_TERM_VT_RED_IDX];
+        px[LDG_TERM_VT_GREEN_IDX] = vt->term->default_bg[LDG_TERM_VT_GREEN_IDX];
+        px[LDG_TERM_VT_BLUE_IDX] = vt->term->default_bg[LDG_TERM_VT_BLUE_IDX];
+        px[LDG_TERM_VT_SIXEL_ALPHA_IDX] = alpha;
+    }
+
+    sixel->filled_height = limit;
+}
+
+static void vt_sixel_begin(ldg_term_vt_t *vt)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    uint64_t width = 0;
+    uint64_t height = 0;
+    uint32_t macro = 0;
 
     if (!vt->term->buff) { return; }
 
-    width = LDG_TERM_VT_SIXEL_DIM_MAX;
-    height = LDG_TERM_VT_SIXEL_DIM_MAX;
-    span = width * height * LDG_TERM_VT_PNG_CHAN_RGB;
+    width = (uint64_t)vt->term->col_cunt * (uint64_t)vt->cell_px_width;
+    if (width > LDG_TERM_VT_SIXEL_WIDTH_MAX) { width = LDG_TERM_VT_SIXEL_WIDTH_MAX; }
 
-    if (span > vt->term->buff_cap) { return; }
+    if (width == 0) { return; }
 
-    for (idx = 0; idx < span; idx++) { vt->term->buff[idx] = 0; }
+    height = (uint64_t)vt->term->buff_cap / (width * LDG_TERM_VT_SIXEL_CHAN);
+    if (height > LDG_TERM_VT_SIXEL_HEIGHT_MAX) { height = LDG_TERM_VT_SIXEL_HEIGHT_MAX; }
 
-    idx = 0;
+    if (height < LDG_TERM_VT_SIXEL_BAND) { return; }
 
-    while (idx < vt->osc_len)
+    macro = vt_param_get(vt, LDG_TERM_VT_SIXEL_PARAM_MACRO, LDG_TERM_VT_PARAM_DEFAULT);
+
+    sixel->dot_height = LDG_TERM_VT_SIXEL_DOT_DEFAULT;
+    if (macro == LDG_TERM_VT_SIXEL_MACRO_TALL) { sixel->dot_height = LDG_TERM_VT_SIXEL_DOT_TALL; }
+    else if (macro == LDG_TERM_VT_SIXEL_MACRO_MID_LOW || macro == LDG_TERM_VT_SIXEL_MACRO_MID_HIGH) { sixel->dot_height = LDG_TERM_VT_SIXEL_DOT_MID; }
+    else if (macro >= LDG_TERM_VT_SIXEL_MACRO_SQUARE_LOW && macro <= LDG_TERM_VT_SIXEL_MACRO_SQUARE_HIGH) { sixel->dot_height = LDG_TERM_VT_SIXEL_DOT_SQUARE; }
+
+    sixel->opaque = LDG_TRUTH_TRUE;
+    if (vt_param_get(vt, LDG_TERM_VT_SIXEL_PARAM_BG, LDG_TERM_VT_PARAM_DEFAULT) == LDG_TERM_VT_SIXEL_BG_KEEP) { sixel->opaque = LDG_TRUTH_FALSE; }
+
+    sixel->width = (uint32_t)width;
+    sixel->height = (uint32_t)height;
+    sixel->col = 0;
+    sixel->row = 0;
+    sixel->ext_width = 0;
+    sixel->ext_height = 0;
+    sixel->filled_height = 0;
+    sixel->repeat = 0;
+    sixel->slot = 0;
+    sixel->arg_cunt = 0;
+    sixel->cmd = LDG_TERM_VT_SIXEL_CMD_NONE;
+    sixel->drawn = LDG_TRUTH_FALSE;
+    sixel->active = LDG_TRUTH_TRUE;
+}
+
+static void vt_sixel_raster_apply(ldg_term_vt_t *vt)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    uint32_t pan = sixel->arg[LDG_TERM_VT_SIXEL_ARG_PAN];
+    uint32_t pad = sixel->arg[LDG_TERM_VT_SIXEL_ARG_PAD];
+    uint32_t dot = 0;
+
+    if (sixel->drawn == LDG_TRUTH_TRUE) { return; }
+
+    if (sixel->arg_cunt >= LDG_TERM_VT_SIXEL_RATIO_CUNT && pan > 0 && pad > 0)
     {
-        if (vt->osc[idx] == LDG_TERM_VT_SIXEL_RASTER)
-        {
-            idx++;
+        dot = (pan + (pad / LDG_TERM_VT_SIXEL_ROUND_DIV)) / pad;
+        if (dot == 0) { dot = LDG_TERM_VT_SIXEL_DOT_SQUARE; }
 
-            while (idx < vt->osc_len && vt->osc[idx] != LDG_TERM_VT_SIXEL_COLOR && vt->osc[idx] != LDG_TERM_VT_SIXEL_LF && (vt->osc[idx] < LDG_TERM_VT_SIXEL_LOW || vt->osc[idx] > LDG_TERM_VT_SIXEL_HIGH)) { idx++; }
+        if (dot > LDG_TERM_VT_SIXEL_DOT_MAX) { dot = LDG_TERM_VT_SIXEL_DOT_MAX; }
 
-            continue;
-        }
-
-        if (vt->osc[idx] == LDG_TERM_VT_SIXEL_COLOR)
-        {
-            idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &slot);
-
-            if (slot >= LDG_TERM_VT_SIXEL_MAP) { slot = LDG_TERM_VT_PARAM_FIRST; }
-
-            if (idx < vt->osc_len && vt->osc[idx] == LDG_TERM_VT_SIXEL_SEP)
-            {
-                idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &model);
-
-                if (idx < vt->osc_len && vt->osc[idx] == LDG_TERM_VT_SIXEL_SEP) { idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &red); }
-
-                if (idx < vt->osc_len && vt->osc[idx] == LDG_TERM_VT_SIXEL_SEP) { idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &green); }
-
-                if (idx < vt->osc_len && vt->osc[idx] == LDG_TERM_VT_SIXEL_SEP) { idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &blue); }
-
-                if (model == LDG_TERM_VT_SIXEL_MODEL_RGB && slot < LDG_TERM_VT_SIXEL_MAP)
-                {
-                    map[slot][LDG_TERM_VT_RED_IDX] = (uint8_t)((red * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
-                    map[slot][LDG_TERM_VT_GREEN_IDX] = (uint8_t)((green * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
-                    map[slot][LDG_TERM_VT_BLUE_IDX] = (uint8_t)((blue * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
-                }
-            }
-
-            continue;
-        }
-
-        if (vt->osc[idx] == LDG_TERM_VT_SIXEL_REPEAT)
-        {
-            idx = vt_sixel_num_get(vt, idx + LDG_TERM_VT_STEP, &repeat);
-            continue;
-        }
-
-        if (vt->osc[idx] == LDG_TERM_VT_SIXEL_CR)
-        {
-            curr_col = 0;
-            idx++;
-            continue;
-        }
-
-        if (vt->osc[idx] == LDG_TERM_VT_SIXEL_LF)
-        {
-            curr_col = 0;
-            curr_row += LDG_TERM_VT_SIXEL_BAND;
-            idx++;
-            continue;
-        }
-
-        if (vt->osc[idx] < LDG_TERM_VT_SIXEL_LOW || vt->osc[idx] > LDG_TERM_VT_SIXEL_HIGH)
-        {
-            idx++;
-            continue;
-        }
-
-        val = (uint8_t)((uint8_t)vt->osc[idx] - LDG_TERM_VT_SIXEL_LOW);
-
-        if (repeat == 0) { repeat = LDG_TERM_VT_STEP; }
-
-        if (repeat > width) { repeat = width; }
-
-        for (col = 0; col < repeat; col++)
-        {
-            for (bit = 0; bit < LDG_TERM_VT_SIXEL_BAND; bit++)
-            {
-                if (!(val & (LDG_TERM_VT_STEP << bit))) { continue; }
-
-                row = curr_row + bit;
-
-                if (curr_col >= width || row >= height) { continue; }
-
-                vt->term->buff[((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB] = map[slot][LDG_TERM_VT_RED_IDX];
-                vt->term->buff[(((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_STEP] = map[slot][LDG_TERM_VT_GREEN_IDX];
-                vt->term->buff[(((row * width) + curr_col) * LDG_TERM_VT_PNG_CHAN_RGB) + LDG_TERM_VT_PAIR_STEP] = map[slot][LDG_TERM_VT_BLUE_IDX];
-
-                if (curr_col + LDG_TERM_VT_STEP > ext_width) { ext_width = curr_col + LDG_TERM_VT_STEP; }
-
-                if (row + LDG_TERM_VT_STEP > ext_height) { ext_height = row + LDG_TERM_VT_STEP; }
-            }
-
-            curr_col++;
-        }
-
-        repeat = 0;
-        idx++;
+        sixel->dot_height = dot;
     }
 
-    if (ext_width == 0 || ext_height == 0) { return; }
+    if (sixel->arg_cunt < LDG_TERM_VT_SIXEL_EXTENT_CUNT || sixel->arg[LDG_TERM_VT_SIXEL_ARG_PH] == 0 || sixel->arg[LDG_TERM_VT_SIXEL_ARG_PV] == 0) { return; }
 
-    for (row = 0; row < ext_height; row++) { for (idx = 0; idx < (uint64_t)ext_width * LDG_TERM_VT_PNG_CHAN_RGB; idx++) { vt->term->buff[((uint64_t)row * ext_width * LDG_TERM_VT_PNG_CHAN_RGB) + idx] = vt->term->buff[((uint64_t)row * width * LDG_TERM_VT_PNG_CHAN_RGB) + idx]; } }
+    sixel->ext_width = sixel->arg[LDG_TERM_VT_SIXEL_ARG_PH];
+    if (sixel->ext_width > sixel->width) { sixel->ext_width = sixel->width; }
 
-    span = ext_width * ext_height * LDG_TERM_VT_PNG_CHAN_RGB;
-    img_id = LDG_TERM_VT_SIXEL_ID_BASE + vt->sixel_seq;
+    sixel->ext_height = sixel->arg[LDG_TERM_VT_SIXEL_ARG_PV];
+    if (sixel->ext_height > sixel->height) { sixel->ext_height = sixel->height; }
 
-    vt->sixel_seq++;
-    if (vt->sixel_seq >= LDG_TERM_VT_SIXEL_SEQ_MAX) { vt->sixel_seq = LDG_TERM_VT_SIXEL_SEQ_FIRST; }
+    vt_sixel_row_fill(vt, sixel->ext_height);
+}
 
-    if (ldg_term_img_st(vt->term, img_id, ext_width, ext_height, LDG_TERM_IMG_FMT_RGB, vt->term->buff, span) != LDG_ERR_AOK) { return; }
+static void vt_sixel_color_apply(ldg_term_vt_sixel_t *sixel)
+{
+    uint32_t model = sixel->arg[LDG_TERM_VT_SIXEL_ARG_MODEL];
+    uint32_t val_x = sixel->arg[LDG_TERM_VT_SIXEL_ARG_X];
+    uint32_t val_y = sixel->arg[LDG_TERM_VT_SIXEL_ARG_Y];
+    uint32_t val_z = sixel->arg[LDG_TERM_VT_SIXEL_ARG_Z];
+    uint8_t *reg = 0x0;
+
+    sixel->slot = sixel->arg[LDG_TERM_VT_SIXEL_ARG_SLOT] % LDG_TERM_VT_SIXEL_REG_MAX;
+
+    if (sixel->arg_cunt < LDG_TERM_VT_SIXEL_COLOR_DEF_CUNT) { return; }
+
+    reg = sixel->reg[sixel->slot];
+
+    if (val_y > LDG_TERM_VT_SIXEL_FULL) { val_y = LDG_TERM_VT_SIXEL_FULL; }
+
+    if (val_z > LDG_TERM_VT_SIXEL_FULL) { val_z = LDG_TERM_VT_SIXEL_FULL; }
+
+    if (model == LDG_TERM_VT_SIXEL_MODEL_HLS)
+    {
+        vt_sixel_hls_set(reg, val_x, val_y, val_z);
+        return;
+    }
+
+    if (model != LDG_TERM_VT_SIXEL_MODEL_RGB) { return; }
+
+    if (val_x > LDG_TERM_VT_SIXEL_FULL) { val_x = LDG_TERM_VT_SIXEL_FULL; }
+
+    reg[LDG_TERM_VT_RED_IDX] = (uint8_t)((val_x * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
+    reg[LDG_TERM_VT_GREEN_IDX] = (uint8_t)((val_y * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
+    reg[LDG_TERM_VT_BLUE_IDX] = (uint8_t)((val_z * LDG_TERM_VT_SIXEL_SCALE) / LDG_TERM_VT_SIXEL_FULL);
+}
+
+static void vt_sixel_cmd_apply(ldg_term_vt_t *vt)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    uint8_t cmd = sixel->cmd;
+
+    sixel->cmd = LDG_TERM_VT_SIXEL_CMD_NONE;
+
+    if (cmd == LDG_TERM_VT_SIXEL_REPEAT)
+    {
+        sixel->repeat = sixel->arg[LDG_TERM_VT_PARAM_FIRST];
+        if (sixel->repeat == 0) { sixel->repeat = LDG_TERM_VT_STEP; }
+
+        return;
+    }
+
+    if (cmd == LDG_TERM_VT_SIXEL_RASTER)
+    {
+        vt_sixel_raster_apply(vt);
+        return;
+    }
+
+    if (cmd == LDG_TERM_VT_SIXEL_COLOR) { vt_sixel_color_apply(sixel); }
+}
+
+static void vt_sixel_data_put(ldg_term_vt_t *vt, uint8_t val)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    const uint8_t *reg = sixel->reg[sixel->slot];
+    uint8_t *px = 0x0;
+    uint32_t cunt = sixel->repeat;
+    uint32_t band_stop = 0;
+    uint32_t bit = 0;
+    uint32_t sub = 0;
+    uint32_t px_row = 0;
+    uint32_t px_col = 0;
+
+    sixel->repeat = 0;
+    if (cunt == 0) { cunt = LDG_TERM_VT_STEP; }
+
+    if (sixel->col >= sixel->width || sixel->row >= sixel->height) { return; }
+
+    if (cunt > sixel->width - sixel->col) { cunt = sixel->width - sixel->col; }
+
+    band_stop = sixel->row + (LDG_TERM_VT_SIXEL_BAND * sixel->dot_height);
+    if (band_stop > sixel->height) { band_stop = sixel->height; }
+
+    vt_sixel_row_fill(vt, band_stop);
+    sixel->drawn = LDG_TRUTH_TRUE;
+
+    for (bit = 0; bit < LDG_TERM_VT_SIXEL_BAND; bit++)
+    {
+        if (!(val & (LDG_TERM_VT_STEP << bit))) { continue; }
+
+        for (sub = 0; sub < sixel->dot_height; sub++)
+        {
+            px_row = sixel->row + (bit * sixel->dot_height) + sub;
+            if (px_row >= sixel->height) { break; }
+
+            for (px_col = sixel->col; px_col < sixel->col + cunt; px_col++)
+            {
+                px = &vt->term->buff[(((uint64_t)px_row * sixel->width) + px_col) * LDG_TERM_VT_SIXEL_CHAN];
+                px[LDG_TERM_VT_RED_IDX] = reg[LDG_TERM_VT_RED_IDX];
+                px[LDG_TERM_VT_GREEN_IDX] = reg[LDG_TERM_VT_GREEN_IDX];
+                px[LDG_TERM_VT_BLUE_IDX] = reg[LDG_TERM_VT_BLUE_IDX];
+                px[LDG_TERM_VT_SIXEL_ALPHA_IDX] = LDG_TERM_VT_SIXEL_ALPHA_SOLID;
+            }
+        }
+    }
+
+    sixel->col += cunt;
+
+    if (sixel->col > sixel->ext_width) { sixel->ext_width = sixel->col; }
+
+    if (band_stop > sixel->ext_height) { sixel->ext_height = band_stop; }
+}
+
+static void vt_sixel_feed(ldg_term_vt_t *vt, uint8_t byte)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    uint32_t *arg = 0x0;
+
+    if (sixel->active != LDG_TRUTH_TRUE) { vt_sixel_begin(vt); }
+
+    if (sixel->active != LDG_TRUTH_TRUE) { return; }
+
+    if (sixel->cmd != LDG_TERM_VT_SIXEL_CMD_NONE)
+    {
+        if (byte >= LDG_TERM_VT_DIGIT_LOW && byte <= LDG_TERM_VT_DIGIT_HIGH)
+        {
+            arg = &sixel->arg[sixel->arg_cunt - LDG_TERM_VT_STEP];
+            if (*arg < LDG_TERM_VT_SIXEL_ARG_LIMIT) { *arg = (*arg * LDG_TERM_VT_DECIMAL) + (uint32_t)(byte - LDG_TERM_VT_DIGIT_LOW); }
+
+            return;
+        }
+
+        if (byte == LDG_TERM_VT_SIXEL_SEP)
+        {
+            if (sixel->arg_cunt < LDG_TERM_VT_SIXEL_ARG_MAX)
+            {
+                sixel->arg[sixel->arg_cunt] = 0;
+                sixel->arg_cunt++;
+            }
+
+            return;
+        }
+
+        vt_sixel_cmd_apply(vt);
+    }
+
+    if (byte == LDG_TERM_VT_SIXEL_REPEAT || byte == LDG_TERM_VT_SIXEL_COLOR || byte == LDG_TERM_VT_SIXEL_RASTER)
+    {
+        sixel->cmd = byte;
+        sixel->arg[LDG_TERM_VT_PARAM_FIRST] = 0;
+        sixel->arg_cunt = LDG_TERM_VT_STEP;
+        return;
+    }
+
+    if (byte == LDG_TERM_VT_SIXEL_CR)
+    {
+        sixel->col = 0;
+        return;
+    }
+
+    if (byte == LDG_TERM_VT_SIXEL_LF)
+    {
+        sixel->col = 0;
+        if (sixel->row < sixel->height) { sixel->row += LDG_TERM_VT_SIXEL_BAND * sixel->dot_height; }
+
+        return;
+    }
+
+    if (byte >= LDG_TERM_VT_SIXEL_LOW && byte <= LDG_TERM_VT_SIXEL_HIGH) { vt_sixel_data_put(vt, (uint8_t)(byte - LDG_TERM_VT_SIXEL_LOW)); }
+}
+
+static void vt_sixel_end(ldg_term_vt_t *vt)
+{
+    ldg_term_vt_sixel_t *sixel = &vt->sixel;
+    ldg_term_placement_t placement = LDG_STRUCT_ZERO_INIT;
+    uint64_t stride = 0;
+    uint64_t idx = 0;
+    uint32_t row = 0;
+    uint32_t col = 0;
+    uint32_t end_col = 0;
+    uint32_t end_row = 0;
+    uint32_t img_id = 0;
+
+    if (sixel->active != LDG_TRUTH_TRUE) { return; }
+
+    if (sixel->cmd != LDG_TERM_VT_SIXEL_CMD_NONE) { vt_sixel_cmd_apply(vt); }
+
+    sixel->active = LDG_TRUTH_FALSE;
+
+    if (sixel->ext_width == 0 || sixel->ext_height == 0) { return; }
+
+    vt_sixel_row_fill(vt, sixel->ext_height);
+
+    stride = (uint64_t)sixel->ext_width * LDG_TERM_VT_SIXEL_CHAN;
+
+    if (sixel->ext_width < sixel->width) { for (row = LDG_TERM_VT_STEP; row < sixel->ext_height; row++) { for (idx = 0; idx < stride; idx++) { vt->term->buff[((uint64_t)row * stride) + idx] = vt->term->buff[((uint64_t)row * sixel->width * LDG_TERM_VT_SIXEL_CHAN) + idx]; } } }
+
+    img_id = LDG_TERM_VT_SIXEL_ID_BASE + sixel->seq;
+
+    sixel->seq++;
+    if (sixel->seq >= LDG_TERM_VT_SIXEL_SEQ_MAX) { sixel->seq = LDG_TERM_VT_SIXEL_SEQ_FIRST; }
+
+    if (ldg_term_img_st(vt->term, img_id, sixel->ext_width, sixel->ext_height, LDG_TERM_IMG_FMT_RGBA, vt->term->buff, (uint32_t)(stride * sixel->ext_height)) != LDG_ERR_AOK) { return; }
+
+    placement.img_id = img_id;
+    placement.col_span = (sixel->ext_width + vt->cell_px_width - LDG_TERM_VT_STEP) / vt->cell_px_width;
+    placement.row_span = (sixel->ext_height + vt->cell_px_height - LDG_TERM_VT_STEP) / vt->cell_px_height;
+
+    if ((vt->mode & LDG_TERM_VT_MODE_SDM) != 0)
+    {
+        ldg_term_placement_add(vt->term, &placement);
+        return;
+    }
 
     ldg_term_cursor_get(vt->term, &col, &row);
 
-    placement.img_id = img_id;
+    for (idx = LDG_TERM_VT_STEP; idx < placement.row_span; idx++) { if (ldg_term_line_feed(vt->term) != LDG_ERR_AOK) { return; } }
+
+    ldg_term_cursor_get(vt->term, &end_col, &end_row);
+
     placement.col = col;
-    placement.row = row;
+    if (end_row + LDG_TERM_VT_STEP >= placement.row_span) { placement.row = end_row + LDG_TERM_VT_STEP - placement.row_span; }
 
     ldg_term_placement_add(vt->term, &placement);
 }
@@ -2020,6 +2278,7 @@ static void vt_byte_feed(ldg_term_vt_t *vt, uint8_t byte)
 {
     if (byte == LDG_TERM_VT_CAN_CH || byte == LDG_TERM_VT_SUB_CH)
     {
+        vt_sixel_end(vt);
         vt_param_rst(vt);
         vt->state = LDG_TERM_VT_STATE_GROUND;
         return;
@@ -2054,6 +2313,12 @@ static void vt_byte_feed(ldg_term_vt_t *vt, uint8_t byte)
             return;
         }
 
+        if (vt->state == LDG_TERM_VT_STATE_DCS_PASS && vt->inter_cunt == LDG_TERM_VT_STEP && vt->inter[LDG_TERM_VT_PARAM_FIRST] == LDG_TERM_VT_SIXEL_FINAL)
+        {
+            vt_sixel_feed(vt, byte);
+            return;
+        }
+
         vt_str_collect(vt, byte);
         return;
     }
@@ -2062,6 +2327,7 @@ static void vt_byte_feed(ldg_term_vt_t *vt, uint8_t byte)
     {
         if (byte != LDG_TERM_VT_ST_CH)
         {
+            vt_sixel_end(vt);
             vt_param_rst(vt);
             vt->state = LDG_TERM_VT_STATE_ESC;
             vt_esc_feed(vt, byte);
@@ -2069,7 +2335,7 @@ static void vt_byte_feed(ldg_term_vt_t *vt, uint8_t byte)
         }
 
         if (vt->str_kind == LDG_TERM_VT_STR_APC) { vt_gfx_dispatch(vt); }
-        else if (vt->str_kind == LDG_TERM_VT_STR_DCS && vt->inter_cunt == LDG_TERM_VT_STEP && vt->inter[LDG_TERM_VT_PARAM_FIRST] == LDG_TERM_VT_SIXEL_FINAL) { vt_sixel_dispatch(vt); }
+        else if (vt->str_kind == LDG_TERM_VT_STR_DCS) { vt_sixel_end(vt); }
 
         vt_param_rst(vt);
         vt->state = LDG_TERM_VT_STATE_GROUND;
@@ -2219,7 +2485,8 @@ uint32_t ldg_term_vt_init(ldg_term_vt_t *vt, ldg_term_t *term)
     vt->term = term;
     vt->cell_px_width = LDG_TERM_VT_CELL_WIDTH_PX;
     vt->cell_px_height = LDG_TERM_VT_CELL_HEIGHT_PX;
-    vt->sixel_seq = LDG_TERM_VT_SIXEL_SEQ_FIRST;
+    vt->sixel.seq = LDG_TERM_VT_SIXEL_SEQ_FIRST;
+    vt_sixel_rst(vt);
     vt->state = LDG_TERM_VT_STATE_GROUND;
     vt->osc[0] = LDG_STR_TERM;
     vt->title[0] = LDG_STR_TERM;
@@ -2254,6 +2521,7 @@ uint32_t ldg_term_vt_rst(ldg_term_vt_t *vt)
 {
     if (LDG_UNLIKELY(!vt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
+    vt_sixel_rst(vt);
     vt->state = LDG_TERM_VT_STATE_GROUND;
     vt->osc[0] = LDG_STR_TERM;
     vt->title[0] = LDG_STR_TERM;

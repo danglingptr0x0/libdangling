@@ -4,6 +4,7 @@
 
 #include <dangling/sys/mod.h>
 #include <dangling/core/err.h>
+#include <dangling/core/arith.h>
 #include <dangling/core/macros.h>
 #include <dangling/mem/cpy.h>
 #include <dangling/mem/secure.h>
@@ -43,7 +44,7 @@ static uint8_t sys_mod_hit_is(uint32_t kind, const char *key, uint64_t addr, con
 
     if (kind == LDG_SYS_MOD_WALK_ADDR) { return (addr >= mod->base && addr - mod->base < mod->size) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; }
 
-    return (ldg_str_case_cmp(mod->name, key, LDG_SYS_MOD_NAME_MAX, &order) == LDG_ERR_AOK && order == 0) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    return (ldg_str_case_cmp(mod->name, key, LDG_SYS_MOD_NAME_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
 }
 
 static uint32_t sys_mod_walk(const ldg_sys_proc_t *proc, uint32_t kind, const char *key, uint64_t addr, ldg_sys_mod_t *out, uint64_t cap, uint64_t *cunt)
