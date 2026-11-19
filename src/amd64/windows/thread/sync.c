@@ -13,7 +13,6 @@
 #define LDG_COND_WAIT_MS_MAX (INFINITE - 1U)
 
 
-// impl accessors
 static inline CRITICAL_SECTION* mut_cs(ldg_mut_t *mut)
 {
     return (CRITICAL_SECTION *)mut->impl;
@@ -182,8 +181,6 @@ uint32_t ldg_cond_bcast(ldg_cond_t *cond)
 
     return LDG_ERR_AOK;
 }
-
-// sem (Win32 named semaphores)
 
 uint32_t ldg_sem_init(ldg_sem_t *sem, const char *name, uint32_t init_val)
 {

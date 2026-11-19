@@ -1401,6 +1401,8 @@ static uint32_t shell_expr_eval(ldg_shell_t *shell)
     {
         if (shell->expr_kind[idx] == SHELL_EXPR_NOT)
         {
+            if (LDG_UNLIKELY(depth < SHELL_STACK_TOP_OFF)) { return LDG_ERR_INVALID; }
+
             truth = shell->truth_stack[depth - SHELL_STACK_TOP_OFF];
             shell->truth_stack[depth - SHELL_STACK_TOP_OFF] = shell_truth_join_get(shell_truth_con_is(truth), shell_truth_pro_is(truth));
             continue;
@@ -1408,6 +1410,8 @@ static uint32_t shell_expr_eval(ldg_shell_t *shell)
 
         if (shell->expr_kind[idx] > SHELL_EXPR_NOT)
         {
+            if (LDG_UNLIKELY(depth <= SHELL_STACK_TOP_OFF)) { return LDG_ERR_INVALID; }
+
             depth--;
             shell->truth_stack[depth - SHELL_STACK_TOP_OFF] = shell_truth_op_get(shell->expr_kind[idx], shell->truth_stack[depth - SHELL_STACK_TOP_OFF], shell->truth_stack[depth]);
             continue;

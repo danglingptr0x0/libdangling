@@ -82,7 +82,6 @@
 #define LDG_HW_SENSOR_NEEDLE_RADEON "radeon"
 #define LDG_HW_SENSOR_NEEDLE_NOUVEAU "nouveau"
 #define LDG_HW_SENSOR_NEEDLE_NVIDIA "nvidia"
-#define LDG_HW_SENSOR_NEEDLE_ACPITZ "acpitz"
 
 typedef enum hw_sensor_chip
 {
@@ -249,8 +248,6 @@ static hw_sensor_chip_t hw_sensor_chip_classify(const char *chip)
     if (hw_sensor_label_has(chip, LDG_HW_SENSOR_NEEDLE_NOUVEAU) == LDG_TRUTH_TRUE) { return HW_SENSOR_CHIP_GPU; }
 
     if (hw_sensor_label_has(chip, LDG_HW_SENSOR_NEEDLE_NVIDIA) == LDG_TRUTH_TRUE) { return HW_SENSOR_CHIP_GPU; }
-
-    if (hw_sensor_label_has(chip, LDG_HW_SENSOR_NEEDLE_ACPITZ) == LDG_TRUTH_TRUE) { return HW_SENSOR_CHIP_BOARD; }
 
     return HW_SENSOR_CHIP_BOARD;
 }

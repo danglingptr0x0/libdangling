@@ -104,7 +104,6 @@ typedef struct ldg_audio_ctx
     uint8_t pudding[35];
 } LDG_ALIGNED ldg_audio_ctx_t;
 
-// singleton audio backend; file-scope static required for PipeWire callbacks
 static ldg_audio_ctx_t g_audio_ctx = { .is_init = LDG_TRUTH_FALSE };
 
 static void audio_node_free(ldg_audio_node_t *node, uint8_t destroy_proxy)

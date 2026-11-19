@@ -73,7 +73,6 @@ static void* ldg_thread_pool_worker_enter(void *arg)
     return 0x0;
 }
 
-// caller shall pair with shutdown(); handles are not reclaimed otherwise
 uint32_t ldg_thread_pool_init(ldg_thread_pool_t *pool, uint32_t worker_cunt)
 {
     uint32_t idx = 0;
@@ -145,7 +144,6 @@ uint32_t ldg_thread_pool_shutdown(ldg_thread_pool_t *pool)
     return ret;
 }
 
-// start() and submit() are mutually exclusive; concurrent use is undefined
 uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
 {
     uint32_t idx = 0;
@@ -173,7 +171,6 @@ uint32_t ldg_thread_pool_start(ldg_thread_pool_t *pool, ldg_thread_pool_worker_f
 
         if (LDG_UNLIKELY(pthread_attr_init(&attr) != 0)) { LDG_WR_ONCE(pool->workers[idx].state, LDG_THREAD_POOL_WORKER_STOPPED); continue; }
 
-        // amd64: pthread_t fits in uint64_t; validated by BOOL_ASSERT in init
         ret = (int32_t)pthread_create(&tid, &attr, ldg_thread_pool_worker_enter, &pool->workers[idx]);
         pool->workers[idx].handle = (ret == 0) ? (uint64_t)tid : 0;
         pthread_attr_destroy(&attr);
@@ -207,7 +204,6 @@ uint32_t ldg_thread_pool_stop(ldg_thread_pool_t *pool)
 
     LDG_SMP_MB();
 
-    // single bcast; workers re-check should_stop every WAIT_TIMEOUT_MS on timedwait expiry
     if (pool->task_queue) { if (LDG_UNLIKELY(ldg_cond_bcast(&pool->task_queue->wait_cond) != LDG_ERR_AOK && ret == LDG_ERR_AOK)) { ret = LDG_ERR_BUSY; } }
 
     for (idx = 0; idx < pool->worker_cunt; idx++) { if (pool->workers[idx].handle != 0)
@@ -297,7 +293,6 @@ static uint32_t thread_pool_submit_workers_start(ldg_thread_pool_t *pool)
     return LDG_ERR_AOK;
 }
 
-// mutually exclusive with start(); tasks queue before workers reach mpmc_wait
 uint32_t ldg_thread_pool_submit(ldg_thread_pool_t *pool, ldg_thread_pool_worker_func_t func, void *arg)
 {
     ldg_thread_pool_task_t task = { 0 };

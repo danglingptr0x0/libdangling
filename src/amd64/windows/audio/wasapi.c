@@ -92,7 +92,6 @@ typedef struct ldg_audio_ctx
     uint8_t pudding1[3];
 } ldg_audio_ctx_t;
 
-// singleton audio backend; file-scope static required for COM callbacks
 static ldg_audio_ctx_t g_audio_ctx = { .is_init = LDG_TRUTH_FALSE };
 
 static void audio_wstr_to_utf8(const WCHAR *src, char *dst, uint64_t dst_size)

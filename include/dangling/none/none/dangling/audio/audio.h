@@ -104,12 +104,10 @@ LDG_EXPORT uint32_t ldg_audio_sink_pcm_pause_set(uint8_t paused);
 LDG_EXPORT uint32_t ldg_audio_sink_pcm_vol_set(double vol);
 LDG_EXPORT uint32_t ldg_audio_sink_pcm_src_set(ldg_audio_pcm_pull_cb_t cb, void *user);
 
-// init/shutdown
 LDG_EXPORT uint32_t ldg_audio_init(void);
 LDG_EXPORT void ldg_audio_shutdown(void);
 LDG_EXPORT uint32_t ldg_audio_sync(void);
 
-// vol control
 LDG_EXPORT uint32_t ldg_audio_master_vol_get(double *vol);
 LDG_EXPORT uint32_t ldg_audio_master_vol_set(double vol);
 LDG_EXPORT uint32_t ldg_audio_stream_vol_get(uint32_t stream_id, double *vol);
@@ -117,19 +115,16 @@ LDG_EXPORT uint32_t ldg_audio_stream_vol_set(uint32_t stream_id, double vol);
 LDG_EXPORT uint32_t ldg_audio_stream_mute_get(uint32_t stream_id, uint8_t *muted);
 LDG_EXPORT uint32_t ldg_audio_stream_mute_set(uint32_t stream_id, uint8_t muted);
 
-// stream enumeration
 LDG_EXPORT uint32_t ldg_audio_stream_list(ldg_audio_stream_t **streams, uint32_t *cunt);
 LDG_EXPORT void ldg_audio_stream_free(ldg_audio_stream_t *streams);
 LDG_EXPORT uint32_t ldg_audio_stream_name_get(const char *name, ldg_audio_stream_t *stream);
 
-// self stream
 LDG_EXPORT void ldg_audio_self_reg(uint32_t stream_id);
 LDG_EXPORT uint64_t ldg_audio_self_id_get(void);
 LDG_EXPORT uint32_t ldg_audio_stream_self_get(ldg_audio_stream_t *stream);
 LDG_EXPORT uint32_t ldg_audio_self_vol_get(double *vol);
 LDG_EXPORT uint32_t ldg_audio_self_vol_set(double vol);
 
-// sink/src enumeration
 LDG_EXPORT uint32_t ldg_audio_sink_list(ldg_audio_sink_t **sinks, uint32_t *cunt);
 LDG_EXPORT void ldg_audio_sink_free(ldg_audio_sink_t *sinks);
 LDG_EXPORT uint32_t ldg_audio_src_list(ldg_audio_src_t **srcs, uint32_t *cunt);
@@ -137,7 +132,6 @@ LDG_EXPORT void ldg_audio_src_free(ldg_audio_src_t *srcs);
 LDG_EXPORT uint32_t ldg_audio_default_sink_get(ldg_audio_sink_t *sink);
 LDG_EXPORT uint32_t ldg_audio_default_src_get(ldg_audio_src_t *src);
 
-// stacked ducking
 LDG_EXPORT uint32_t ldg_audio_duck(double factor, uint32_t exclude_stream_id);
 LDG_EXPORT uint32_t ldg_audio_unduck(void);
 

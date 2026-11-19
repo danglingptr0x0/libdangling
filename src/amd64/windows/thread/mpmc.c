@@ -17,8 +17,6 @@ static uint64_t mpmc_monotonic_ms_get(void)
     return (uint64_t)GetTickCount64();
 }
 
-// slot
-
 static uint32_t mpmc_slot_get(ldg_mpmc_queue_t *queue, uint64_t idx, ldg_mpmc_slot_t **out)
 {
     if (LDG_UNLIKELY(!queue || !queue->buff || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
@@ -158,7 +156,6 @@ uint32_t ldg_mpmc_push(ldg_mpmc_queue_t *queue, const void *item)
 
     LDG_ST_RELEASE(slot->seq, pos + 1);
 
-    // signal outside lock; re-check-before-wait in mpmc_wait mitigates lost wakeup
     ldg_cond_sig(&queue->wait_cond);
 
     return LDG_ERR_AOK;
@@ -239,8 +236,7 @@ uint32_t ldg_mpmc_wait(ldg_mpmc_queue_t *queue, void *item_out, uint64_t timeout
 
     if (LDG_UNLIKELY(iter >= MPMC_WAIT_MAX_ITER)) { ldg_mut_unlock(&queue->wait_mut); return LDG_ERR_TIMEOUT; }
 
-    // pop succeeded; unlock failure does not revoke the committed item
-    if (LDG_UNLIKELY(ldg_mut_unlock(&queue->wait_mut) != LDG_ERR_AOK)) { return LDG_ERR_AOK; }
+    ldg_mut_unlock(&queue->wait_mut);
 
     return LDG_ERR_AOK;
 }

@@ -46,6 +46,8 @@ uint32_t ldg_shell_hist_push(ldg_shell_t *shell, const char *text)
 
     if (LDG_UNLIKELY(!shell || !text)) { return LDG_ERR_FUNC_ARG_NULL; }
 
+    if (LDG_UNLIKELY(shell->hist_max == 0)) { return LDG_ERR_NOT_INIT; }
+
     ret = ldg_str_len_get(text, shell->conf.line_cap, &len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 

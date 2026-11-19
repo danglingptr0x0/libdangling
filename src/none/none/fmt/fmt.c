@@ -2,7 +2,6 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 
-// compile-time config embed; file-scope static required for const string literal
 static const char g_uncrustify_conf[] =
     "indent_with_tabs = 0\n"
     "indent_columns = 4\n"

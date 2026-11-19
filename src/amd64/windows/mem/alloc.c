@@ -35,7 +35,6 @@ typedef struct ldg_mem_state
     uint8_t pudding[54];
 } LDG_ALIGNED ldg_mem_state_t;
 
-// singleton allocator; file-scope statics required for process-wide state
 static ldg_mem_state_t g_mem = { .is_init = LDG_TRUTH_FALSE, .is_locked = LDG_TRUTH_FALSE };
 static ldg_mut_t g_mem_mut = { .is_init = LDG_TRUTH_FALSE };
 
@@ -229,7 +228,6 @@ static uint32_t ldg_mem_unlocked_dealloc(void *ptr)
     return LDG_ERR_AOK;
 }
 
-// lifecycle: init/shutdown shall be called from a single thread
 uint32_t ldg_mem_init(void)
 {
     uint32_t ret = 0;

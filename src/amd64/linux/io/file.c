@@ -13,7 +13,6 @@
 
 #define LDG_IO_FILE_OPEN_DIRECT 0x4000
 
-// errno
 static uint32_t ldg_io_errno_translate(void)
 {
     switch (errno)
@@ -47,7 +46,6 @@ static uint32_t ldg_io_errno_translate(void)
     }
 }
 
-// flags
 static uint32_t ldg_io_flags_translate(uint32_t ldg_flags, int32_t *posix_flags)
 {
     uint32_t access = 0;
