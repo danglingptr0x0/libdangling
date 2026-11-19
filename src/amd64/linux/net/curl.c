@@ -234,7 +234,7 @@ uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *u
         return LDG_ERR_NET_INIT;
     }
 
-    if (LDG_UNLIKELY(curl_easy_setopt(req->curl, CURLOPT_URL, req->url) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEDATA, &req->resp) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSL_VERIFYPEER, 1L) != CURLE_OK || (req->hdrs && curl_easy_setopt(req->curl, CURLOPT_HTTPHEADER, req->hdrs) != CURLE_OK) || (req->post_data && curl_easy_setopt(req->curl, CURLOPT_POSTFIELDS, req->post_data) != CURLE_OK)))
+    if (LDG_UNLIKELY(curl_easy_setopt(req->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_URL, req->url) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(req->curl, CURLOPT_WRITEDATA, &req->resp) != CURLE_OK || (req->hdrs && curl_easy_setopt(req->curl, CURLOPT_HTTPHEADER, req->hdrs) != CURLE_OK) || (req->post_data && curl_easy_setopt(req->curl, CURLOPT_POSTFIELDS, req->post_data) != CURLE_OK)))
     {
         curl_easy_cleanup(req->curl);
         req->curl = 0x0;
@@ -381,6 +381,14 @@ uint32_t ldg_net_curl_easy_ctx_create(ldg_net_curl_easy_ctx_t *ctx)
     ctx->curl = curl_easy_init();
     if (LDG_UNLIKELY(!ctx->curl)) { return LDG_ERR_ALLOC_NULL; }
 
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK))
+    {
+        curl_easy_cleanup(ctx->curl);
+        ctx->curl = 0x0;
+
+        return LDG_ERR_NET_INIT;
+    }
+
     ctx->is_init = LDG_TRUTH_TRUE;
 
     return LDG_ERR_AOK;
@@ -409,6 +417,8 @@ uint32_t ldg_net_curl_easy_get(ldg_net_curl_easy_ctx_t *ctx, const char *url, vo
 
     curl_easy_reset(ctx->curl);
 
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK)) { return LDG_ERR_NET_INIT; }
+
     if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_URL, url) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, LDG_NET_CURL_OPT_ON) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp) != CURLE_OK || (hdrs && curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs) != CURLE_OK))) { return LDG_ERR_NET_INIT; }
 
     res = curl_easy_perform(ctx->curl);
@@ -432,6 +442,8 @@ uint32_t ldg_net_curl_easy_post(ldg_net_curl_easy_ctx_t *ctx, const char *url, c
     ldg_net_curl_resp_init(resp);
 
     curl_easy_reset(ctx->curl);
+
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK)) { return LDG_ERR_NET_INIT; }
 
     if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_URL, url) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POST, LDG_NET_CURL_OPT_ON) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data ? data : LDG_NET_CURL_BODY_EMPTY) != CURLE_OK || (hdrs && curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs) != CURLE_OK))) { return LDG_ERR_NET_INIT; }
 
@@ -458,6 +470,8 @@ uint32_t ldg_net_curl_easy_raw_post(ldg_net_curl_easy_ctx_t *ctx, const char *ur
     ldg_net_curl_resp_init(resp);
 
     curl_easy_reset(ctx->curl);
+
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK)) { return LDG_ERR_NET_INIT; }
 
     if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_URL, url) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data ? (const char *)data : LDG_NET_CURL_BODY_EMPTY) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_resp_wr_cb) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, resp) != CURLE_OK || (hdrs && curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs) != CURLE_OK))) { return LDG_ERR_NET_INIT; }
 
@@ -529,6 +543,8 @@ uint32_t ldg_net_curl_easy_get_stream(ldg_net_curl_easy_ctx_t *ctx, const char *
 
     curl_easy_reset(ctx->curl);
 
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK)) { return LDG_ERR_NET_INIT; }
+
     if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_URL, url) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_HTTPGET, LDG_NET_CURL_OPT_ON) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_stream_wr_cb) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx) != CURLE_OK || (hdrs && curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs) != CURLE_OK))) { return LDG_ERR_NET_INIT; }
 
     res = curl_easy_perform(ctx->curl);
@@ -548,6 +564,8 @@ uint32_t ldg_net_curl_easy_post_stream(ldg_net_curl_easy_ctx_t *ctx, const char 
     stream_ctx.user_data = user_data;
 
     curl_easy_reset(ctx->curl);
+
+    if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_SSL_VERIFYPEER, LDG_NET_CURL_OPT_ON) != CURLE_OK)) { return LDG_ERR_NET_INIT; }
 
     if (LDG_UNLIKELY(curl_easy_setopt(ctx->curl, CURLOPT_URL, url) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POST, LDG_NET_CURL_OPT_ON) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION, ldg_net_curl_stream_wr_cb) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, &stream_ctx) != CURLE_OK || curl_easy_setopt(ctx->curl, CURLOPT_POSTFIELDS, data ? data : LDG_NET_CURL_BODY_EMPTY) != CURLE_OK || (hdrs && curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER, hdrs) != CURLE_OK))) { return LDG_ERR_NET_INIT; }
 

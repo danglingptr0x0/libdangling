@@ -528,6 +528,8 @@ static uint32_t proc_text_rd(const char *path, char *buff, uint64_t cap)
 
     if (LDG_UNLIKELY(got < 0)) { return LDG_ERR_IO_RD; }
 
+    if (LDG_UNLIKELY((uint64_t)got >= cap)) { return LDG_ERR_OVERFLOW; }
+
     buff[got] = LDG_STR_TERM;
 
     return LDG_ERR_AOK;

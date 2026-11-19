@@ -164,6 +164,8 @@ static uint32_t hw_sensor_sysfs_rd(const char *path, char *buff, uint64_t cap)
 
     if (LDG_UNLIKELY(got < 0)) { return LDG_ERR_IO_RD; }
 
+    if (LDG_UNLIKELY((uint64_t)got >= cap)) { return LDG_ERR_OVERFLOW; }
+
     len = (uint64_t)got;
     buff[len] = LDG_HW_SENSOR_TERM;
 
@@ -323,6 +325,7 @@ static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
     uint32_t hwmon_idx = 0;
     uint32_t input_idx = 0;
     uint32_t converted = 0;
+    uint32_t fan_idx = 0;
 
     for (hwmon_idx = LDG_HW_SENSOR_IDX_FIRST; hwmon_idx < LDG_HW_SENSOR_HWMON_MAX; hwmon_idx++)
     {
@@ -365,10 +368,13 @@ static void hw_sensor_hwmon_collect(ldg_hw_sensor_t *out, uint32_t mask)
 
             if ((mask & (uint32_t)LDG_HW_SENSOR_GROUP_FAN) != 0 && out->fan_cunt < LDG_HW_SENSOR_FAN_MAX) { if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_FAN, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0)
                 {
-                    out->fan_rpm[out->fan_cunt] = (uint32_t)raw;
-                    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_PWM, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { out->fan_pwm[out->fan_cunt] = (uint32_t)raw; }
+                    fan_idx = out->fan_cunt;
+                    if (fan_idx >= LDG_HW_SENSOR_FAN_MAX) { continue; }
 
-                    out->fan_cunt++;
+                    out->fan_rpm[fan_idx] = (uint32_t)raw;
+                    if (ldg_str_fmt(path, sizeof(path), &path_len, LDG_HW_SENSOR_FMT_PWM, LDG_HW_SENSOR_PATH_HWMON, hwmon_idx, input_idx) == LDG_ERR_AOK && hw_sensor_sysfs_int_rd(path, &raw) == LDG_ERR_AOK && raw >= 0) { out->fan_pwm[fan_idx] = (uint32_t)raw; }
+
+                    out->fan_cunt = fan_idx + LDG_HW_SENSOR_STEP;
                 }
             }
         }

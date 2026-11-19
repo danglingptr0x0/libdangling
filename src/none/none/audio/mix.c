@@ -120,9 +120,13 @@ static int32_t mix_gain_apply(int32_t sample, uint32_t vol, uint32_t bus)
 static void mix_voice_start(ldg_audio_mix_t *mix, const mix_cmd_t *cmd)
 {
     mix_voice_t *voice = 0x0;
-    const mix_clip_t *clip = &mix->clip[cmd->clip];
+    const mix_clip_t *clip = 0x0;
     uint32_t idx = 0;
     uint32_t pick = LDG_AUDIO_MIX_NONE;
+
+    if (LDG_UNLIKELY(cmd->clip >= mix->clip_cunt || mix->voice_cap == 0)) { return; }
+
+    clip = &mix->clip[cmd->clip];
 
     for (idx = 0; idx < mix->voice_cap; idx++)
     {
@@ -204,13 +208,22 @@ static void mix_music_add(ldg_audio_mix_t *mix, uint32_t frame_cunt)
 
 static void mix_voice_add(ldg_audio_mix_t *mix, mix_voice_t *voice, uint32_t frame_cunt)
 {
-    const mix_clip_t *clip = &mix->clip[voice->clip];
-    const int16_t *pcm = mix->clip_pcm + clip->off;
+    const mix_clip_t *clip = 0x0;
+    const int16_t *pcm = 0x0;
     uint64_t pos = 0;
     int32_t val = 0;
     uint32_t frame = 0;
     uint32_t channel = 0;
     int16_t next = 0;
+
+    if (LDG_UNLIKELY(voice->clip >= mix->clip_cunt))
+    {
+        voice->active = LDG_TRUTH_FALSE;
+        return;
+    }
+
+    clip = &mix->clip[voice->clip];
+    pcm = mix->clip_pcm + clip->off;
 
     for (frame = 0; frame < frame_cunt; frame++)
     {

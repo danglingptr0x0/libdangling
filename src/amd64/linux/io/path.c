@@ -15,6 +15,26 @@
 
 #define LDG_IO_PATH_SEP_LEN 1
 #define LDG_IO_PATH_ROOT_LEN 1
+#define LDG_IO_PATH_WORK_ENV "TMPDIR"
+#define LDG_IO_PATH_WORK_DEFAULT "/tmp"
+#define LDG_IO_PATH_MODE_STICKY 01000U
+
+static uint32_t path_work_ck(const char *dir)
+{
+    struct stat st = LDG_STRUCT_ZERO_INIT;
+
+    if (LDG_UNLIKELY(!dir || dir[0] == LDG_STR_TERM)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(lstat(dir, &st) != 0)) { return LDG_ERR_IO_NOT_FOUND; }
+
+    if (LDG_UNLIKELY(!S_ISDIR(st.st_mode))) { return LDG_ERR_IO_NOT_DIR; }
+
+    if (((uint32_t)st.st_mode & LDG_IO_PATH_MODE_STICKY) != 0) { return LDG_ERR_AOK; }
+
+    if (st.st_uid == geteuid() && (st.st_mode & (S_IWGRP | S_IWOTH)) == 0) { return LDG_ERR_AOK; }
+
+    return LDG_ERR_DENIED;
+}
 
 static void path_parent_strip(char *resolved, uint64_t *rpos)
 {
@@ -339,10 +359,12 @@ uint32_t ldg_io_path_work_get(char *buff, uint64_t buff_size)
 
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
-    tmp = getenv("TMPDIR");
-    if (tmp) { return ldg_str_rbrcpy(buff, tmp, buff_size); }
+    tmp = getenv(LDG_IO_PATH_WORK_ENV);
+    if (tmp && path_work_ck(tmp) == LDG_ERR_AOK) { return ldg_str_rbrcpy(buff, tmp, buff_size); }
 
-    return ldg_str_rbrcpy(buff, "/tmp", buff_size);
+    if (LDG_UNLIKELY(path_work_ck(LDG_IO_PATH_WORK_DEFAULT) != LDG_ERR_AOK)) { return LDG_ERR_DENIED; }
+
+    return ldg_str_rbrcpy(buff, LDG_IO_PATH_WORK_DEFAULT, buff_size);
 }
 
 uint32_t ldg_io_path_prog_get(char *buff, uint64_t buff_size)

@@ -152,6 +152,8 @@ static uint32_t serial_sysfs_rd(const char *path, char *out, uint64_t cap)
 
     if (got <= 0) { return LDG_ERR_IO_RD; }
 
+    if (LDG_UNLIKELY((uint64_t)got >= cap)) { return LDG_ERR_OVERFLOW; }
+
     out[got] = LDG_STR_TERM;
 
     for (idx = 0; out[idx] != LDG_STR_TERM; idx++) { if (out[idx] == '\n')
