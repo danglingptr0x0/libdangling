@@ -4447,10 +4447,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         undo_err = ldg_math_phys_init_undo(ctx, 0, 0);
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         return err;
     }
@@ -4460,10 +4460,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         undo_err = ldg_math_phys_init_undo(ctx, 0, 0);
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         return err;
     }
@@ -4473,10 +4473,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         undo_err = ldg_math_phys_init_undo(ctx, 0, 0);
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         return err;
     }
@@ -4486,10 +4486,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
     if (LDG_UNLIKELY(err != LDG_ERR_AOK))
     {
         undo_err = ldg_math_phys_init_undo(ctx, 0, 0);
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-        if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+        if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
         return err;
     }
@@ -4517,10 +4517,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
         if (LDG_UNLIKELY(err != LDG_ERR_AOK))
         {
             undo_err = ldg_math_phys_init_undo(ctx, comp_reg_cunt, 0);
-            if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+            if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
             undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-            if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+            if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
             return err;
         }
@@ -4535,10 +4535,10 @@ LDG_EXPORT uint32_t ldg_math_phys_init(ldg_math_phys_ctx_t *ctx, ldg_ecs_ctx_t *
         if (LDG_UNLIKELY(err != LDG_ERR_AOK))
         {
             undo_err = ldg_math_phys_init_undo(ctx, comp_reg_cunt, taxon_reg_cunt);
-            if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+            if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
             undo_err = ldg_mem_secure_zero(ctx, sizeof(ldg_math_phys_ctx_t));
-            if (undo_err != LDG_ERR_AOK && err == LDG_ERR_AOK) { err = undo_err; }
+            if (LDG_UNLIKELY(undo_err != LDG_ERR_AOK)) { LDG_ERRLOG_WARN("phys: init rollback failed"); }
 
             return err;
         }

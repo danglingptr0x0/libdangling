@@ -60,7 +60,10 @@ uint32_t ldg_shell_hist_push(ldg_shell_t *shell, const char *text)
         slot = (shell->hist_hd + shell->hist_cunt - SHELL_HIST_NEWEST_OFF) % shell->hist_max;
         newest = shell->hist + (uint64_t)slot * shell->conf.line_cap;
 
-        if (ldg_str_cmp(newest, text, shell->conf.line_cap, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ) { return LDG_ERR_AOK; }
+        ret = ldg_str_cmp(newest, text, shell->conf.line_cap, &order);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        if (order == LDG_ARITH_ORD_EQ) { return LDG_ERR_AOK; }
     }
 
     if (shell->hist_cunt < shell->hist_max)
@@ -126,12 +129,18 @@ uint32_t ldg_shell_hist_ld(ldg_shell_t *shell)
             ret = ldg_shell_hist_push(shell, shell->hist_blob + body);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
         }
-        else if (kind == LDG_SHELL_HIST_KIND_ALIAS && ldg_str_char_find(shell->hist_blob + body, LDG_SHELL_HIST_ALIAS_SEP, end - body, &sep_at) == LDG_ERR_AOK)
+        else if (kind == LDG_SHELL_HIST_KIND_ALIAS)
         {
-            shell->hist_blob[body + sep_at] = LDG_STR_TERM;
+            ret = ldg_str_char_find(shell->hist_blob + body, LDG_SHELL_HIST_ALIAS_SEP, end - body, &sep_at);
+            if (LDG_UNLIKELY(ret != LDG_ERR_AOK && ret != LDG_ERR_NOT_FOUND)) { return ret; }
 
-            ret = ldg_shell_alias_set(shell, shell->hist_blob + body, shell->hist_blob + body + sep_at + LDG_STR_TERM_SIZE);
-            if (ret != LDG_ERR_AOK) { ret = LDG_ERR_AOK; }
+            if (ret == LDG_ERR_AOK)
+            {
+                shell->hist_blob[body + sep_at] = LDG_STR_TERM;
+
+                ret = ldg_shell_alias_set(shell, shell->hist_blob + body, shell->hist_blob + body + sep_at + LDG_STR_TERM_SIZE);
+                if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+            }
         }
 
         start = idx;

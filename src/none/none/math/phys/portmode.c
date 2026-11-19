@@ -629,8 +629,14 @@ uint32_t ldg_math_phys_em_portmode_solve(const double *eps_r, const double *mu_r
                                 }
                             }
                             best_mag = ldg_math_sqrt_get(best_mag);
-                            rot.re = vec_c[best_idx].re / best_mag;
-                            rot.im = vec_c[best_idx].im / best_mag;
+                            rot.re = 1.0;
+                            rot.im = 0.0;
+                            if (best_mag > 0.0)
+                            {
+                                rot.re = vec_c[best_idx].re / best_mag;
+                                rot.im = vec_c[best_idx].im / best_mag;
+                            }
+
                             for (row = 0; row < n_edge; row++) { e_dof[row] = vec_c[row].re * rot.re + vec_c[row].im * rot.im; }
                             for (row = 0; row < n_node; row++)
                             {

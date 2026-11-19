@@ -3202,6 +3202,8 @@ static uint32_t ppo_step_finish(ldg_math_stat_ppo_t *ppo, uint32_t total, uint32
         idx++;
     }
 
+    if (valid == 0) { return LDG_ERR_AOK; }
+
     acc->clip_frac = acc->clip_frac + ((double)clip_cunt / (double)valid);
     acc->kl = acc->kl + (kl_cum / (double)valid);
 
@@ -4157,6 +4159,12 @@ static uint32_t ppo_sil_epoch_run(ldg_math_stat_ppo_t *ppo, ldg_math_stat_ppo_re
 
 static void ppo_report_fill(const ldg_math_stat_ppo_report_t *acc, uint32_t batch_cunt, ldg_math_stat_ppo_report_t *out)
 {
+    if (batch_cunt == 0)
+    {
+        *out = *acc;
+        return;
+    }
+
     out->policy_loss = acc->policy_loss / (double)batch_cunt;
     out->val_loss = acc->val_loss / (double)batch_cunt;
     out->entropy = acc->entropy / (double)batch_cunt;

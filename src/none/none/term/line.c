@@ -173,14 +173,52 @@ static uint32_t term_line_hist_get(const ldg_term_line_t *line, uint32_t idx, co
     return line->hist_cb(line->hist_user, idx, out);
 }
 
-static uint32_t term_line_hist_cunt_get(const ldg_term_line_t *line)
+static uint32_t term_line_hist_cunt_get(const ldg_term_line_t *line, uint32_t *out)
 {
     const char *text = 0x0;
     uint32_t cunt = 0;
+    uint32_t ret = 0;
 
-    while (cunt < UINT32_MAX && term_line_hist_get(line, cunt, &text) == LDG_ERR_AOK && text) { cunt++; }
+    *out = 0;
 
-    return cunt;
+    while (cunt < UINT32_MAX)
+    {
+        ret = term_line_hist_get(line, cunt, &text);
+        if (ret == LDG_ERR_BOUNDS || (ret == LDG_ERR_AOK && !text)) { break; }
+
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        cunt++;
+    }
+
+    *out = cunt;
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t term_line_hist_match_get(const ldg_term_line_t *line, uint32_t idx, uint8_t *out_match)
+{
+    const char *text = 0x0;
+    uint64_t at = 0;
+    uint32_t ret = 0;
+
+    *out_match = LDG_TRUTH_FALSE;
+
+    ret = term_line_hist_get(line, idx, &text);
+    if (ret == LDG_ERR_BOUNDS) { return LDG_ERR_AOK; }
+
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (!text) { return LDG_ERR_AOK; }
+
+    ret = ldg_str_substring_find(text, line->search, line->cap, &at);
+    if (ret == LDG_ERR_NOT_FOUND) { return LDG_ERR_AOK; }
+
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    *out_match = LDG_TRUTH_TRUE;
+
+    return LDG_ERR_AOK;
 }
 
 static uint32_t term_line_search_hint_set(ldg_term_line_t *line)
@@ -398,22 +436,24 @@ static uint32_t term_line_hist_step(ldg_term_line_t *line, uint8_t older)
 
 static uint32_t term_line_search_run(ldg_term_line_t *line, uint32_t start)
 {
-    const char *text = 0x0;
-    uint64_t at = 0;
     uint32_t cunt = 0;
     uint32_t idx = 0;
+    uint32_t ret = 0;
+    uint8_t match = LDG_TRUTH_FALSE;
 
     line->search_sel = LDG_TERM_LINE_SEL_NONE;
 
     if (line->search_len == 0) { return LDG_ERR_AOK; }
 
-    cunt = term_line_hist_cunt_get(line);
+    ret = term_line_hist_cunt_get(line, &cunt);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     for (idx = 0; idx < cunt; idx++)
     {
-        if (term_line_hist_get(line, (start + idx) % cunt, &text) != LDG_ERR_AOK || !text) { continue; }
+        ret = term_line_hist_match_get(line, (start + idx) % cunt, &match);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if (ldg_str_substring_find(text, line->search, line->cap, &at) != LDG_ERR_AOK) { continue; }
+        if (match != LDG_TRUTH_TRUE) { continue; }
 
         line->search_sel = (start + idx) % cunt;
 
@@ -425,21 +465,27 @@ static uint32_t term_line_search_run(ldg_term_line_t *line, uint32_t start)
 
 static uint32_t term_line_search_resync(ldg_term_line_t *line)
 {
-    const char *text = 0x0;
-    uint64_t at = 0;
+    uint32_t ret = 0;
+    uint8_t match = LDG_TRUTH_FALSE;
 
     if (line->search_sel == LDG_TERM_LINE_SEL_NONE) { return term_line_search_run(line, TERM_LINE_HIST_NEWEST); }
 
-    if (line->search_len > 0 && term_line_hist_get(line, line->search_sel, &text) == LDG_ERR_AOK && text && ldg_str_substring_find(text, line->search, line->cap, &at) == LDG_ERR_AOK) { return LDG_ERR_AOK; }
+    if (line->search_len > 0)
+    {
+        ret = term_line_hist_match_get(line, line->search_sel, &match);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        if (match == LDG_TRUTH_TRUE) { return LDG_ERR_AOK; }
+    }
 
     return term_line_search_run(line, line->search_sel);
 }
 
 static uint32_t term_line_search_key(ldg_term_line_t *line, uint8_t newer)
 {
-    const char *text = 0x0;
-    uint64_t at = 0;
     uint32_t idx = 0;
+    uint32_t ret = 0;
+    uint8_t match = LDG_TRUTH_FALSE;
 
     if (line->search_on != LDG_TRUTH_TRUE)
     {
@@ -455,7 +501,10 @@ static uint32_t term_line_search_key(ldg_term_line_t *line, uint8_t newer)
 
     for (idx = line->search_sel; idx > 0; idx--)
     {
-        if (term_line_hist_get(line, idx - TERM_LINE_PREV_OFF, &text) != LDG_ERR_AOK || !text || ldg_str_substring_find(text, line->search, line->cap, &at) != LDG_ERR_AOK) { continue; }
+        ret = term_line_hist_match_get(line, idx - TERM_LINE_PREV_OFF, &match);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        if (match != LDG_TRUTH_TRUE) { continue; }
 
         line->search_sel = idx - TERM_LINE_PREV_OFF;
 

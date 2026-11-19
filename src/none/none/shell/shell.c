@@ -292,7 +292,7 @@ static void shell_addr_capture(ldg_shell_t *shell, const char *text, uint64_t le
     uint64_t end = 0;
     uint64_t take = 0;
 
-    for (idx = 0; idx + SHELL_ADDR_LEAD_LEN < len; idx++)
+    for (idx = 0; idx + SHELL_ADDR_LEAD_LEN < len && text[idx] != LDG_STR_TERM; idx++)
     {
         if (text[idx] != SHELL_ADDR_LEAD_FIRST || text[idx + SHELL_PREV_OFF] != SHELL_ADDR_LEAD_LAST) { continue; }
 
@@ -392,7 +392,7 @@ uint32_t ldg_shell_out_push(ldg_shell_t *shell, const char *text)
 
     shell_addr_capture(shell, text, len);
 
-    for (idx = 0; idx < len; idx++)
+    for (idx = 0; idx < len && text[idx] != LDG_STR_TERM; idx++)
     {
         if (shell->out_open != LDG_TRUTH_TRUE)
         {

@@ -1307,6 +1307,8 @@ uint32_t ldg_math_stat_autograd_row_norm_push(ldg_math_stat_autograd_t *graph, u
     uint32_t col = 0;
     uint32_t ret = 0;
 
+    if (LDG_UNLIKELY(!(eps > 0.0))) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     ret = autograd_unary_prep(graph, lhs, out);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -1356,6 +1358,8 @@ uint32_t ldg_math_stat_autograd_row_rms_push(ldg_math_stat_autograd_t *graph, ui
     uint32_t row = 0;
     uint32_t col = 0;
     uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!(eps > 0.0))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     ret = autograd_unary_prep(graph, lhs, out);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -2484,6 +2488,8 @@ uint32_t ldg_math_stat_autograd_cosine_push(ldg_math_stat_autograd_t *graph, uin
     uint32_t proto = 0;
     uint32_t col = 0;
     uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!(eps > 0.0))) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     ret = autograd_proto_prep(graph, lhs, rhs, out);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }

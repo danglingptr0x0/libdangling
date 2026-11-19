@@ -267,6 +267,8 @@ uint32_t ldg_math_phys_sig_sample_get(ldg_math_phys_sig_t *sig, uint64_t tick, d
         return LDG_ERR_AOK;
     }
 
+    if (LDG_UNLIKELY(!ldg_math_finite_is(sig->freq) || sig->freq <= 0.0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
     time_val = (double)tick * dt;
     phase = LDG_MATH_TAU * sig->freq * time_val;
     period_tick = 1.0 / (sig->freq * dt);

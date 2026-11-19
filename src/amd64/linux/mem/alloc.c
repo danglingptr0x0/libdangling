@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #include <dangling/mem/alloc.h>
 #include <dangling/mem/mem.h>
@@ -11,6 +12,10 @@
 #include <dangling/core/macros.h>
 #include <dangling/arch/amd64/atomic.h>
 #include <dangling/arch/amd64/fence.h>
+#include <dangling/str/fmt.h>
+
+#define LDG_MEM_LEAK_FMT "mem: leak; addr: %p; size: %u64\n"
+#define LDG_MEM_LEAK_LINE_CAP 96
 
 typedef struct ldg_mem_hdr
 {
@@ -36,9 +41,13 @@ static ldg_mut_t g_mem_mut = { .is_init = LDG_TRUTH_FALSE };
 
 static uint32_t ldg_mem_unlocked_leaks_dump(void)
 {
+    char line[LDG_MEM_LEAK_LINE_CAP] = LDG_ARR_ZERO_INIT;
     ldg_mem_hdr_t *hdr = 0x0;
     uint64_t leak_cunt = 0;
     uint64_t max_walk = 0;
+    uint64_t line_len = 0;
+    int64_t wr_res = 0;
+    uint32_t ret = 0;
 
     max_walk = g_mem.stats.active_alloc_cunt;
     hdr = g_mem.alloc_list;
@@ -47,9 +56,14 @@ static uint32_t ldg_mem_unlocked_leaks_dump(void)
         leak_cunt++;
         if (LDG_UNLIKELY(leak_cunt > max_walk)) { return LDG_ERR_MEM_CORRUPTION; }
 
+        ret = ldg_str_fmt(line, (uint64_t)sizeof(line), &line_len, LDG_MEM_LEAK_FMT, (void *)((uint8_t *)hdr + sizeof(ldg_mem_hdr_t)), hdr->size);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+        wr_res = (int64_t)write(STDERR_FILENO, line, line_len);
+        if (LDG_UNLIKELY(wr_res < 0)) { return LDG_ERR_IO_WR; }
+
         hdr = hdr->next;
     }
-
 
     return LDG_ERR_AOK;
 }
@@ -268,9 +282,11 @@ uint32_t ldg_mem_shutdown(void)
 
     if (LDG_UNLIKELY(g_mem.stats.active_alloc_cunt > 0))
     {
-        ldg_mem_unlocked_leaks_dump();
+        ret = ldg_mem_unlocked_leaks_dump();
 
         ldg_mut_unlock(&g_mem_mut);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
         return LDG_ERR_BUSY;
     }
 
