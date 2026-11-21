@@ -8,6 +8,7 @@
 #define KEY_CSI_LEAD 0x5B
 #define KEY_SS3_LEAD 0x4F
 #define KEY_DEL_BYTE 0x7F
+#define KEY_BS_BYTE 0x08
 #define KEY_TAB_BYTE 0x09
 #define KEY_ENTER_BYTE 0x0D
 #define KEY_SPACE_BYTE 0x20
@@ -172,7 +173,7 @@ static uint32_t key_byte_event_set(uint8_t byte, ldg_term_key_event_t *out)
 {
     if (byte > KEY_ASCII_LAST) { return LDG_ERR_UNSUPPORTED; }
 
-    if (byte == KEY_DEL_BYTE) { out->key = LDG_TERM_KEY_BACKSPACE; }
+    if (byte == KEY_DEL_BYTE || byte == KEY_BS_BYTE) { out->key = LDG_TERM_KEY_BACKSPACE; }
     else if (byte == KEY_ENTER_BYTE) { out->key = LDG_TERM_KEY_ENTER; }
     else if (byte == KEY_TAB_BYTE) { out->key = LDG_TERM_KEY_TAB; }
     else if (byte == KEY_ESC_BYTE) { out->key = LDG_TERM_KEY_ESCAPE; }

@@ -40,7 +40,7 @@ static BOOL WINAPI tty_break_cb(DWORD type)
 
     rec[0].Event.KeyEvent.bKeyDown = TRUE;
 
-    if (LDG_UNLIKELY(WriteConsoleInputW(GetStdHandle(STD_INPUT_HANDLE), rec, LDG_SYS_TTY_BREAK_REC_CUNT, &written) == FALSE)) { if (LDG_UNLIKELY(ldg_logging_line_wr(LDG_LOGGING_CON, LDG_LOGGING_LVL_WARN, "tty: break key injection failed; code: %u32", (uint32_t)GetLastError()) != LDG_ERR_AOK)) { return TRUE; } }
+    if (LDG_UNLIKELY(WriteConsoleInputW(GetStdHandle(STD_INPUT_HANDLE), rec, LDG_SYS_TTY_BREAK_REC_CUNT, &written) == FALSE)) { if (LDG_UNLIKELY(ldg_logging_ln_wr(LDG_LOGGING_CON, LDG_LOGGING_LVL_WARN, "tty: break key injection failed; code: %u32", (uint32_t)GetLastError()) != LDG_ERR_AOK)) { return TRUE; } }
 
     return TRUE;
 }
@@ -185,7 +185,7 @@ uint32_t ldg_sys_tty_raw_en_set(ldg_sys_tty_raw_t *raw, uint8_t en)
     {
         for (idx = 0; idx < sizeof(mode); idx++) { mode_byte[idx] = raw->state[idx]; }
 
-        if (LDG_UNLIKELY(!SetConsoleMode(src, mode)) && LDG_UNLIKELY(ldg_logging_line_wr(LDG_LOGGING_CON, LDG_LOGGING_LVL_WARN, "tty: console mode restore failed; code: %u32", (uint32_t)GetLastError()) != LDG_ERR_AOK)) { return LDG_ERR_UNSUPPORTED; }
+        if (LDG_UNLIKELY(!SetConsoleMode(src, mode)) && LDG_UNLIKELY(ldg_logging_ln_wr(LDG_LOGGING_CON, LDG_LOGGING_LVL_WARN, "tty: console mode restore failed; code: %u32", (uint32_t)GetLastError()) != LDG_ERR_AOK)) { return LDG_ERR_UNSUPPORTED; }
 
         return LDG_ERR_UNSUPPORTED;
     }

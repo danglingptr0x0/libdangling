@@ -14,7 +14,7 @@
 #define LDG_LOGGING_LINE_CAP 512
 #define LDG_LOGGING_CON ((const char *)(uintptr_t)0x1U)
 
-LDG_EXPORT uint32_t ldg_logging_line_wr(const char *path, uint32_t lvl, const char *fmt, ...);
-LDG_EXPORT uint32_t ldg_logging_variable_line_wr(const char *path, uint32_t lvl, const char *fmt, va_list args);
+LDG_EXPORT uint32_t ldg_logging_ln_wr(const char *path, uint32_t lvl, const char *fmt, ...);
+LDG_EXPORT uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *fmt, va_list args);
 
 #endif

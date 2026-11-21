@@ -114,7 +114,7 @@ static uint32_t logging_file_append(const char *path, const char *line, uint64_t
     return ret;
 }
 
-uint32_t ldg_logging_variable_line_wr(const char *path, uint32_t lvl, const char *fmt, va_list args)
+uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *fmt, va_list args)
 {
     const char lvl_name[LDG_LOGGING_LVL_CUNT][LDG_LOGGING_LVL_NAME_CAP] = { "ERR", "WARN", "INFO", "DEBUG" };
     char line[LDG_LOGGING_LINE_CAP + LDG_STR_TERM_SIZE] = LDG_ARR_ZERO_INIT;
@@ -168,7 +168,7 @@ uint32_t ldg_logging_variable_line_wr(const char *path, uint32_t lvl, const char
     return logging_file_append(path, line, len);
 }
 
-uint32_t ldg_logging_line_wr(const char *path, uint32_t lvl, const char *fmt, ...)
+uint32_t ldg_logging_ln_wr(const char *path, uint32_t lvl, const char *fmt, ...)
 {
     va_list args = LDG_STRUCT_ZERO_INIT;
     uint32_t ret = 0;
@@ -176,7 +176,7 @@ uint32_t ldg_logging_line_wr(const char *path, uint32_t lvl, const char *fmt, ..
     if (LDG_UNLIKELY(!path || !fmt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     va_start(args, fmt);
-    ret = ldg_logging_variable_line_wr(path, lvl, fmt, args);
+    ret = ldg_logging_variable_ln_wr(path, lvl, fmt, args);
     va_end(args);
 
     return ret;

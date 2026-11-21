@@ -1608,8 +1608,8 @@ DANGLING_6.0 {
         ldg_sys_entropy_get;
 
         /* logging */
-        ldg_logging_line_wr;
-        ldg_logging_variable_line_wr;
+        ldg_logging_ln_wr;
+        ldg_logging_variable_ln_wr;
 
 
         /* math/stat autograd */

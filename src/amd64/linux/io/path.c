@@ -19,21 +19,45 @@
 #define LDG_IO_PATH_WORK_DEFAULT "/tmp"
 #define LDG_IO_PATH_MODE_STICKY 01000U
 
+static uint32_t path_dir_stat(const char *dir, struct stat *st)
+{
+    if (LDG_UNLIKELY(!dir || !st)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(dir[0] != '/')) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    if (LDG_UNLIKELY(lstat(dir, st) != 0)) { return LDG_ERR_IO_NOT_FOUND; }
+
+    if (LDG_UNLIKELY(!S_ISDIR(st->st_mode))) { return LDG_ERR_IO_NOT_DIR; }
+
+    return LDG_ERR_AOK;
+}
+
+static uint32_t path_owner_ck(const char *dir)
+{
+    struct stat st = LDG_STRUCT_ZERO_INIT;
+    uint32_t ret = 0;
+
+    ret = path_dir_stat(dir, &st);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (LDG_UNLIKELY(st.st_uid != geteuid() || (st.st_mode & (S_IWGRP | S_IWOTH)) != 0)) { return LDG_ERR_DENIED; }
+
+    return LDG_ERR_AOK;
+}
+
 static uint32_t path_work_ck(const char *dir)
 {
     struct stat st = LDG_STRUCT_ZERO_INIT;
+    uint32_t ret = 0;
 
-    if (LDG_UNLIKELY(!dir || dir[0] == LDG_STR_TERM)) { return LDG_ERR_FUNC_ARG_INVALID; }
-
-    if (LDG_UNLIKELY(lstat(dir, &st) != 0)) { return LDG_ERR_IO_NOT_FOUND; }
-
-    if (LDG_UNLIKELY(!S_ISDIR(st.st_mode))) { return LDG_ERR_IO_NOT_DIR; }
+    ret = path_dir_stat(dir, &st);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     if (((uint32_t)st.st_mode & LDG_IO_PATH_MODE_STICKY) != 0) { return LDG_ERR_AOK; }
 
-    if (st.st_uid == geteuid() && (st.st_mode & (S_IWGRP | S_IWOTH)) == 0) { return LDG_ERR_AOK; }
+    if (LDG_UNLIKELY(st.st_uid != geteuid() || (st.st_mode & (S_IWGRP | S_IWOTH)) != 0)) { return LDG_ERR_DENIED; }
 
-    return LDG_ERR_DENIED;
+    return LDG_ERR_AOK;
 }
 
 static void path_parent_strip(char *resolved, uint64_t *rpos)
@@ -398,7 +422,7 @@ uint32_t ldg_io_path_conf_get(char *buff, uint64_t buff_size)
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
     val = getenv("XDG_CONFIG_HOME");
-    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+    if (val && path_owner_ck(val) == LDG_ERR_AOK) { return ldg_str_rbrcpy(buff, val, buff_size); }
 
     err = ldg_io_path_user_get(buff, buff_size);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
@@ -422,7 +446,7 @@ uint32_t ldg_io_path_data_get(char *buff, uint64_t buff_size)
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
     val = getenv("XDG_DATA_HOME");
-    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+    if (val && path_owner_ck(val) == LDG_ERR_AOK) { return ldg_str_rbrcpy(buff, val, buff_size); }
 
     err = ldg_io_path_user_get(buff, buff_size);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
@@ -446,7 +470,7 @@ uint32_t ldg_io_path_cache_get(char *buff, uint64_t buff_size)
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
     val = getenv("XDG_CACHE_HOME");
-    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+    if (val && path_owner_ck(val) == LDG_ERR_AOK) { return ldg_str_rbrcpy(buff, val, buff_size); }
 
     err = ldg_io_path_user_get(buff, buff_size);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }
@@ -470,7 +494,7 @@ uint32_t ldg_io_path_state_get(char *buff, uint64_t buff_size)
     if (LDG_UNLIKELY(memset(buff, 0, (uint64_t)buff_size) != buff)) { return LDG_ERR_MEM_BAD; }
 
     val = getenv("XDG_STATE_HOME");
-    if (val && val[0] == '/') { return ldg_str_rbrcpy(buff, val, buff_size); }
+    if (val && path_owner_ck(val) == LDG_ERR_AOK) { return ldg_str_rbrcpy(buff, val, buff_size); }
 
     err = ldg_io_path_user_get(buff, buff_size);
     if (LDG_UNLIKELY(err != LDG_ERR_AOK)) { return err; }

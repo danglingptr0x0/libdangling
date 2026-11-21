@@ -300,7 +300,7 @@ static void sched_unwind_log(uint32_t lvl, const char *step, uint32_t code)
 {
     if (code == LDG_ERR_AOK) { return; }
 
-    if (LDG_UNLIKELY(ldg_logging_line_wr(LDG_LOGGING_CON, lvl, "sched: init unwind failed; step: %s; code: %u32", step, code) != LDG_ERR_AOK)) { return; }
+    if (LDG_UNLIKELY(ldg_logging_ln_wr(LDG_LOGGING_CON, lvl, "sched: init unwind failed; step: %s; code: %u32", step, code) != LDG_ERR_AOK)) { return; }
 }
 
 static uint32_t sched_init_unwind(ldg_sched_ctx_t *ctx, uint32_t stage, uint32_t deque_cunt, uint32_t fault)
