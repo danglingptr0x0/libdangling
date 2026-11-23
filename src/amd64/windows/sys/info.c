@@ -390,7 +390,7 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
     char key_path[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     char cmd_path[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     char desc[LDG_SYS_PATH_BUFF_MAX] = LDG_ARR_ZERO_INIT;
-    char cmd_line[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
+    char cmd_ln[LDG_SYS_KEY_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     WCHAR wide_exec[LDG_SYS_EXEC_BUFF_MAX] = LDG_ARR_ZERO_INIT;
     DWORD exec_len = 0;
     uint64_t fmt_len = 0;
@@ -419,7 +419,7 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
 
     if (LDG_UNLIKELY(ldg_str_fmt(desc, sizeof(desc), &fmt_len, "%.*s%.*s", (uint32_t)sizeof(LDG_SYS_URL_DESC_PREFIX), LDG_SYS_URL_DESC_PREFIX, (uint32_t)LDG_SYS_APP_NAME_MAX, app_name ? app_name : scheme) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
-    if (LDG_UNLIKELY(ldg_str_fmt(cmd_line, sizeof(cmd_line), &fmt_len, "\"%.*s\" %.*s", (uint32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (uint32_t)sizeof(LDG_SYS_CMD_ARG_TOK), LDG_SYS_CMD_ARG_TOK) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
+    if (LDG_UNLIKELY(ldg_str_fmt(cmd_ln, sizeof(cmd_ln), &fmt_len, "\"%.*s\" %.*s", (uint32_t)LDG_SYS_EXEC_BUFF_MAX, exec_buff, (uint32_t)sizeof(LDG_SYS_CMD_ARG_TOK), LDG_SYS_CMD_ARG_TOK) != LDG_ERR_AOK)) { return LDG_ERR_IO_FMT; }
 
     ret = sys_reg_str_set(key_path, 0x0, desc);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -427,7 +427,7 @@ uint32_t ldg_sys_url_scheme_reg(const char *scheme, const char *exec_path, const
     ret = sys_reg_str_set(key_path, LDG_SYS_URL_PROTO_VAL, "");
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    return sys_reg_str_set(cmd_path, 0x0, cmd_line);
+    return sys_reg_str_set(cmd_path, 0x0, cmd_ln);
 }
 
 static uint32_t sys_secret_target_build(const char *app, const char *key, WCHAR *wide, int32_t wide_cap)

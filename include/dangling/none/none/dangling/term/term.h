@@ -36,10 +36,10 @@
 #define LDG_TERM_CHARSET_GRAPHIC 1
 #define LDG_TERM_CHARSET_UK 2
 
-#define LDG_TERM_LINE_SINGLE 0
-#define LDG_TERM_LINE_DOUBLE_TOP 1
-#define LDG_TERM_LINE_DOUBLE_BOTTOM 2
-#define LDG_TERM_LINE_DOUBLE_WIDTH 3
+#define LDG_TERM_LN_SINGLE 0
+#define LDG_TERM_LN_DOUBLE_TOP 1
+#define LDG_TERM_LN_DOUBLE_BOTTOM 2
+#define LDG_TERM_LN_DOUBLE_WIDTH 3
 
 #define LDG_TERM_TAB_DEFAULT_SPAN 8
 #define LDG_TERM_IMG_FMT_PNG 100
@@ -123,7 +123,7 @@ typedef struct ldg_term
     ldg_term_placement_t *placement;
     uint8_t *img_pixel;
     uint8_t *tab_stop;
-    uint8_t *line_attr;
+    uint8_t *ln_attr;
     uint8_t *buff;
     uint32_t col_cunt;
     uint32_t row_cunt;
@@ -186,7 +186,7 @@ LDG_EXPORT uint32_t ldg_term_destroy(ldg_term_t **term);
 LDG_EXPORT uint32_t ldg_term_rst(ldg_term_t *term);
 
 LDG_EXPORT uint32_t ldg_term_ch_put(ldg_term_t *term, uint8_t ch);
-LDG_EXPORT uint32_t ldg_term_line_feed(ldg_term_t *term);
+LDG_EXPORT uint32_t ldg_term_ln_feed(ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_carriage_ret(ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_backspace(ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_tab_advance(ldg_term_t *term);
@@ -225,8 +225,8 @@ LDG_EXPORT uint32_t ldg_term_insert_mode_set(ldg_term_t *term, uint8_t en);
 LDG_EXPORT uint32_t ldg_term_newline_mode_set(ldg_term_t *term, uint8_t en);
 LDG_EXPORT uint32_t ldg_term_reverse_set(ldg_term_t *term, uint8_t en);
 LDG_EXPORT uint8_t ldg_term_reverse_is(const ldg_term_t *term);
-LDG_EXPORT uint32_t ldg_term_line_attr_set(ldg_term_t *term, uint8_t attr);
-LDG_EXPORT uint32_t ldg_term_line_attr_get(const ldg_term_t *term, uint32_t row, uint8_t *out);
+LDG_EXPORT uint32_t ldg_term_ln_attr_set(ldg_term_t *term, uint8_t attr);
+LDG_EXPORT uint32_t ldg_term_ln_attr_get(const ldg_term_t *term, uint32_t row, uint8_t *out);
 LDG_EXPORT uint32_t ldg_term_align_fill(ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_soft_rst(ldg_term_t *term);
 LDG_EXPORT uint32_t ldg_term_img_st(ldg_term_t *term, uint32_t id, uint32_t width, uint32_t height, uint8_t fmt, const uint8_t *pixel, uint32_t size);
@@ -250,9 +250,9 @@ LDG_EXPORT uint32_t ldg_term_fg_set(ldg_term_t *term, uint8_t red, uint8_t green
 LDG_EXPORT uint32_t ldg_term_bg_set(ldg_term_t *term, uint8_t red, uint8_t green, uint8_t blue);
 
 LDG_EXPORT uint32_t ldg_term_display_erase(ldg_term_t *term, ldg_term_erase_t mode);
-LDG_EXPORT uint32_t ldg_term_line_erase(ldg_term_t *term, ldg_term_erase_t mode);
-LDG_EXPORT uint32_t ldg_term_line_insert(ldg_term_t *term, uint32_t cunt);
-LDG_EXPORT uint32_t ldg_term_line_delete(ldg_term_t *term, uint32_t cunt);
+LDG_EXPORT uint32_t ldg_term_ln_erase(ldg_term_t *term, ldg_term_erase_t mode);
+LDG_EXPORT uint32_t ldg_term_ln_insert(ldg_term_t *term, uint32_t cunt);
+LDG_EXPORT uint32_t ldg_term_ln_delete(ldg_term_t *term, uint32_t cunt);
 LDG_EXPORT uint32_t ldg_term_ch_delete(ldg_term_t *term, uint32_t cunt);
 LDG_EXPORT uint32_t ldg_term_ch_insert(ldg_term_t *term, uint32_t cunt);
 LDG_EXPORT uint32_t ldg_term_ch_erase(ldg_term_t *term, uint32_t cunt);

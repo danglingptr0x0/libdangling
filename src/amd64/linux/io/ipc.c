@@ -28,10 +28,10 @@
 #define LDG_IO_IPC_WAIT_UNBOUNDED (-1)
 #define LDG_IO_IPC_LIST_PATH "/proc/net/unix"
 #define LDG_IO_IPC_LIST_BLK_SIZE 4096
-#define LDG_IO_IPC_LIST_LINE_CAP 256
+#define LDG_IO_IPC_LIST_LN_CAP 256
 #define LDG_IO_IPC_LIST_ABSTRACT_MARK '@'
 #define LDG_IO_IPC_LIST_MARK_LEN 1
-#define LDG_IO_IPC_LIST_LINE_END '\n'
+#define LDG_IO_IPC_LIST_LN_END '\n'
 
 typedef struct ldg_io_ipc_peer
 {
@@ -118,7 +118,7 @@ static uint32_t io_ipc_wait(int32_t fd, uint64_t timeout_ms)
     return LDG_ERR_IO_RD;
 }
 
-static void io_ipc_list_line_take(const char *line, uint64_t len, const char *prefix, uint64_t prefix_len, ldg_io_ipc_name_t *out, uint64_t cap, uint64_t *cunt)
+static void io_ipc_list_ln_take(const char *ln, uint64_t len, const char *prefix, uint64_t prefix_len, ldg_io_ipc_name_t *out, uint64_t cap, uint64_t *cunt)
 {
     const char *name = 0x0;
     uint64_t mark = 0;
@@ -128,9 +128,9 @@ static void io_ipc_list_line_take(const char *line, uint64_t len, const char *pr
 
     if (*cunt >= cap) { return; }
 
-    if (ldg_str_char_find(line, LDG_IO_IPC_LIST_ABSTRACT_MARK, len, &mark) != LDG_ERR_AOK) { return; }
+    if (ldg_str_char_find(ln, LDG_IO_IPC_LIST_ABSTRACT_MARK, len, &mark) != LDG_ERR_AOK) { return; }
 
-    name = line + mark + LDG_IO_IPC_LIST_MARK_LEN;
+    name = ln + mark + LDG_IO_IPC_LIST_MARK_LEN;
     name_len = len - mark - LDG_IO_IPC_LIST_MARK_LEN;
 
     if (name_len < prefix_len || name_len - prefix_len >= LDG_IO_IPC_NAME_MAX) { return; }
@@ -446,14 +446,14 @@ uint32_t ldg_io_ipc_rd_timed(ldg_io_ipc_t *ipc, ldg_byte_t *dst, uint64_t cap, u
 uint32_t ldg_io_ipc_list(const char *prefix, ldg_io_ipc_name_t *out, uint64_t cap, uint64_t *out_cunt)
 {
     char blk[LDG_IO_IPC_LIST_BLK_SIZE] = LDG_ARR_ZERO_INIT;
-    char line[LDG_IO_IPC_LIST_LINE_CAP] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_IO_IPC_LIST_LN_CAP] = LDG_ARR_ZERO_INIT;
     uint64_t prefix_len = 0;
-    uint64_t line_len = 0;
+    uint64_t ln_len = 0;
     uint64_t idx = 0;
     int64_t got = 0;
     int32_t fd = 0;
     uint32_t ret = LDG_ERR_AOK;
-    uint8_t line_skip = LDG_TRUTH_FALSE;
+    uint8_t ln_skip = LDG_TRUTH_FALSE;
 
     if (LDG_UNLIKELY(!prefix || !out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -475,19 +475,19 @@ uint32_t ldg_io_ipc_list(const char *prefix, ldg_io_ipc_name_t *out, uint64_t ca
 
         for (idx = 0; idx < (uint64_t)got; idx++)
         {
-            if (blk[idx] != LDG_IO_IPC_LIST_LINE_END)
+            if (blk[idx] != LDG_IO_IPC_LIST_LN_END)
             {
-                if (line_len + LDG_STR_TERM_SIZE >= LDG_IO_IPC_LIST_LINE_CAP) { line_skip = LDG_TRUTH_TRUE; }
-                else { line[line_len++] = blk[idx]; }
+                if (ln_len + LDG_STR_TERM_SIZE >= LDG_IO_IPC_LIST_LN_CAP) { ln_skip = LDG_TRUTH_TRUE; }
+                else { ln[ln_len++] = blk[idx]; }
 
                 continue;
             }
 
-            line[line_len] = LDG_STR_TERM;
-            if (line_skip != LDG_TRUTH_TRUE) { io_ipc_list_line_take(line, line_len, prefix, prefix_len, out, cap, out_cunt); }
+            ln[ln_len] = LDG_STR_TERM;
+            if (ln_skip != LDG_TRUTH_TRUE) { io_ipc_list_ln_take(ln, ln_len, prefix, prefix_len, out, cap, out_cunt); }
 
-            line_len = 0;
-            line_skip = LDG_TRUTH_FALSE;
+            ln_len = 0;
+            ln_skip = LDG_TRUTH_FALSE;
         }
     }
 

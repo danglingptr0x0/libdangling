@@ -898,7 +898,7 @@ uint32_t ldg_term_render_point_draw(ldg_term_render_t *render, const ldg_term_re
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_render_line_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *lhs, const ldg_term_render_vert2_t *rhs)
+uint32_t ldg_term_render_ln_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *lhs, const ldg_term_render_vert2_t *rhs)
 {
     int64_t x0 = 0;
     int64_t y0 = 0;

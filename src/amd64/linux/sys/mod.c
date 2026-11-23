@@ -19,8 +19,8 @@
 #define LDG_SYS_MOD_MAPS_FMT "/proc/%u32/maps"
 #define LDG_SYS_MOD_MAPS_PATH_CAP 32
 #define LDG_SYS_MOD_BLK_SIZE 4096
-#define LDG_SYS_MOD_LINE_CAP (LDG_SYS_MOD_PATH_MAX + 128)
-#define LDG_SYS_MOD_LINE_END '\n'
+#define LDG_SYS_MOD_LN_CAP (LDG_SYS_MOD_PATH_MAX + 128)
+#define LDG_SYS_MOD_LN_END '\n'
 #define LDG_SYS_MOD_RANGE_SEP '-'
 #define LDG_SYS_MOD_FIELD_SEP ' '
 #define LDG_SYS_MOD_PATH_LEAD '/'
@@ -55,12 +55,12 @@ typedef struct ldg_sys_mod_walk
     uint8_t pudding[2];
 } ldg_sys_mod_walk_t;
 
-static uint64_t sys_mod_hex_take(const char *line, uint64_t len, uint64_t *cursor)
+static uint64_t sys_mod_hex_take(const char *ln, uint64_t len, uint64_t *cursor)
 {
     uint64_t val = 0;
     byte_t nibble = 0;
 
-    while (*cursor < len && ldg_hex_to_nipple(line[*cursor], &nibble) == LDG_ERR_AOK)
+    while (*cursor < len && ldg_hex_to_nipple(ln[*cursor], &nibble) == LDG_ERR_AOK)
     {
         val = (val << LDG_NIBBLE_BITS) | (uint64_t)nibble;
         (*cursor)++;
@@ -110,7 +110,7 @@ static uint8_t sys_mod_elf_is(const ldg_sys_proc_t *proc, uint64_t base)
     return LDG_TRUTH_TRUE;
 }
 
-static void sys_mod_line_take(ldg_sys_mod_walk_t *walk, const char *line, uint64_t len)
+static void sys_mod_ln_take(ldg_sys_mod_walk_t *walk, const char *ln, uint64_t len)
 {
     const char *path = 0x0;
     uint64_t cursor = 0;
@@ -123,21 +123,21 @@ static void sys_mod_line_take(ldg_sys_mod_walk_t *walk, const char *line, uint64
 
     if (walk->done == LDG_TRUTH_TRUE) { return; }
 
-    start = sys_mod_hex_take(line, len, &cursor);
-    if (cursor >= len || line[cursor] != LDG_SYS_MOD_RANGE_SEP) { return; }
+    start = sys_mod_hex_take(ln, len, &cursor);
+    if (cursor >= len || ln[cursor] != LDG_SYS_MOD_RANGE_SEP) { return; }
 
     cursor += LDG_SYS_MOD_SEP_LEN;
-    end = sys_mod_hex_take(line, len, &cursor);
-    if (cursor >= len || line[cursor] != LDG_SYS_MOD_FIELD_SEP || end <= start) { return; }
+    end = sys_mod_hex_take(ln, len, &cursor);
+    if (cursor >= len || ln[cursor] != LDG_SYS_MOD_FIELD_SEP || end <= start) { return; }
 
     cursor += LDG_SYS_MOD_SEP_LEN + LDG_SYS_MOD_PERM_FIELD_LEN;
     if (cursor >= len) { return; }
 
-    file_pos = sys_mod_hex_take(line, len, &cursor);
+    file_pos = sys_mod_hex_take(ln, len, &cursor);
 
-    if (ldg_str_char_find(line, LDG_SYS_MOD_PATH_LEAD, len, &path_idx) != LDG_ERR_AOK) { return; }
+    if (ldg_str_char_find(ln, LDG_SYS_MOD_PATH_LEAD, len, &path_idx) != LDG_ERR_AOK) { return; }
 
-    path = line + path_idx;
+    path = ln + path_idx;
 
     if (walk->pending_live == LDG_TRUTH_TRUE && ldg_str_cmp(walk->pending.path, path, LDG_SYS_MOD_PATH_MAX, &order) == LDG_ERR_AOK && order == LDG_ARITH_ORD_EQ)
     {
@@ -166,10 +166,10 @@ static void sys_mod_line_take(ldg_sys_mod_walk_t *walk, const char *line, uint64
 static uint32_t sys_mod_walk(ldg_sys_mod_walk_t *walk)
 {
     char blk[LDG_SYS_MOD_BLK_SIZE] = LDG_ARR_ZERO_INIT;
-    char line[LDG_SYS_MOD_LINE_CAP] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_SYS_MOD_LN_CAP] = LDG_ARR_ZERO_INIT;
     char maps[LDG_SYS_MOD_MAPS_PATH_CAP] = LDG_ARR_ZERO_INIT;
     uint64_t maps_len = 0;
-    uint64_t line_len = 0;
+    uint64_t ln_len = 0;
     uint64_t idx = 0;
     int64_t got = 0;
     int32_t fd = 0;
@@ -199,16 +199,16 @@ static uint32_t sys_mod_walk(ldg_sys_mod_walk_t *walk)
 
         for (idx = 0; idx < (uint64_t)got; idx++)
         {
-            if (blk[idx] != LDG_SYS_MOD_LINE_END)
+            if (blk[idx] != LDG_SYS_MOD_LN_END)
             {
-                if (line_len + LDG_STR_TERM_SIZE < LDG_SYS_MOD_LINE_CAP) { line[line_len++] = blk[idx]; }
+                if (ln_len + LDG_STR_TERM_SIZE < LDG_SYS_MOD_LN_CAP) { ln[ln_len++] = blk[idx]; }
 
                 continue;
             }
 
-            line[line_len] = LDG_STR_TERM;
-            sys_mod_line_take(walk, line, line_len);
-            line_len = 0;
+            ln[ln_len] = LDG_STR_TERM;
+            sys_mod_ln_take(walk, ln, ln_len);
+            ln_len = 0;
         }
     }
 

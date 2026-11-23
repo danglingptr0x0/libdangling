@@ -10,7 +10,7 @@
 #define LDG_TERM_CAPTION_TEXT_CAP 512U
 #define LDG_TERM_CAPTION_SPKR_CAP 32U
 #define LDG_TERM_CAPTION_ACTIVE_MAX 8U
-#define LDG_TERM_CAPTION_LINE_CAP 16U
+#define LDG_TERM_CAPTION_LN_CAP 16U
 #define LDG_TERM_CAPTION_AXIS_CUNT 3U
 #define LDG_TERM_CAPTION_ID_NONE 0U
 
@@ -39,8 +39,8 @@ typedef struct ldg_term_caption_style
     ldg_term_render_color_t spkr_color;
     ldg_term_render_color_t sound_color;
     ldg_term_render_color_t music_color;
-    uint32_t line_frac[LDG_TERM_CAPTION_KIND_CUNT];
-    uint32_t line_shown[LDG_TERM_CAPTION_KIND_CUNT];
+    uint32_t ln_frac[LDG_TERM_CAPTION_KIND_CUNT];
+    uint32_t ln_shown[LDG_TERM_CAPTION_KIND_CUNT];
     uint32_t margin_frac;
     uint32_t fade;
     uint8_t anchor;

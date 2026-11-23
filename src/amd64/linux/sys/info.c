@@ -48,7 +48,7 @@
 #define LDG_SYS_ARGV_MAX 5
 #define LDG_SYS_MEMINFO_PATH "/proc/meminfo"
 #define LDG_SYS_MEMINFO_AVAIL_KEY "MemAvailable:"
-#define LDG_SYS_MEMINFO_LINE_MAX 256
+#define LDG_SYS_MEMINFO_LN_MAX 256
 #define LDG_SYS_MEMINFO_RD_MODE "r"
 #define LDG_SYS_ASCII_ZERO '0'
 #define LDG_SYS_CACHE_LEVEL_PATH "/sys/devices/system/cpu/cpu%u32/cache/index%u32/level"
@@ -284,7 +284,7 @@ static uint32_t sys_mem_free_get(uint64_t *out)
 
 uint32_t ldg_sys_mem_avail_get(uint64_t *out)
 {
-    char line[LDG_SYS_MEMINFO_LINE_MAX] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_SYS_MEMINFO_LN_MAX] = LDG_ARR_ZERO_INIT;
     FILE *meminfo = 0x0;
     uint64_t kib = 0;
     uint64_t idx = 0;
@@ -295,25 +295,25 @@ uint32_t ldg_sys_mem_avail_get(uint64_t *out)
 
     *out = 0;
 
-    if (LDG_UNLIKELY(ldg_str_len_get(LDG_SYS_MEMINFO_AVAIL_KEY, LDG_SYS_MEMINFO_LINE_MAX, &key_len) != LDG_ERR_AOK)) { return LDG_ERR_UNSUPPORTED; }
+    if (LDG_UNLIKELY(ldg_str_len_get(LDG_SYS_MEMINFO_AVAIL_KEY, LDG_SYS_MEMINFO_LN_MAX, &key_len) != LDG_ERR_AOK)) { return LDG_ERR_UNSUPPORTED; }
 
     meminfo = fopen(LDG_SYS_MEMINFO_PATH, LDG_SYS_MEMINFO_RD_MODE);
     if (!meminfo) { return sys_mem_free_get(out); }
 
-    while (fgets(line, (int32_t)LDG_SYS_MEMINFO_LINE_MAX, meminfo))
+    while (fgets(ln, (int32_t)LDG_SYS_MEMINFO_LN_MAX, meminfo))
     {
         matched = LDG_TRUTH_TRUE;
-        for (idx = 0; idx < key_len; idx++) { if (line[idx] != LDG_SYS_MEMINFO_AVAIL_KEY[idx]) { matched = LDG_TRUTH_FALSE; } }
+        for (idx = 0; idx < key_len; idx++) { if (ln[idx] != LDG_SYS_MEMINFO_AVAIL_KEY[idx]) { matched = LDG_TRUTH_FALSE; } }
 
         if (matched != LDG_TRUTH_TRUE) { continue; }
 
-        for (idx = key_len; line[idx] != LDG_STR_TERM; idx++)
+        for (idx = key_len; ln[idx] != LDG_STR_TERM; idx++)
         {
-            if (ldg_char_digit_is((uint8_t)line[idx]) != LDG_TRUTH_TRUE) { continue; }
+            if (ldg_char_digit_is((uint8_t)ln[idx]) != LDG_TRUTH_TRUE) { continue; }
 
-            while (ldg_char_digit_is((uint8_t)line[idx]) == LDG_TRUTH_TRUE)
+            while (ldg_char_digit_is((uint8_t)ln[idx]) == LDG_TRUTH_TRUE)
             {
-                kib = (kib * LDG_BASE_DEC) + (uint64_t)(line[idx] - LDG_SYS_ASCII_ZERO);
+                kib = (kib * LDG_BASE_DEC) + (uint64_t)(ln[idx] - LDG_SYS_ASCII_ZERO);
                 idx++;
             }
 

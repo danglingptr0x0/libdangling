@@ -19,7 +19,7 @@
 #include <dangling/str/fmt.h>
 
 #define LDG_MEM_LEAK_FMT "mem: leak; addr: %p; size: %u64\n"
-#define LDG_MEM_LEAK_LINE_CAP 96
+#define LDG_MEM_LEAK_LN_CAP 96
 
 typedef struct ldg_mem_hdr
 {
@@ -45,11 +45,11 @@ static ldg_mut_t g_mem_mut = { .is_init = LDG_TRUTH_FALSE };
 
 static uint32_t ldg_mem_unlocked_leaks_dump(void)
 {
-    char line[LDG_MEM_LEAK_LINE_CAP] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_MEM_LEAK_LN_CAP] = LDG_ARR_ZERO_INIT;
     ldg_mem_hdr_t *hdr = 0x0;
     uint64_t leak_cunt = 0;
     uint64_t max_walk = 0;
-    uint64_t line_len = 0;
+    uint64_t ln_len = 0;
     DWORD written = 0;
     uint32_t ret = 0;
 
@@ -60,10 +60,10 @@ static uint32_t ldg_mem_unlocked_leaks_dump(void)
         leak_cunt++;
         if (LDG_UNLIKELY(leak_cunt > max_walk)) { return LDG_ERR_MEM_CORRUPTION; }
 
-        ret = ldg_str_fmt(line, (uint64_t)sizeof(line), &line_len, LDG_MEM_LEAK_FMT, (void *)((uint8_t *)hdr + sizeof(ldg_mem_hdr_t)), hdr->size);
+        ret = ldg_str_fmt(ln, (uint64_t)sizeof(ln), &ln_len, LDG_MEM_LEAK_FMT, (void *)((uint8_t *)hdr + sizeof(ldg_mem_hdr_t)), hdr->size);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if (LDG_UNLIKELY(!WriteFile(GetStdHandle(STD_ERROR_HANDLE), line, (DWORD)line_len, &written, 0x0))) { return LDG_ERR_IO_WR; }
+        if (LDG_UNLIKELY(!WriteFile(GetStdHandle(STD_ERROR_HANDLE), ln, (DWORD)ln_len, &written, 0x0))) { return LDG_ERR_IO_WR; }
 
         hdr = hdr->next;
     }
@@ -141,12 +141,12 @@ static uint32_t ldg_mem_unlocked_alloc(uint64_t size, void **out)
     ret = ldg_arith_uint64_add(total_size, (uint64_t)sizeof(uint64_t), &total_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
 
-    ret = ldg_arith_uint64_add(total_size, (uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1), &total_size);
+    ret = ldg_arith_uint64_add(total_size, (uint64_t)(LDG_AMD64_CACHE_LN_WIDTH - 1), &total_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return LDG_ERR_OVERFLOW; }
 
-    total_size &= ~((uint64_t)LDG_AMD64_CACHE_LINE_WIDTH - 1);
+    total_size &= ~((uint64_t)LDG_AMD64_CACHE_LN_WIDTH - 1);
 
-    raw_tmp = _aligned_malloc((size_t)total_size, LDG_AMD64_CACHE_LINE_WIDTH);
+    raw_tmp = _aligned_malloc((size_t)total_size, LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!raw_tmp)) { return LDG_ERR_ALLOC_NULL; }
 
     raw = (uint8_t *)raw_tmp;
@@ -590,7 +590,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t cap, ldg_mem_pool_t **
         return LDG_ERR_OVERFLOW;
     }
 
-    ret = ldg_arith_uint64_add(aligned_item_size, (uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1), &aligned_item_size);
+    ret = ldg_arith_uint64_add(aligned_item_size, (uint64_t)(LDG_AMD64_CACHE_LN_WIDTH - 1), &aligned_item_size);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         ldg_mem_unlocked_dealloc(pool);
@@ -598,7 +598,7 @@ uint32_t ldg_mem_pool_create(uint64_t item_size, uint64_t cap, ldg_mem_pool_t **
         return LDG_ERR_OVERFLOW;
     }
 
-    aligned_item_size &= ~((uint64_t)LDG_AMD64_CACHE_LINE_WIDTH - 1);
+    aligned_item_size &= ~((uint64_t)LDG_AMD64_CACHE_LN_WIDTH - 1);
 
     if (LDG_UNLIKELY(ldg_arith_uint64_mul(aligned_item_size, cap, &buff_size) != LDG_ERR_AOK))
     {

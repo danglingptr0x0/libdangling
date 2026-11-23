@@ -16,8 +16,8 @@
 #define LDG_LOGGING_PREFIX_FMT "%u64 %s "
 #define LDG_LOGGING_TRUNC_MARKER " (trunc)"
 #define LDG_LOGGING_TRUNC_MARKER_LEN 8
-#define LDG_LOGGING_LINE_END '\n'
-#define LDG_LOGGING_LINE_END_SIZE 1
+#define LDG_LOGGING_LN_END '\n'
+#define LDG_LOGGING_LN_END_SIZE 1
 #define LDG_LOGGING_ESC_LEAD_IDX 0
 #define LDG_LOGGING_ESC_KIND_IDX 1
 #define LDG_LOGGING_ESC_LITERAL_LEN 1
@@ -97,7 +97,7 @@ static uint32_t logging_esc(char *dst, uint64_t cap, const char *src, uint64_t s
     return LDG_ERR_AOK;
 }
 
-static uint32_t logging_file_append(const char *path, const char *line, uint64_t len)
+static uint32_t logging_file_append(const char *path, const char *ln, uint64_t len)
 {
     ldg_io_file_t *file = 0x0;
     uint64_t wr_cunt = 0;
@@ -106,7 +106,7 @@ static uint32_t logging_file_append(const char *path, const char *line, uint64_t
     ret = ldg_io_file_open(path, LDG_IO_WR_ONLY | LDG_IO_CREATE | LDG_IO_APPEND, LDG_LOGGING_FILE_ACCESS, &file);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = ldg_io_file_wr(file, line, len, &wr_cunt);
+    ret = ldg_io_file_wr(file, ln, len, &wr_cunt);
     if (ret == LDG_ERR_AOK && LDG_UNLIKELY(wr_cunt != len)) { ret = LDG_ERR_IO_WR; }
 
     if (LDG_UNLIKELY(ldg_io_file_close(file) != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = LDG_ERR_IO_CLOSE; }
@@ -114,11 +114,11 @@ static uint32_t logging_file_append(const char *path, const char *line, uint64_t
     return ret;
 }
 
-uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *fmt, va_list args)
+uint32_t ldg_logging_var_ln_wr(const char *path, uint32_t lvl, const char *fmt, va_list args)
 {
     const char lvl_name[LDG_LOGGING_LVL_CUNT][LDG_LOGGING_LVL_NAME_CAP] = { "ERR", "WARN", "INFO", "DEBUG" };
-    char line[LDG_LOGGING_LINE_CAP + LDG_STR_TERM_SIZE] = LDG_ARR_ZERO_INIT;
-    char raw[LDG_LOGGING_LINE_CAP + LDG_STR_TERM_SIZE] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_LOGGING_LN_CAP + LDG_STR_TERM_SIZE] = LDG_ARR_ZERO_INIT;
+    char raw[LDG_LOGGING_LN_CAP + LDG_STR_TERM_SIZE] = LDG_ARR_ZERO_INIT;
     uint64_t epoch_ms = 0;
     uint64_t prefix_len = 0;
     uint64_t raw_len = 0;
@@ -134,14 +134,14 @@ uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *
     if (LDG_UNLIKELY(lvl >= LDG_LOGGING_LVL_CUNT)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     epoch_ms = ldg_time_epoch_ms_get();
-    body_cap = (uint64_t)LDG_LOGGING_LINE_CAP - LDG_LOGGING_LINE_END_SIZE;
+    body_cap = (uint64_t)LDG_LOGGING_LN_CAP - LDG_LOGGING_LN_END_SIZE;
 
-    ret = ldg_str_fmt(line, body_cap + LDG_STR_TERM_SIZE, &prefix_len, LDG_LOGGING_PREFIX_FMT, epoch_ms, lvl_name[lvl]);
+    ret = ldg_str_fmt(ln, body_cap + LDG_STR_TERM_SIZE, &prefix_len, LDG_LOGGING_PREFIX_FMT, epoch_ms, lvl_name[lvl]);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     msg_cap = body_cap - prefix_len;
 
-    ret = ldg_str_variable_fmt(raw, msg_cap + LDG_STR_TERM_SIZE, &raw_len, fmt, args);
+    ret = ldg_str_var_fmt(raw, msg_cap + LDG_STR_TERM_SIZE, &raw_len, fmt, args);
     if (ret == LDG_ERR_STR_TRUNC)
     {
         raw_len = msg_cap;
@@ -149,10 +149,10 @@ uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *
     }
     else if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = logging_esc(line + prefix_len, msg_cap, raw, raw_len, raw_truncd, &msg_len);
+    ret = logging_esc(ln + prefix_len, msg_cap, raw, raw_len, raw_truncd, &msg_len);
     if (ret == LDG_ERR_STR_TRUNC)
     {
-        ret = ldg_mem_cpy(line + prefix_len + msg_len, LDG_LOGGING_TRUNC_MARKER, LDG_LOGGING_TRUNC_MARKER_LEN);
+        ret = ldg_mem_cpy(ln + prefix_len + msg_len, LDG_LOGGING_TRUNC_MARKER, LDG_LOGGING_TRUNC_MARKER_LEN);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         msg_len += LDG_LOGGING_TRUNC_MARKER_LEN;
@@ -160,12 +160,12 @@ uint32_t ldg_logging_variable_ln_wr(const char *path, uint32_t lvl, const char *
     else if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     len = prefix_len + msg_len;
-    line[len] = LDG_LOGGING_LINE_END;
-    len += LDG_LOGGING_LINE_END_SIZE;
+    ln[len] = LDG_LOGGING_LN_END;
+    len += LDG_LOGGING_LN_END_SIZE;
 
-    if (path == LDG_LOGGING_CON) { return ldg_io_console_wr((const uint8_t *)line, len); }
+    if (path == LDG_LOGGING_CON) { return ldg_io_console_wr((const uint8_t *)ln, len); }
 
-    return logging_file_append(path, line, len);
+    return logging_file_append(path, ln, len);
 }
 
 uint32_t ldg_logging_ln_wr(const char *path, uint32_t lvl, const char *fmt, ...)
@@ -176,7 +176,7 @@ uint32_t ldg_logging_ln_wr(const char *path, uint32_t lvl, const char *fmt, ...)
     if (LDG_UNLIKELY(!path || !fmt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     va_start(args, fmt);
-    ret = ldg_logging_variable_ln_wr(path, lvl, fmt, args);
+    ret = ldg_logging_var_ln_wr(path, lvl, fmt, args);
     va_end(args);
 
     return ret;

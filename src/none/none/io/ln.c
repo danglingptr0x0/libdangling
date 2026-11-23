@@ -4,10 +4,10 @@
 #include <dangling/core/err.h>
 #include <dangling/core/macros.h>
 
-#define LDG_IO_CONSOLE_LINE_END '\n'
+#define LDG_IO_CONSOLE_LN_END '\n'
 #define LDG_IO_CONSOLE_CARRIAGE_RET '\r'
 
-uint32_t ldg_io_console_line_rd(char *dst, uint64_t cap, uint64_t *out_len)
+uint32_t ldg_io_console_ln_rd(char *dst, uint64_t cap, uint64_t *out_len)
 {
     uint64_t len = 0;
     uint8_t byte = 0;
@@ -41,7 +41,7 @@ uint32_t ldg_io_console_line_rd(char *dst, uint64_t cap, uint64_t *out_len)
 
         if (byte == LDG_IO_CONSOLE_CARRIAGE_RET) { continue; }
 
-        if (byte == LDG_IO_CONSOLE_LINE_END) { break; }
+        if (byte == LDG_IO_CONSOLE_LN_END) { break; }
 
         if ((len + LDG_STR_TERM_SIZE) >= cap)
         {

@@ -195,7 +195,7 @@ uint32_t ldg_term_create(ldg_mem_pool_t *pool, const ldg_term_conf_t *conf, ldg_
     ret = ldg_mem_pool_alloc(pool, (uint64_t)conf->row_cunt, &tmp);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    term->line_attr = (uint8_t *)tmp;
+    term->ln_attr = (uint8_t *)tmp;
 
     term->img_cap = conf->img_cap;
     term->img_max = conf->img_max;
@@ -291,7 +291,7 @@ uint32_t ldg_term_rst(ldg_term_t *term)
 
     ldg_term_palette_rst(term);
 
-    if (term->line_attr) { for (row = 0; row < term->row_cunt; row++) { term->line_attr[row] = LDG_TERM_LINE_SINGLE; } }
+    if (term->ln_attr) { for (row = 0; row < term->row_cunt; row++) { term->ln_attr[row] = LDG_TERM_LN_SINGLE; } }
 
     if (term->tab_stop) { for (row = 0; row < term->col_cunt; row++) { term->tab_stop[row] = ((row % LDG_TERM_TAB_DEFAULT_SPAN) == 0) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE; } }
 
@@ -385,7 +385,7 @@ uint32_t ldg_term_scroll_down(ldg_term_t *term, uint32_t cunt)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_line_feed(ldg_term_t *term)
+uint32_t ldg_term_ln_feed(ldg_term_t *term)
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
@@ -510,7 +510,7 @@ uint32_t ldg_term_ch_put(ldg_term_t *term, uint8_t ch)
         ret = ldg_term_carriage_ret(term);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        ret = ldg_term_line_feed(term);
+        ret = ldg_term_ln_feed(term);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
@@ -1106,30 +1106,30 @@ uint8_t ldg_term_reverse_is(const ldg_term_t *term)
     return term->reverse_screen;
 }
 
-uint32_t ldg_term_line_attr_set(ldg_term_t *term, uint8_t attr)
+uint32_t ldg_term_ln_attr_set(ldg_term_t *term, uint8_t attr)
 {
     if (LDG_UNLIKELY(!term)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    if (LDG_UNLIKELY(!term->line_attr)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(!term->ln_attr)) { return LDG_ERR_NOT_INIT; }
 
-    term->line_attr[term->cursor_row] = attr;
+    term->ln_attr[term->cursor_row] = attr;
 
     term_dirty_mark(term, term->cursor_row);
 
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_line_attr_get(const ldg_term_t *term, uint32_t row, uint8_t *out)
+uint32_t ldg_term_ln_attr_get(const ldg_term_t *term, uint32_t row, uint8_t *out)
 {
     if (LDG_UNLIKELY(!term || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    *out = LDG_TERM_LINE_SINGLE;
+    *out = LDG_TERM_LN_SINGLE;
 
     if (LDG_UNLIKELY(row >= term->row_cunt)) { return LDG_ERR_BOUNDS; }
 
-    if (LDG_UNLIKELY(!term->line_attr)) { return LDG_ERR_NOT_INIT; }
+    if (LDG_UNLIKELY(!term->ln_attr)) { return LDG_ERR_NOT_INIT; }
 
-    *out = term->line_attr[row];
+    *out = term->ln_attr[row];
 
     return LDG_ERR_AOK;
 }
@@ -1180,7 +1180,7 @@ uint32_t ldg_term_soft_rst(ldg_term_t *term)
     term->saved_cursor_col = 0;
     term->saved_cursor_row = 0;
 
-    if (term->line_attr) { for (idx = 0; idx < term->row_cunt; idx++) { term->line_attr[idx] = LDG_TERM_LINE_SINGLE; } }
+    if (term->ln_attr) { for (idx = 0; idx < term->row_cunt; idx++) { term->ln_attr[idx] = LDG_TERM_LN_SINGLE; } }
 
     ret = ldg_term_attr_rst(term);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -1591,7 +1591,7 @@ uint32_t ldg_term_display_erase(ldg_term_t *term, ldg_term_erase_t mode)
     return LDG_ERR_FUNC_ARG_INVALID;
 }
 
-uint32_t ldg_term_line_erase(ldg_term_t *term, ldg_term_erase_t mode)
+uint32_t ldg_term_ln_erase(ldg_term_t *term, ldg_term_erase_t mode)
 {
     ldg_term_cell_t *grid = 0x0;
     uint32_t col = 0;
@@ -1610,7 +1610,7 @@ uint32_t ldg_term_line_erase(ldg_term_t *term, ldg_term_erase_t mode)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_line_insert(ldg_term_t *term, uint32_t cunt)
+uint32_t ldg_term_ln_insert(ldg_term_t *term, uint32_t cunt)
 {
     ldg_term_cell_t *grid = 0x0;
     uint32_t step = 0;
@@ -1637,7 +1637,7 @@ uint32_t ldg_term_line_insert(ldg_term_t *term, uint32_t cunt)
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_term_line_delete(ldg_term_t *term, uint32_t cunt)
+uint32_t ldg_term_ln_delete(ldg_term_t *term, uint32_t cunt)
 {
     ldg_term_cell_t *grid = 0x0;
     uint32_t step = 0;

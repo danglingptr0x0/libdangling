@@ -77,7 +77,7 @@
 #define LDG_FMT_SVG_GREEN_IDX 1
 #define LDG_FMT_SVG_BLUE_IDX 2
 #define LDG_FMT_SVG_CMD_MOV 'M'
-#define LDG_FMT_SVG_CMD_LINE 'L'
+#define LDG_FMT_SVG_CMD_LN 'L'
 #define LDG_FMT_SVG_CMD_HORIZONTAL 'H'
 #define LDG_FMT_SVG_CMD_VERTICAL 'V'
 #define LDG_FMT_SVG_CMD_CUBIC 'C'
@@ -616,7 +616,7 @@ static uint32_t svg_contour_begin(svg_sink_t *sink, const svg_pen_t *pen)
     return svg_pt_emit(sink, pen, pen->curr[LDG_FMT_SVG_X_IDX], pen->curr[LDG_FMT_SVG_Y_IDX]);
 }
 
-static uint32_t svg_line_to(svg_sink_t *sink, svg_pen_t *pen, int64_t pos_x, int64_t pos_y)
+static uint32_t svg_ln_to(svg_sink_t *sink, svg_pen_t *pen, int64_t pos_x, int64_t pos_y)
 {
     uint32_t ret = 0;
 
@@ -674,7 +674,7 @@ static uint32_t svg_cubic_to(svg_sink_t *sink, svg_pen_t *pen, const int64_t *co
 
         for (axis = 0; axis < LDG_FMT_SVG_PAIR; axis++) { pos[axis] = ((orig_pt[axis] * weight[LDG_FMT_SVG_WEIGHT_START_IDX]) + (control_a[axis] * weight[LDG_FMT_SVG_WEIGHT_CONTROL_A_IDX]) + (control_b[axis] * weight[LDG_FMT_SVG_WEIGHT_CONTROL_B_IDX]) + (end_pt[axis] * weight[LDG_FMT_SVG_WEIGHT_END_IDX])) / cube; }
 
-        ret = svg_line_to(sink, pen, pos[LDG_FMT_SVG_X_IDX], pos[LDG_FMT_SVG_Y_IDX]);
+        ret = svg_ln_to(sink, pen, pos[LDG_FMT_SVG_X_IDX], pos[LDG_FMT_SVG_Y_IDX]);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
@@ -707,7 +707,7 @@ static uint32_t svg_quad_to(svg_sink_t *sink, svg_pen_t *pen, const int64_t *con
 
         for (axis = 0; axis < LDG_FMT_SVG_PAIR; axis++) { pos[axis] = ((orig_pt[axis] * rest * rest) + (control[axis] * LDG_FMT_SVG_PAIR * rest * step) + (end_pt[axis] * step * step)) / square; }
 
-        ret = svg_line_to(sink, pen, pos[LDG_FMT_SVG_X_IDX], pos[LDG_FMT_SVG_Y_IDX]);
+        ret = svg_ln_to(sink, pen, pos[LDG_FMT_SVG_X_IDX], pos[LDG_FMT_SVG_Y_IDX]);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
@@ -749,7 +749,7 @@ static uint32_t svg_arc_to(svg_sink_t *sink, svg_pen_t *pen, const int64_t *arg,
 
     if (start_x == end_x && start_y == end_y) { return LDG_ERR_AOK; }
 
-    if (radius_x == 0 || radius_y == 0) { return svg_line_to(sink, pen, end_x, end_y); }
+    if (radius_x == 0 || radius_y == 0) { return svg_ln_to(sink, pen, end_x, end_y); }
 
     phi = (arg[LDG_FMT_SVG_ARC_PHI_IDX] * LDG_FMT_SVG_PI) / (LDG_FMT_SVG_DEG_HALF_TURN * LDG_FMT_SVG_FIXED_ONE);
     cos_phi = svg_sin_get(phi + LDG_FMT_SVG_HALF_PI);
@@ -781,7 +781,7 @@ static uint32_t svg_arc_to(svg_sink_t *sink, svg_pen_t *pen, const int64_t *arg,
         lam = svg_fixed_mul(unit_x, unit_x) + svg_fixed_mul(unit_y, unit_y);
     }
 
-    if (lam <= 0) { return svg_line_to(sink, pen, end_x, end_y); }
+    if (lam <= 0) { return svg_ln_to(sink, pen, end_x, end_y); }
 
     coef = (lam >= LDG_FMT_SVG_FIXED_ONE) ? LDG_FMT_SVG_FIXED_NONE : svg_fixed_sqrt_get(svg_fixed_div(LDG_FMT_SVG_FIXED_ONE - lam, lam));
 
@@ -807,11 +807,11 @@ static uint32_t svg_arc_to(svg_sink_t *sink, svg_pen_t *pen, const int64_t *arg,
         ellipse_x = svg_fixed_mul(svg_sin_get(angle + LDG_FMT_SVG_HALF_PI), radius_x);
         ellipse_y = svg_fixed_mul(svg_sin_get(angle), radius_y);
 
-        ret = svg_line_to(sink, pen, svg_fixed_mul(cos_phi, ellipse_x) - svg_fixed_mul(sin_phi, ellipse_y) + center_x, svg_fixed_mul(sin_phi, ellipse_x) + svg_fixed_mul(cos_phi, ellipse_y) + center_y);
+        ret = svg_ln_to(sink, pen, svg_fixed_mul(cos_phi, ellipse_x) - svg_fixed_mul(sin_phi, ellipse_y) + center_x, svg_fixed_mul(sin_phi, ellipse_x) + svg_fixed_mul(cos_phi, ellipse_y) + center_y);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
-    return svg_line_to(sink, pen, end_x, end_y);
+    return svg_ln_to(sink, pen, end_x, end_y);
 }
 
 static uint32_t svg_args_get(const uint8_t *src, uint64_t end, uint64_t *pos, int64_t *arg, uint32_t cunt)
@@ -914,7 +914,7 @@ static uint32_t svg_cmd_exec(svg_sink_t *sink, svg_pen_t *pen, uint8_t cmd, cons
     uint8_t cubic = LDG_TRUTH_FALSE;
     uint32_t ret = 0;
 
-    if (kind == LDG_FMT_SVG_CMD_MOV || kind == LDG_FMT_SVG_CMD_LINE)
+    if (kind == LDG_FMT_SVG_CMD_MOV || kind == LDG_FMT_SVG_CMD_LN)
     {
         ret = svg_args_get(src, end, pos, arg, LDG_FMT_SVG_ARG_PT_CUNT);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -925,7 +925,7 @@ static uint32_t svg_cmd_exec(svg_sink_t *sink, svg_pen_t *pen, uint8_t cmd, cons
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
         }
 
-        if (kind == LDG_FMT_SVG_CMD_LINE) { ret = svg_line_to(sink, pen, arg[LDG_FMT_SVG_X_IDX], arg[LDG_FMT_SVG_Y_IDX]); }
+        if (kind == LDG_FMT_SVG_CMD_LN) { ret = svg_ln_to(sink, pen, arg[LDG_FMT_SVG_X_IDX], arg[LDG_FMT_SVG_Y_IDX]); }
         else
         {
             pen->curr[LDG_FMT_SVG_X_IDX] = arg[LDG_FMT_SVG_X_IDX];
@@ -945,13 +945,13 @@ static uint32_t svg_cmd_exec(svg_sink_t *sink, svg_pen_t *pen, uint8_t cmd, cons
         {
             if (rel == LDG_TRUTH_TRUE) { arg[0] += pen->curr[LDG_FMT_SVG_X_IDX]; }
 
-            ret = svg_line_to(sink, pen, arg[0], pen->curr[LDG_FMT_SVG_Y_IDX]);
+            ret = svg_ln_to(sink, pen, arg[0], pen->curr[LDG_FMT_SVG_Y_IDX]);
         }
         else
         {
             if (rel == LDG_TRUTH_TRUE) { arg[0] += pen->curr[LDG_FMT_SVG_Y_IDX]; }
 
-            ret = svg_line_to(sink, pen, pen->curr[LDG_FMT_SVG_X_IDX], arg[0]);
+            ret = svg_ln_to(sink, pen, pen->curr[LDG_FMT_SVG_X_IDX], arg[0]);
         }
     }
     else if (kind == LDG_FMT_SVG_CMD_CUBIC || kind == LDG_FMT_SVG_CMD_CUBIC_SMOOTH || kind == LDG_FMT_SVG_CMD_QUAD)
@@ -1004,7 +1004,7 @@ static uint32_t svg_path_parse(svg_sink_t *sink, svg_pen_t *pen, const svg_slice
         ret = svg_cmd_exec(sink, pen, cmd, sink->src, end, &pos);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if ((uint8_t)ldg_char_upper_get((char)cmd) == LDG_FMT_SVG_CMD_MOV) { cmd = (ldg_char_lower_is(cmd) == LDG_TRUTH_TRUE) ? (uint8_t)ldg_char_lower_get((char)LDG_FMT_SVG_CMD_LINE) : LDG_FMT_SVG_CMD_LINE; }
+        if ((uint8_t)ldg_char_upper_get((char)cmd) == LDG_FMT_SVG_CMD_MOV) { cmd = (ldg_char_lower_is(cmd) == LDG_TRUTH_TRUE) ? (uint8_t)ldg_char_lower_get((char)LDG_FMT_SVG_CMD_LN) : LDG_FMT_SVG_CMD_LN; }
     }
 
     sink->contour_open = LDG_TRUTH_FALSE;

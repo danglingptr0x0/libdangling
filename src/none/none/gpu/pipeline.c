@@ -147,8 +147,8 @@ LDG_EXPORT uint32_t ldg_gpu_gfx_pipeline_create(void *vk, const ldg_gpu_gfx_pipe
 
     vk_info->input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     if (desc->topology == LDG_GPU_TOPOLOGY_TRI_STRIP) { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; }
-    else if (desc->topology == LDG_GPU_TOPOLOGY_LINE_LIST) { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST; }
-    else if (desc->topology == LDG_GPU_TOPOLOGY_LINE_STRIP) { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP; }
+    else if (desc->topology == LDG_GPU_TOPOLOGY_LN_LIST) { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST; }
+    else if (desc->topology == LDG_GPU_TOPOLOGY_LN_STRIP) { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP; }
     else { vk_info->input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; }
 
     vk_info->viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;

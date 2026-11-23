@@ -39,7 +39,7 @@ typedef struct ldg_term_fx_style
     uint32_t scanline;
     uint32_t scanline_gap;
     uint32_t scanline_scroll;
-    uint32_t line_cunt;
+    uint32_t ln_cunt;
     uint32_t mask;
     uint32_t mask_pitch;
     uint32_t converge;

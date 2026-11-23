@@ -31,7 +31,7 @@ uint32_t ldg_shell_hist_get(const ldg_shell_t *shell, uint32_t idx, const char *
     if (LDG_UNLIKELY(idx >= shell->hist_cunt)) { return LDG_ERR_BOUNDS; }
 
     slot = (shell->hist_hd + shell->hist_cunt - SHELL_HIST_NEWEST_OFF - idx) % shell->hist_max;
-    *out = shell->hist + (uint64_t)slot * shell->conf.line_cap;
+    *out = shell->hist + (uint64_t)slot * shell->conf.ln_cap;
 
     return LDG_ERR_AOK;
 }
@@ -48,19 +48,19 @@ uint32_t ldg_shell_hist_push(ldg_shell_t *shell, const char *text)
 
     if (LDG_UNLIKELY(shell->hist_max == 0)) { return LDG_ERR_NOT_INIT; }
 
-    ret = ldg_str_len_get(text, shell->conf.line_cap, &len);
+    ret = ldg_str_len_get(text, shell->conf.ln_cap, &len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    if (LDG_UNLIKELY(len >= shell->conf.line_cap)) { return LDG_ERR_OVERFLOW; }
+    if (LDG_UNLIKELY(len >= shell->conf.ln_cap)) { return LDG_ERR_OVERFLOW; }
 
     if (len == 0) { return LDG_ERR_AOK; }
 
     if (shell->hist_cunt > 0)
     {
         slot = (shell->hist_hd + shell->hist_cunt - SHELL_HIST_NEWEST_OFF) % shell->hist_max;
-        newest = shell->hist + (uint64_t)slot * shell->conf.line_cap;
+        newest = shell->hist + (uint64_t)slot * shell->conf.ln_cap;
 
-        ret = ldg_str_cmp(newest, text, shell->conf.line_cap, &order);
+        ret = ldg_str_cmp(newest, text, shell->conf.ln_cap, &order);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         if (order == LDG_ARITH_ORD_EQ) { return LDG_ERR_AOK; }
@@ -77,7 +77,7 @@ uint32_t ldg_shell_hist_push(ldg_shell_t *shell, const char *text)
         shell->hist_hd = (shell->hist_hd + SHELL_HIST_RING_STEP) % shell->hist_max;
     }
 
-    return ldg_mem_cpy(shell->hist + (uint64_t)slot * shell->conf.line_cap, text, len + LDG_STR_TERM_SIZE);
+    return ldg_mem_cpy(shell->hist + (uint64_t)slot * shell->conf.ln_cap, text, len + LDG_STR_TERM_SIZE);
 }
 
 uint32_t ldg_shell_hist_io_set(ldg_shell_t *shell, const ldg_shell_hist_io_t *io)
@@ -124,7 +124,7 @@ uint32_t ldg_shell_hist_ld(ldg_shell_t *shell)
             body = start + LDG_SHELL_HIST_LEAD_LEN;
         }
 
-        if (kind == LDG_SHELL_HIST_KIND_CMD && end - body < shell->conf.line_cap)
+        if (kind == LDG_SHELL_HIST_KIND_CMD && end - body < shell->conf.ln_cap)
         {
             ret = ldg_shell_hist_push(shell, shell->hist_blob + body);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
@@ -167,12 +167,12 @@ uint32_t ldg_shell_hist_st(ldg_shell_t *shell)
     for (remaining = shell->conf.alias_max; remaining > 0; remaining--)
     {
         name = shell->alias_name + (uint64_t)(remaining - SHELL_HIST_NEWEST_OFF) * LDG_SHELL_NAME_CAP;
-        text = shell->alias_text + (uint64_t)(remaining - SHELL_HIST_NEWEST_OFF) * shell->conf.line_cap;
+        text = shell->alias_text + (uint64_t)(remaining - SHELL_HIST_NEWEST_OFF) * shell->conf.ln_cap;
 
         if (name[0] == LDG_STR_TERM) { continue; }
 
         ret = ldg_str_len_get(name, LDG_SHELL_NAME_CAP, &name_len);
-        if (ret == LDG_ERR_AOK) { ret = ldg_str_len_get(text, shell->conf.line_cap, &text_len); }
+        if (ret == LDG_ERR_AOK) { ret = ldg_str_len_get(text, shell->conf.ln_cap, &text_len); }
 
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
@@ -203,7 +203,7 @@ uint32_t ldg_shell_hist_st(ldg_shell_t *shell)
         ret = ldg_shell_hist_get(shell, remaining - SHELL_HIST_NEWEST_OFF, &text);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        ret = ldg_str_len_get(text, shell->conf.line_cap, &text_len);
+        ret = ldg_str_len_get(text, shell->conf.ln_cap, &text_len);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
         if (LDG_UNLIKELY(len + text_len + LDG_SHELL_HIST_ROW_EXTRA > shell->hist_blob_cap)) { return LDG_ERR_OVERFLOW; }

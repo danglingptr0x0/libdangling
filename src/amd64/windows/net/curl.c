@@ -34,7 +34,7 @@ static uint32_t resp_grow_append(ldg_net_curl_resp_t *resp, const void *contents
         new_cap = resp->cap ? resp->cap * LDG_NET_CURL_RESP_RESIZE_FACTOR : LDG_NET_CURL_RESP_INITIAL_CAP;
         while (new_cap < new_len + LDG_STR_TERM_SIZE) { new_cap *= LDG_NET_CURL_RESP_RESIZE_FACTOR; }
 
-        new_data = _aligned_malloc(new_cap, LDG_AMD64_CACHE_LINE_WIDTH);
+        new_data = _aligned_malloc(new_cap, LDG_AMD64_CACHE_LN_WIDTH);
         if (LDG_UNLIKELY(!new_data)) { return LDG_ERR_ALLOC_NULL; }
 
         if (LDG_UNLIKELY(memset(new_data, 0, new_cap) != new_data))
@@ -82,7 +82,7 @@ static uint32_t utf8_to_wide(const char *in, wchar_t **out)
     wide_len = (int32_t)MultiByteToWideChar(CP_UTF8, 0, in, (int32_t)byte_len, 0x0, 0);
     if (LDG_UNLIKELY(wide_len <= 0)) { return LDG_ERR_NET_PROTOCOL; }
 
-    tmp = _aligned_malloc((uint64_t)wide_len * sizeof(wchar_t), LDG_AMD64_CACHE_LINE_WIDTH);
+    tmp = _aligned_malloc((uint64_t)wide_len * sizeof(wchar_t), LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!tmp)) { return LDG_ERR_ALLOC_NULL; }
 
     buff = (wchar_t *)tmp;
@@ -122,7 +122,7 @@ static uint32_t hdr_arr_to_wide(void *hdr_arr, wchar_t **out, uint32_t *wide_len
 
     if (total == 0) { return LDG_ERR_AOK; }
 
-    tmp = _aligned_malloc(total + LDG_STR_TERM_SIZE, LDG_AMD64_CACHE_LINE_WIDTH);
+    tmp = _aligned_malloc(total + LDG_STR_TERM_SIZE, LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!tmp)) { return LDG_ERR_ALLOC_NULL; }
 
     joined = (char *)tmp;
@@ -289,7 +289,7 @@ static uint32_t winhttp_run(HINTERNET sesh, const wchar_t *method, const char *u
 
         if (avail == 0) { break; }
 
-        chunk = _aligned_malloc(avail, LDG_AMD64_CACHE_LINE_WIDTH);
+        chunk = _aligned_malloc(avail, LDG_AMD64_CACHE_LN_WIDTH);
         if (LDG_UNLIKELY(!chunk))
         {
             ret = LDG_ERR_ALLOC_NULL;
@@ -367,7 +367,7 @@ uint32_t ldg_net_curl_multi_ctx_create(ldg_net_curl_multi_ctx_t *ctx, uint64_t c
 
     ctx->multi = sesh;
 
-    reqs_tmp = _aligned_malloc(cap * sizeof(ldg_net_curl_multi_req_t), LDG_AMD64_CACHE_LINE_WIDTH);
+    reqs_tmp = _aligned_malloc(cap * sizeof(ldg_net_curl_multi_req_t), LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!reqs_tmp))
     {
         WinHttpCloseHandle(ctx->multi);
@@ -429,7 +429,7 @@ uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *u
     if (LDG_UNLIKELY(memset(req, 0, sizeof(ldg_net_curl_multi_req_t)) != req)) { return LDG_ERR_MEM_BAD; }
 
     url_len = (uint64_t)strlen(url) + LDG_STR_TERM_SIZE;
-    url_tmp = _aligned_malloc(url_len, LDG_AMD64_CACHE_LINE_WIDTH);
+    url_tmp = _aligned_malloc(url_len, LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!url_tmp)) { return LDG_ERR_ALLOC_NULL; }
 
     req->url = (char *)url_tmp;
@@ -445,7 +445,7 @@ uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *u
     if (post_data)
     {
         data_len = (uint64_t)strlen(post_data) + LDG_STR_TERM_SIZE;
-        data_tmp = _aligned_malloc(data_len, LDG_AMD64_CACHE_LINE_WIDTH);
+        data_tmp = _aligned_malloc(data_len, LDG_AMD64_CACHE_LN_WIDTH);
         if (LDG_UNLIKELY(!data_tmp))
         {
             _aligned_free(req->url);
@@ -546,7 +546,7 @@ uint32_t ldg_net_curl_hdr_append(void **list, const char *hdr)
 
     if (LDG_UNLIKELY(!list || !hdr)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    node_tmp = _aligned_malloc(sizeof(ldg_net_curl_hdr_node_t), LDG_AMD64_CACHE_LINE_WIDTH);
+    node_tmp = _aligned_malloc(sizeof(ldg_net_curl_hdr_node_t), LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!node_tmp)) { return LDG_ERR_ALLOC_NULL; }
 
     node = (ldg_net_curl_hdr_node_t *)node_tmp;
@@ -554,7 +554,7 @@ uint32_t ldg_net_curl_hdr_append(void **list, const char *hdr)
     node->text = 0x0;
 
     hdr_len = (uint64_t)strlen(hdr) + LDG_STR_TERM_SIZE;
-    text_tmp = _aligned_malloc(hdr_len, LDG_AMD64_CACHE_LINE_WIDTH);
+    text_tmp = _aligned_malloc(hdr_len, LDG_AMD64_CACHE_LN_WIDTH);
     if (LDG_UNLIKELY(!text_tmp))
     {
         _aligned_free(node);

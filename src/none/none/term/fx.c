@@ -148,7 +148,7 @@
 #define LDG_TERM_FX_CRT_ZOOM 30U
 #define LDG_TERM_FX_CRT_SCANLINE_GAP 350U
 #define LDG_TERM_FX_CRT_SCROLL 20U
-#define LDG_TERM_FX_CRT_LINE_CUNT 240U
+#define LDG_TERM_FX_CRT_LN_CUNT 240U
 #define LDG_TERM_FX_MASK_PITCH 3000U
 #define LDG_TERM_FX_CRT_BEAM_RATE 600U
 #define LDG_TERM_FX_CRT_BEAM_INTENSITY 500U
@@ -162,7 +162,7 @@
 #define LDG_TERM_FX_VGA_CURVE 45U
 #define LDG_TERM_FX_VGA_SCANLINE 350U
 #define LDG_TERM_FX_VGA_SCANLINE_GAP 500U
-#define LDG_TERM_FX_VGA_LINE_CUNT 480U
+#define LDG_TERM_FX_VGA_LN_CUNT 480U
 #define LDG_TERM_FX_VGA_PHOSPHOR 220U
 #define LDG_TERM_FX_VGA_BLOOM 280U
 #define LDG_TERM_FX_VGA_NOISE 12U
@@ -251,7 +251,7 @@ typedef struct fx_frame
     int64_t overscan_inv;
     int64_t converge;
     int64_t bloom;
-    int64_t line;
+    int64_t ln;
     int64_t scroll;
     int64_t scanline;
     int64_t gap;
@@ -461,7 +461,7 @@ static void fx_style_crt_set(ldg_term_fx_style_t *out)
     out->zoom = LDG_TERM_FX_CRT_ZOOM;
     out->scanline_gap = LDG_TERM_FX_CRT_SCANLINE_GAP;
     out->scanline_scroll = LDG_TERM_FX_CRT_SCROLL;
-    out->line_cunt = LDG_TERM_FX_CRT_LINE_CUNT;
+    out->ln_cunt = LDG_TERM_FX_CRT_LN_CUNT;
     out->mask_pitch = LDG_TERM_FX_MASK_PITCH;
     out->beam_rate = LDG_TERM_FX_CRT_BEAM_RATE;
     out->beam_intensity = LDG_TERM_FX_CRT_BEAM_INTENSITY;
@@ -488,7 +488,7 @@ static void fx_style_vga_set(ldg_term_fx_style_t *out)
     out->scanline = LDG_TERM_FX_VGA_SCANLINE;
     out->scanline_gap = LDG_TERM_FX_VGA_SCANLINE_GAP;
     out->scanline_scroll = 0;
-    out->line_cunt = LDG_TERM_FX_VGA_LINE_CUNT;
+    out->ln_cunt = LDG_TERM_FX_VGA_LN_CUNT;
     out->phosphor = LDG_TERM_FX_VGA_PHOSPHOR;
     out->bloom = LDG_TERM_FX_VGA_BLOOM;
     out->noise = LDG_TERM_FX_VGA_NOISE;
@@ -539,7 +539,7 @@ static void fx_style_scope_set(ldg_term_fx_style_t *out)
     out->phosphor = LDG_TERM_FX_SCOPE_PHOSPHOR;
     out->bloom = LDG_TERM_FX_SCOPE_BLOOM;
     out->scanline = LDG_TERM_FX_SCOPE_SCANLINE;
-    out->line_cunt = LDG_TERM_FX_VGA_LINE_CUNT;
+    out->ln_cunt = LDG_TERM_FX_VGA_LN_CUNT;
     out->haze = LDG_TERM_FX_SCOPE_HAZE;
     out->mask = 0;
     out->beam_en = LDG_TRUTH_FALSE;
@@ -1306,7 +1306,7 @@ static uint32_t fx_frame_build(ldg_term_fx_t *fx, const ldg_term_render_t *rende
 {
     int64_t cycles = 0;
     int64_t ripple = fx_mille_get(style->ripple);
-    int64_t line_cunt = (int64_t)style->line_cunt * LDG_TERM_FX_ONE;
+    int64_t ln_cunt = (int64_t)style->ln_cunt * LDG_TERM_FX_ONE;
     uint32_t ret = 0;
 
     out->style = style;
@@ -1332,15 +1332,15 @@ static uint32_t fx_frame_build(ldg_term_fx_t *fx, const ldg_term_render_t *rende
     out->lift = fx_mul(fx_vnoise_get(fx->key, out->time * LDG_TERM_FX_LIFT_RATE) - LDG_TERM_FX_HALF, LDG_TERM_FX_LIFT_AMP) + fx_mul(out->hw, LDG_TERM_FX_LIFT_HW);
     out->warm = fx_mul(fx_sin_cycles_get(fx_mul(out->time, LDG_TERM_FX_WARM_RATE)), fx_mille_get(style->warmth)) + fx_mul(fx_mul(out->hw, fx_mille_get(style->warmth)), LDG_TERM_FX_WARM_HW);
     out->beam_pos = fx_frac_get(fx_mul(out->time, fx_mille_get(style->beam_rate)));
-    out->beam_span = (line_cunt > 0) ? fx_div(fx_mille_get(style->beam_width), line_cunt) : LDG_TERM_FX_NONE_FIXED;
-    out->beam_lit = (out->height > 0) ? fx_smoothstep(LDG_TERM_FX_SMOOTH_FAR, LDG_TERM_FX_SMOOTH_NEAR, line_cunt / (int64_t)out->height) : LDG_TERM_FX_NONE_FIXED;
+    out->beam_span = (ln_cunt > 0) ? fx_div(fx_mille_get(style->beam_width), ln_cunt) : LDG_TERM_FX_NONE_FIXED;
+    out->beam_lit = (out->height > 0) ? fx_smoothstep(LDG_TERM_FX_SMOOTH_FAR, LDG_TERM_FX_SMOOTH_NEAR, ln_cunt / (int64_t)out->height) : LDG_TERM_FX_NONE_FIXED;
     out->triad_lit = (style->mask_pitch > 0) ? fx_smoothstep(LDG_TERM_FX_SMOOTH_FAR, LDG_TERM_FX_SMOOTH_NEAR, fx_div(LDG_TERM_FX_ONE, fx_mille_get(style->mask_pitch))) : LDG_TERM_FX_NONE_FIXED;
     out->zoom = LDG_TERM_FX_ONE + fx_mille_get(style->zoom);
     out->curve = fx_mille_get(style->curve);
     out->overscan_inv = fx_div(LDG_TERM_FX_ONE, LDG_TERM_FX_ONE + fx_mille_get(style->overscan));
     out->converge = (out->width > 0) ? fx_mille_get(style->converge) / (int64_t)out->width : LDG_TERM_FX_NONE_FIXED;
     out->bloom = fx_mille_get(style->bloom);
-    out->line = line_cunt;
+    out->ln = ln_cunt;
     out->scroll = fx_mul(out->time, fx_mille_get(style->scanline_scroll));
     out->scanline = fx_mille_get(style->scanline);
     out->gap = fx_mille_get(style->scanline_gap);
@@ -1562,7 +1562,7 @@ static void fx_tube_shade(const ldg_term_fx_t *fx, const uint8_t *src, const fx_
         for (channel = 0; channel < LDG_TERM_FX_RGB_CUNT; channel++) { col[channel] += (((((near_sum[channel] * LDG_TERM_FX_HALO_FAR_DIV) + far_sum[channel]) * LDG_TERM_FX_ONE) / LDG_TERM_FX_HALO_NORM) * frame->bloom) / LDG_TERM_FX_ONE; }
     }
 
-    dist = (int64_t)((uint64_t)(((warp_v * frame->line) / LDG_TERM_FX_ONE) + frame->scroll) & LDG_TERM_FX_FRAC_MASK) - LDG_TERM_FX_HALF;
+    dist = (int64_t)((uint64_t)(((warp_v * frame->ln) / LDG_TERM_FX_ONE) + frame->scroll) & LDG_TERM_FX_FRAC_MASK) - LDG_TERM_FX_HALF;
     dist = ((dist < 0) ? -dist : dist) * LDG_TERM_FX_PAIR;
     shade = LDG_TERM_FX_ONE - ((((dist * dist) / LDG_TERM_FX_ONE) * frame->scanline) / LDG_TERM_FX_ONE);
 
@@ -1741,7 +1741,7 @@ static void fx_region_render(ldg_term_fx_t *fx, ldg_term_render_t *render, const
 static uint8_t fx_style_valid_is(const ldg_term_fx_style_t *style)
 {
     const uint32_t gain[LDG_TERM_FX_GAIN_FIELD_CUNT] = { style->bright, style->noise, style->hw_noise, style->phosphor, style->bloom, style->edge_fade, style->curve, style->overscan, style->zoom, style->scanline, style->scanline_gap, style->mask, style->converge, style->beam_intensity, style->warmth, style->ripple, style->cell, style->bleed, style->sustain, style->pedestal, style->haze, style->band, style->bloom_threshold, style->bloom_gain };
-    const uint32_t rate[LDG_TERM_FX_RATE_FIELD_CUNT] = { style->line_cunt, style->mask_pitch, style->beam_rate, style->beam_width, style->mains_rate, style->scanline_scroll, style->addr_rate, style->bloom_radius };
+    const uint32_t rate[LDG_TERM_FX_RATE_FIELD_CUNT] = { style->ln_cunt, style->mask_pitch, style->beam_rate, style->beam_width, style->mains_rate, style->scanline_scroll, style->addr_rate, style->bloom_radius };
     uint32_t idx = 0;
 
     for (idx = 0; idx < LDG_TERM_FX_GAIN_FIELD_CUNT; idx++) { if (gain[idx] > LDG_TERM_FX_GAIN_MAX) { return LDG_TRUTH_FALSE; } }

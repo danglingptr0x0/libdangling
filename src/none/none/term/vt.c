@@ -827,9 +827,9 @@ static void vt_csi_dispatch(ldg_term_vt_t *vt, uint8_t final)
         ldg_term_cursor_set(vt->term, second - LDG_TERM_VT_STEP, first - LDG_TERM_VT_STEP);
     }
     else if (final == 'J') { ldg_term_display_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT)); }
-    else if (final == 'K') { ldg_term_line_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT)); }
-    else if (final == 'L') { ldg_term_line_insert(vt->term, first); }
-    else if (final == 'M') { ldg_term_line_delete(vt->term, first); }
+    else if (final == 'K') { ldg_term_ln_erase(vt->term, (ldg_term_erase_t)vt_param_get(vt, LDG_TERM_VT_PARAM_FIRST, LDG_TERM_VT_PARAM_DEFAULT)); }
+    else if (final == 'L') { ldg_term_ln_insert(vt->term, first); }
+    else if (final == 'M') { ldg_term_ln_delete(vt->term, first); }
     else if (final == 'P') { ldg_term_ch_delete(vt->term, first); }
     else if (final == 'S') { ldg_term_scroll_up(vt->term, first); }
     else if (final == 'T') { ldg_term_scroll_down(vt->term, first); }
@@ -885,10 +885,10 @@ static void vt_esc_dispatch(ldg_term_vt_t *vt, uint8_t byte)
         if (vt->inter[LDG_TERM_VT_PARAM_FIRST] != LDG_TERM_VT_HASH_CH) { return; }
 
         if (byte == '8') { ldg_term_align_fill(vt->term); }
-        else if (byte == '3') { ldg_term_line_attr_set(vt->term, LDG_TERM_LINE_DOUBLE_TOP); }
-        else if (byte == '4') { ldg_term_line_attr_set(vt->term, LDG_TERM_LINE_DOUBLE_BOTTOM); }
-        else if (byte == '5') { ldg_term_line_attr_set(vt->term, LDG_TERM_LINE_SINGLE); }
-        else if (byte == '6') { ldg_term_line_attr_set(vt->term, LDG_TERM_LINE_DOUBLE_WIDTH); }
+        else if (byte == '3') { ldg_term_ln_attr_set(vt->term, LDG_TERM_LN_DOUBLE_TOP); }
+        else if (byte == '4') { ldg_term_ln_attr_set(vt->term, LDG_TERM_LN_DOUBLE_BOTTOM); }
+        else if (byte == '5') { ldg_term_ln_attr_set(vt->term, LDG_TERM_LN_SINGLE); }
+        else if (byte == '6') { ldg_term_ln_attr_set(vt->term, LDG_TERM_LN_DOUBLE_WIDTH); }
 
         return;
     }
@@ -901,9 +901,9 @@ static void vt_esc_dispatch(ldg_term_vt_t *vt, uint8_t byte)
     else if (byte == 'E')
     {
         ldg_term_carriage_ret(vt->term);
-        ldg_term_line_feed(vt->term);
+        ldg_term_ln_feed(vt->term);
     }
-    else if (byte == 'D') { ldg_term_line_feed(vt->term); }
+    else if (byte == 'D') { ldg_term_ln_feed(vt->term); }
     else if (byte == 'H') { ldg_term_tab_set(vt->term); }
     else if (byte == '=') { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_APP_KEYPAD, LDG_TRUTH_TRUE); }
     else if (byte == '>') { vt_mode_bit_set(vt, LDG_TERM_VT_MODE_APP_KEYPAD, LDG_TRUTH_FALSE); }
@@ -913,7 +913,7 @@ static void vt_ctrl_exec(ldg_term_vt_t *vt, uint8_t byte)
 {
     if (byte == LDG_TERM_VT_BS_CH) { ldg_term_backspace(vt->term); }
     else if (byte == LDG_TERM_VT_HT_CH) { ldg_term_tab_advance(vt->term); }
-    else if (byte == LDG_TERM_VT_LF_CH || byte == LDG_TERM_VT_VTAB_CH || byte == LDG_TERM_VT_FF_CH) { ldg_term_line_feed(vt->term); }
+    else if (byte == LDG_TERM_VT_LF_CH || byte == LDG_TERM_VT_VTAB_CH || byte == LDG_TERM_VT_FF_CH) { ldg_term_ln_feed(vt->term); }
     else if (byte == LDG_TERM_VT_CR_CH) { ldg_term_carriage_ret(vt->term); }
     else if (byte == LDG_TERM_VT_SO_CH) { ldg_term_charset_shift(vt->term, LDG_TRUTH_TRUE); }
     else if (byte == LDG_TERM_VT_SI_CH) { ldg_term_charset_shift(vt->term, LDG_TRUTH_FALSE); }
@@ -1234,7 +1234,7 @@ static void vt_vt52_feed(ldg_term_vt_t *vt, uint8_t byte)
     else if (byte == 'I') { if (vt->term->cursor_row == vt->term->margin_top) { ldg_term_scroll_down(vt->term, LDG_TERM_VT_STEP); }
         else { ldg_term_cursor_row_mov(vt->term, -step); } }
     else if (byte == 'J') { ldg_term_display_erase(vt->term, LDG_TERM_ERASE_TO_END); }
-    else if (byte == 'K') { ldg_term_line_erase(vt->term, LDG_TERM_ERASE_TO_END); }
+    else if (byte == 'K') { ldg_term_ln_erase(vt->term, LDG_TERM_ERASE_TO_END); }
     else if (byte == 'Y')
     {
         vt->state = LDG_TERM_VT_STATE_VT52_ROW;
@@ -2264,7 +2264,7 @@ static void vt_sixel_end(ldg_term_vt_t *vt)
 
     ldg_term_cursor_get(vt->term, &col, &row);
 
-    for (idx = LDG_TERM_VT_STEP; idx < placement.row_span; idx++) { if (ldg_term_line_feed(vt->term) != LDG_ERR_AOK) { return; } }
+    for (idx = LDG_TERM_VT_STEP; idx < placement.row_span; idx++) { if (ldg_term_ln_feed(vt->term) != LDG_ERR_AOK) { return; } }
 
     ldg_term_cursor_get(vt->term, &end_col, &end_row);
 

@@ -179,7 +179,7 @@ static uint8_t ppo_norm_is(const ldg_math_stat_ppo_t *ppo)
     return LDG_TRUTH_FALSE;
 }
 
-static uint8_t ppo_ln_is(const ldg_math_stat_ppo_t *ppo)
+static uint8_t ppo_layer_norm_is(const ldg_math_stat_ppo_t *ppo)
 {
     if (ppo->conf.layer_norm_is == LDG_TRUTH_TRUE) { return LDG_TRUTH_TRUE; }
 
@@ -977,7 +977,7 @@ static uint32_t ppo_default_layer_add(ldg_math_stat_ppo_t *ppo, uint32_t net)
     uint32_t idx = 0;
     uint32_t ret = 0;
 
-    if (ppo_ln_is(ppo) == LDG_TRUTH_TRUE) { act = LDG_MATH_STAT_LAYER_ACT_NONE; }
+    if (ppo_layer_norm_is(ppo) == LDG_TRUTH_TRUE) { act = LDG_MATH_STAT_LAYER_ACT_NONE; }
 
     if (ppo_attn_is(ppo) == LDG_TRUTH_TRUE)
     {
@@ -1008,7 +1008,7 @@ static uint32_t ppo_default_layer_add(ldg_math_stat_ppo_t *ppo, uint32_t net)
         ret = ppo_layer_push(model, LDG_MATH_STAT_LAYER_DENSE, ppo->conf.hidden_dim, act, &desc);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        if (ppo_ln_is(ppo) == LDG_TRUTH_TRUE)
+        if (ppo_layer_norm_is(ppo) == LDG_TRUTH_TRUE)
         {
             ret = ppo_layer_push(model, LDG_MATH_STAT_LAYER_NORM, ppo->conf.hidden_dim, LDG_MATH_STAT_LAYER_ACT_TANH, &desc);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }

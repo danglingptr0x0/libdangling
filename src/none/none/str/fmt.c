@@ -311,7 +311,7 @@ static uint8_t fmt_width_tag_match_is(const char *fmt, uint64_t pos, const char 
     return LDG_TRUTH_TRUE;
 }
 
-uint32_t ldg_str_variable_fmt(char *dst, uint64_t cap, uint64_t *out_len, const char *fmt, va_list args)
+uint32_t ldg_str_var_fmt(char *dst, uint64_t cap, uint64_t *out_len, const char *fmt, va_list args)
 {
     ldg_str_fmt_sink_t sink = LDG_STRUCT_ZERO_INIT;
     ldg_str_fmt_field_t field = LDG_STRUCT_ZERO_INIT;
@@ -470,7 +470,7 @@ uint32_t ldg_str_fmt(char *dst, uint64_t cap, uint64_t *out_len, const char *fmt
     if (LDG_UNLIKELY(!out_len || !fmt)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     va_start(args, fmt);
-    ret = ldg_str_variable_fmt(dst, cap, out_len, fmt, args);
+    ret = ldg_str_var_fmt(dst, cap, out_len, fmt, args);
     va_end(args);
 
     return ret;

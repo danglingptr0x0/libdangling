@@ -14,12 +14,12 @@
 #define LDG_MEM_REGION_MAPS_FMT "/proc/%u32/maps"
 #define LDG_MEM_REGION_MAPS_PATH_CAP 32
 #define LDG_MEM_REGION_BLK_SIZE 4096
-#define LDG_MEM_REGION_LINE_CAP 128
+#define LDG_MEM_REGION_LN_CAP 128
 #define LDG_MEM_REGION_PERM_SHARE_IDX 3
 #define LDG_MEM_REGION_PERM_SHARE 's'
 #define LDG_MEM_REGION_FILE_LEAD '/'
 #define LDG_MEM_REGION_QUERY_CAP 1
-#define LDG_MEM_REGION_LINE_END '\n'
+#define LDG_MEM_REGION_LN_END '\n'
 #define LDG_MEM_REGION_RANGE_SEP '-'
 #define LDG_MEM_REGION_FIELD_SEP ' '
 #define LDG_MEM_REGION_SEP_LEN 1
@@ -44,12 +44,12 @@ typedef struct ldg_mem_region_walk
     uint8_t pudding[2];
 } ldg_mem_region_walk_t;
 
-static uint64_t mem_region_hex_take(const char *line, uint64_t len, uint64_t *cursor)
+static uint64_t mem_region_hex_take(const char *ln, uint64_t len, uint64_t *cursor)
 {
     uint64_t val = 0;
     byte_t nibble = 0;
 
-    while (*cursor < len && ldg_hex_to_nipple(line[*cursor], &nibble) == LDG_ERR_AOK)
+    while (*cursor < len && ldg_hex_to_nipple(ln[*cursor], &nibble) == LDG_ERR_AOK)
     {
         val = (val << LDG_NIBBLE_BITS) | (uint64_t)nibble;
         (*cursor)++;
@@ -58,7 +58,7 @@ static uint64_t mem_region_hex_take(const char *line, uint64_t len, uint64_t *cu
     return val;
 }
 
-static void mem_region_line_take(ldg_mem_region_walk_t *walk, const char *line, uint64_t len)
+static void mem_region_ln_take(ldg_mem_region_walk_t *walk, const char *ln, uint64_t len)
 {
     ldg_mem_region_t *slot = 0x0;
     uint64_t cursor = 0;
@@ -68,12 +68,12 @@ static void mem_region_line_take(ldg_mem_region_walk_t *walk, const char *line, 
 
     if (walk->done == LDG_TRUTH_TRUE) { return; }
 
-    start = mem_region_hex_take(line, len, &cursor);
-    if (cursor >= len || line[cursor] != LDG_MEM_REGION_RANGE_SEP) { return; }
+    start = mem_region_hex_take(ln, len, &cursor);
+    if (cursor >= len || ln[cursor] != LDG_MEM_REGION_RANGE_SEP) { return; }
 
     cursor += LDG_MEM_REGION_SEP_LEN;
-    end = mem_region_hex_take(line, len, &cursor);
-    if (cursor >= len || line[cursor] != LDG_MEM_REGION_FIELD_SEP || end <= start) { return; }
+    end = mem_region_hex_take(ln, len, &cursor);
+    if (cursor >= len || ln[cursor] != LDG_MEM_REGION_FIELD_SEP || end <= start) { return; }
 
     cursor += LDG_MEM_REGION_SEP_LEN;
     if (cursor + LDG_MEM_REGION_PERM_CUNT > len) { return; }
@@ -101,12 +101,12 @@ static void mem_region_line_take(ldg_mem_region_walk_t *walk, const char *line, 
     slot->size = end - start;
     slot->alloc_base = start;
     slot->committed = LDG_TRUTH_TRUE;
-    slot->readable = (line[cursor + LDG_MEM_REGION_PERM_RD_IDX] == LDG_MEM_REGION_PERM_RD) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
-    slot->writable = (line[cursor + LDG_MEM_REGION_PERM_WR_IDX] == LDG_MEM_REGION_PERM_WR) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
-    slot->executable = (line[cursor + LDG_MEM_REGION_PERM_EXEC_IDX] == LDG_MEM_REGION_PERM_EXEC) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    slot->readable = (ln[cursor + LDG_MEM_REGION_PERM_RD_IDX] == LDG_MEM_REGION_PERM_RD) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    slot->writable = (ln[cursor + LDG_MEM_REGION_PERM_WR_IDX] == LDG_MEM_REGION_PERM_WR) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
+    slot->executable = (ln[cursor + LDG_MEM_REGION_PERM_EXEC_IDX] == LDG_MEM_REGION_PERM_EXEC) ? LDG_TRUTH_TRUE : LDG_TRUTH_FALSE;
     slot->kind = LDG_MEM_REGION_KIND_PRIVATE;
 
-    if (ldg_str_char_find(line, LDG_MEM_REGION_FILE_LEAD, len, &file_idx) == LDG_ERR_AOK) { slot->kind = (line[cursor + LDG_MEM_REGION_PERM_SHARE_IDX] == LDG_MEM_REGION_PERM_SHARE) ? LDG_MEM_REGION_KIND_MAPPED : LDG_MEM_REGION_KIND_IMG; }
+    if (ldg_str_char_find(ln, LDG_MEM_REGION_FILE_LEAD, len, &file_idx) == LDG_ERR_AOK) { slot->kind = (ln[cursor + LDG_MEM_REGION_PERM_SHARE_IDX] == LDG_MEM_REGION_PERM_SHARE) ? LDG_MEM_REGION_KIND_MAPPED : LDG_MEM_REGION_KIND_IMG; }
 
     walk->cunt++;
 
@@ -116,10 +116,10 @@ static void mem_region_line_take(ldg_mem_region_walk_t *walk, const char *line, 
 static uint32_t mem_region_walk(ldg_mem_region_walk_t *walk)
 {
     char blk[LDG_MEM_REGION_BLK_SIZE] = LDG_ARR_ZERO_INIT;
-    char line[LDG_MEM_REGION_LINE_CAP] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_MEM_REGION_LN_CAP] = LDG_ARR_ZERO_INIT;
     char path[LDG_MEM_REGION_MAPS_PATH_CAP] = LDG_ARR_ZERO_INIT;
     uint64_t path_len = 0;
-    uint64_t line_len = 0;
+    uint64_t ln_len = 0;
     uint64_t idx = 0;
     int64_t got = 0;
     int32_t fd = 0;
@@ -147,15 +147,15 @@ static uint32_t mem_region_walk(ldg_mem_region_walk_t *walk)
 
         for (idx = 0; idx < (uint64_t)got; idx++)
         {
-            if (blk[idx] != LDG_MEM_REGION_LINE_END)
+            if (blk[idx] != LDG_MEM_REGION_LN_END)
             {
-                if (line_len < LDG_MEM_REGION_LINE_CAP) { line[line_len++] = blk[idx]; }
+                if (ln_len < LDG_MEM_REGION_LN_CAP) { ln[ln_len++] = blk[idx]; }
 
                 continue;
             }
 
-            mem_region_line_take(walk, line, line_len);
-            line_len = 0;
+            mem_region_ln_take(walk, ln, ln_len);
+            ln_len = 0;
         }
     }
 

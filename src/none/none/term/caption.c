@@ -16,8 +16,8 @@
 #define LDG_TERM_CAPTION_POOL_ALLOC_CUNT 2
 #define LDG_TERM_CAPTION_PER_MILLE 1000U
 #define LDG_TERM_CAPTION_MARGIN_FRAC_MAX 500U
-#define LDG_TERM_CAPTION_LINE_TOTAL_MAX (LDG_TERM_CAPTION_ACTIVE_MAX * LDG_TERM_CAPTION_LINE_CAP)
-#define LDG_TERM_CAPTION_LINE_W_MIN 8U
+#define LDG_TERM_CAPTION_LN_TOTAL_MAX (LDG_TERM_CAPTION_ACTIVE_MAX * LDG_TERM_CAPTION_LN_CAP)
+#define LDG_TERM_CAPTION_LN_W_MIN 8U
 #define LDG_TERM_CAPTION_ARROW_SPAN 2U
 #define LDG_TERM_CAPTION_ARROW_NONE 0
 #define LDG_TERM_CAPTION_ARROW_AHEAD '^'
@@ -31,12 +31,12 @@
 #define LDG_TERM_CAPTION_ID_SLOT_MASK 0xFFFFFFFFULL
 #define LDG_TERM_CAPTION_ID_GEN_SHIFT 32
 #define LDG_TERM_CAPTION_GEN_FIRST 1U
-#define LDG_TERM_CAPTION_LINE_FRAC_SPEECH_DEFAULT 300U
-#define LDG_TERM_CAPTION_LINE_FRAC_SOUND_DEFAULT 880U
-#define LDG_TERM_CAPTION_LINE_FRAC_MUSIC_DEFAULT 880U
-#define LDG_TERM_CAPTION_LINE_SHOWN_SPEECH_DEFAULT 4U
-#define LDG_TERM_CAPTION_LINE_SHOWN_SOUND_DEFAULT 2U
-#define LDG_TERM_CAPTION_LINE_SHOWN_MUSIC_DEFAULT 2U
+#define LDG_TERM_CAPTION_LN_FRAC_SPEECH_DEFAULT 300U
+#define LDG_TERM_CAPTION_LN_FRAC_SOUND_DEFAULT 880U
+#define LDG_TERM_CAPTION_LN_FRAC_MUSIC_DEFAULT 880U
+#define LDG_TERM_CAPTION_LN_SHOWN_SPEECH_DEFAULT 4U
+#define LDG_TERM_CAPTION_LN_SHOWN_SOUND_DEFAULT 2U
+#define LDG_TERM_CAPTION_LN_SHOWN_MUSIC_DEFAULT 2U
 #define LDG_TERM_CAPTION_MARGIN_FRAC_DEFAULT 60U
 #define LDG_TERM_CAPTION_FADE_DEFAULT 180U
 #define LDG_TERM_CAPTION_TEXT_RED 0xF0U
@@ -94,7 +94,7 @@ typedef struct caption_layout
     uint32_t width[LDG_TERM_CAPTION_KIND_CUNT];
     uint32_t first[LDG_TERM_CAPTION_KIND_CUNT];
     uint32_t shown[LDG_TERM_CAPTION_KIND_CUNT];
-    uint32_t line_cunt[LDG_TERM_CAPTION_ACTIVE_MAX];
+    uint32_t ln_cunt[LDG_TERM_CAPTION_ACTIVE_MAX];
     uint32_t margin_col;
     uint32_t margin_row;
     uint8_t pudding[4];
@@ -216,7 +216,7 @@ static void caption_resolve(ldg_term_caption_t *caption)
     }
 }
 
-static uint8_t caption_line_next(const char *text, uint32_t len, uint32_t width, uint32_t *start, uint32_t *out_off, uint32_t *out_len)
+static uint8_t caption_ln_next(const char *text, uint32_t len, uint32_t width, uint32_t *start, uint32_t *out_off, uint32_t *out_len)
 {
     uint32_t brk = 0;
 
@@ -242,27 +242,27 @@ static uint8_t caption_line_next(const char *text, uint32_t len, uint32_t width,
     return LDG_TRUTH_TRUE;
 }
 
-static uint32_t caption_text_line_cunt_get(const char *text, uint32_t len, uint32_t width)
+static uint32_t caption_text_ln_cunt_get(const char *text, uint32_t len, uint32_t width)
 {
     uint32_t start = 0;
     uint32_t off = 0;
-    uint32_t line_len = 0;
+    uint32_t ln_len = 0;
     uint32_t cunt = 0;
 
-    while (cunt < LDG_TERM_CAPTION_LINE_CAP && caption_line_next(text, len, width, &start, &off, &line_len) == LDG_TRUTH_TRUE) { cunt++; }
+    while (cunt < LDG_TERM_CAPTION_LN_CAP && caption_ln_next(text, len, width, &start, &off, &ln_len) == LDG_TRUTH_TRUE) { cunt++; }
 
     return cunt;
 }
 
-static uint32_t caption_cue_line_cunt_get(const ldg_term_caption_t *caption, const caption_cue_t *cue, uint32_t width)
+static uint32_t caption_cue_ln_cunt_get(const ldg_term_caption_t *caption, const caption_cue_t *cue, uint32_t width)
 {
     uint32_t cunt = 0;
 
-    if (caption->style.spkr_en == LDG_TRUTH_TRUE && cue->spkr_len > 0) { cunt = caption_text_line_cunt_get(cue->spkr, cue->spkr_len, width); }
+    if (caption->style.spkr_en == LDG_TRUTH_TRUE && cue->spkr_len > 0) { cunt = caption_text_ln_cunt_get(cue->spkr, cue->spkr_len, width); }
 
-    cunt += caption_text_line_cunt_get(cue->text, cue->text_len, width);
+    cunt += caption_text_ln_cunt_get(cue->text, cue->text_len, width);
 
-    if (cunt > LDG_TERM_CAPTION_LINE_CAP) { cunt = LDG_TERM_CAPTION_LINE_CAP; }
+    if (cunt > LDG_TERM_CAPTION_LN_CAP) { cunt = LDG_TERM_CAPTION_LN_CAP; }
 
     return cunt;
 }
@@ -283,11 +283,11 @@ static uint32_t caption_width_get(const ldg_term_caption_t *caption, const ldg_t
 
     if (rect->col_cunt > margin_col * LDG_TERM_CAPTION_PAIR) { safe = rect->col_cunt - (margin_col * LDG_TERM_CAPTION_PAIR); }
 
-    width = (uint32_t)(((uint64_t)rect->col_cunt * caption->style.line_frac[kind]) / LDG_TERM_CAPTION_PER_MILLE);
+    width = (uint32_t)(((uint64_t)rect->col_cunt * caption->style.ln_frac[kind]) / LDG_TERM_CAPTION_PER_MILLE);
 
     if (width > safe) { width = safe; }
 
-    if (width < LDG_TERM_CAPTION_LINE_W_MIN) { width = LDG_TERM_CAPTION_LINE_W_MIN; }
+    if (width < LDG_TERM_CAPTION_LN_W_MIN) { width = LDG_TERM_CAPTION_LN_W_MIN; }
 
     if (kind != LDG_TERM_CAPTION_KIND_SPEECH && caption->style.bearing_en == LDG_TRUTH_TRUE && width > LDG_TERM_CAPTION_ARROW_SPAN) { width -= LDG_TERM_CAPTION_ARROW_SPAN; }
 
@@ -305,7 +305,7 @@ static void caption_window_get(const ldg_term_caption_t *caption, const caption_
     uint32_t prior = 0;
     uint32_t idx = 0;
 
-    if (span > caption->style.line_shown[kind]) { span = caption->style.line_shown[kind]; }
+    if (span > caption->style.ln_shown[kind]) { span = caption->style.ln_shown[kind]; }
 
     first = total - span;
 
@@ -317,7 +317,7 @@ static void caption_window_get(const ldg_term_caption_t *caption, const caption_
 
         if (mark <= first) { prior = mark; }
 
-        mark += layout->line_cunt[idx];
+        mark += layout->ln_cunt[idx];
     }
 
     *out_first = (pick == UINT32_MAX) ? prior : pick;
@@ -342,8 +342,8 @@ static void caption_layout_build(const ldg_term_caption_t *caption, const ldg_te
         {
             if (caption->cue[caption->active[idx]].kind != kind) { continue; }
 
-            out->line_cunt[idx] = caption_cue_line_cunt_get(caption, &caption->cue[caption->active[idx]], out->width[kind]);
-            total += out->line_cunt[idx];
+            out->ln_cunt[idx] = caption_cue_ln_cunt_get(caption, &caption->cue[caption->active[idx]], out->width[kind]);
+            total += out->ln_cunt[idx];
         }
 
         caption_window_get(caption, out, kind, total, &out->first[kind]);
@@ -369,7 +369,7 @@ static void caption_layout_build(const ldg_term_caption_t *caption, const ldg_te
     }
 }
 
-static uint32_t caption_line_draw(ldg_term_render_t *render, const ldg_term_rect_t *rect, int64_t row, uint32_t col, const char *text, uint32_t len, const ldg_term_render_color_t *fg)
+static uint32_t caption_ln_draw(ldg_term_render_t *render, const ldg_term_rect_t *rect, int64_t row, uint32_t col, const char *text, uint32_t len, const ldg_term_render_color_t *fg)
 {
     ldg_term_render_color_t bg = LDG_STRUCT_ZERO_INIT;
 
@@ -391,45 +391,45 @@ static uint32_t caption_cue_draw(const ldg_term_caption_t *caption, ldg_term_ren
     uint32_t text_start = 0;
     uint32_t off = 0;
     uint32_t len = 0;
-    uint32_t line = 0;
+    uint32_t ln = 0;
     uint32_t global = 0;
     uint32_t col = 0;
     uint32_t ret = 0;
-    uint8_t spkr_line = LDG_TRUTH_FALSE;
+    uint8_t spkr_ln = LDG_TRUTH_FALSE;
     char arrow = LDG_TERM_CAPTION_ARROW_NONE;
 
     text_color = caption_color_fade_get((cue->color_en == LDG_TRUTH_TRUE) ? cue->color : caption_kind_color_get(&caption->style, kind), caption->fade[idx]);
     spkr_color = caption_color_fade_get(caption->style.spkr_color, caption->fade[idx]);
 
-    for (line = 0; line < layout->line_cunt[idx]; line++)
+    for (ln = 0; ln < layout->ln_cunt[idx]; ln++)
     {
-        spkr_line = LDG_TRUTH_FALSE;
+        spkr_ln = LDG_TRUTH_FALSE;
         src = cue->text;
 
-        if (caption->style.spkr_en == LDG_TRUTH_TRUE && caption_line_next(cue->spkr, cue->spkr_len, layout->width[kind], &spkr_start, &off, &len) == LDG_TRUTH_TRUE)
+        if (caption->style.spkr_en == LDG_TRUTH_TRUE && caption_ln_next(cue->spkr, cue->spkr_len, layout->width[kind], &spkr_start, &off, &len) == LDG_TRUTH_TRUE)
         {
-            spkr_line = LDG_TRUTH_TRUE;
+            spkr_ln = LDG_TRUTH_TRUE;
             src = cue->spkr;
         }
-        else if (caption_line_next(cue->text, cue->text_len, layout->width[kind], &text_start, &off, &len) != LDG_TRUTH_TRUE) { break; }
+        else if (caption_ln_next(cue->text, cue->text_len, layout->width[kind], &text_start, &off, &len) != LDG_TRUTH_TRUE) { break; }
 
-        global = base + line;
+        global = base + ln;
 
         if (global < layout->first[kind] || global >= layout->first[kind] + layout->shown[kind]) { continue; }
 
         col = (kind == LDG_TERM_CAPTION_KIND_SPEECH) ? (rect->col_cunt - len) / LDG_TERM_CAPTION_PAIR : layout->margin_col;
 
-        if (kind != LDG_TERM_CAPTION_KIND_SPEECH && line == 0 && caption->style.bearing_en == LDG_TRUTH_TRUE && caption->arrow[idx] != LDG_TERM_CAPTION_ARROW_NONE)
+        if (kind != LDG_TERM_CAPTION_KIND_SPEECH && ln == 0 && caption->style.bearing_en == LDG_TRUTH_TRUE && caption->arrow[idx] != LDG_TERM_CAPTION_ARROW_NONE)
         {
             arrow = (char)caption->arrow[idx];
 
-            ret = caption_line_draw(render, rect, layout->box_row[kind] + (int64_t)(global - layout->first[kind]), col, &arrow, LDG_TERM_CAPTION_STEP, &text_color);
+            ret = caption_ln_draw(render, rect, layout->box_row[kind] + (int64_t)(global - layout->first[kind]), col, &arrow, LDG_TERM_CAPTION_STEP, &text_color);
             if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
             col += LDG_TERM_CAPTION_ARROW_SPAN;
         }
 
-        ret = caption_line_draw(render, rect, layout->box_row[kind] + (int64_t)(global - layout->first[kind]), col, src + off, len, (spkr_line == LDG_TRUTH_TRUE) ? &spkr_color : &text_color);
+        ret = caption_ln_draw(render, rect, layout->box_row[kind] + (int64_t)(global - layout->first[kind]), col, src + off, len, (spkr_ln == LDG_TRUTH_TRUE) ? &spkr_color : &text_color);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
@@ -457,12 +457,12 @@ uint32_t ldg_term_caption_style_default_get(ldg_term_caption_style_t *out)
     out->music_color.red = LDG_TERM_CAPTION_MUSIC_RED;
     out->music_color.green = LDG_TERM_CAPTION_MUSIC_GREEN;
     out->music_color.blue = LDG_TERM_CAPTION_MUSIC_BLUE;
-    out->line_frac[LDG_TERM_CAPTION_KIND_SPEECH] = LDG_TERM_CAPTION_LINE_FRAC_SPEECH_DEFAULT;
-    out->line_frac[LDG_TERM_CAPTION_KIND_SOUND] = LDG_TERM_CAPTION_LINE_FRAC_SOUND_DEFAULT;
-    out->line_frac[LDG_TERM_CAPTION_KIND_MUSIC] = LDG_TERM_CAPTION_LINE_FRAC_MUSIC_DEFAULT;
-    out->line_shown[LDG_TERM_CAPTION_KIND_SPEECH] = LDG_TERM_CAPTION_LINE_SHOWN_SPEECH_DEFAULT;
-    out->line_shown[LDG_TERM_CAPTION_KIND_SOUND] = LDG_TERM_CAPTION_LINE_SHOWN_SOUND_DEFAULT;
-    out->line_shown[LDG_TERM_CAPTION_KIND_MUSIC] = LDG_TERM_CAPTION_LINE_SHOWN_MUSIC_DEFAULT;
+    out->ln_frac[LDG_TERM_CAPTION_KIND_SPEECH] = LDG_TERM_CAPTION_LN_FRAC_SPEECH_DEFAULT;
+    out->ln_frac[LDG_TERM_CAPTION_KIND_SOUND] = LDG_TERM_CAPTION_LN_FRAC_SOUND_DEFAULT;
+    out->ln_frac[LDG_TERM_CAPTION_KIND_MUSIC] = LDG_TERM_CAPTION_LN_FRAC_MUSIC_DEFAULT;
+    out->ln_shown[LDG_TERM_CAPTION_KIND_SPEECH] = LDG_TERM_CAPTION_LN_SHOWN_SPEECH_DEFAULT;
+    out->ln_shown[LDG_TERM_CAPTION_KIND_SOUND] = LDG_TERM_CAPTION_LN_SHOWN_SOUND_DEFAULT;
+    out->ln_shown[LDG_TERM_CAPTION_KIND_MUSIC] = LDG_TERM_CAPTION_LN_SHOWN_MUSIC_DEFAULT;
     out->margin_frac = LDG_TERM_CAPTION_MARGIN_FRAC_DEFAULT;
     out->fade = LDG_TERM_CAPTION_FADE_DEFAULT;
     out->anchor = LDG_TERM_CAPTION_ANCHOR_BOTTOM;
@@ -542,9 +542,9 @@ uint32_t ldg_term_caption_style_set(ldg_term_caption_t *caption, const ldg_term_
 
     for (kind = 0; kind < LDG_TERM_CAPTION_KIND_CUNT; kind++)
     {
-        if (LDG_UNLIKELY(style->line_shown[kind] == 0 || style->line_shown[kind] > LDG_TERM_CAPTION_LINE_TOTAL_MAX)) { return LDG_ERR_RANGE; }
+        if (LDG_UNLIKELY(style->ln_shown[kind] == 0 || style->ln_shown[kind] > LDG_TERM_CAPTION_LN_TOTAL_MAX)) { return LDG_ERR_RANGE; }
 
-        if (LDG_UNLIKELY(style->line_frac[kind] == 0 || style->line_frac[kind] > LDG_TERM_CAPTION_PER_MILLE)) { return LDG_ERR_RANGE; }
+        if (LDG_UNLIKELY(style->ln_frac[kind] == 0 || style->ln_frac[kind] > LDG_TERM_CAPTION_PER_MILLE)) { return LDG_ERR_RANGE; }
     }
 
     caption->style = *style;
@@ -760,7 +760,7 @@ uint32_t ldg_term_caption_draw(const ldg_term_caption_t *caption, ldg_term_rende
         ret = caption_cue_draw(caption, render, rect, &layout, idx, base[kind]);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        base[kind] += layout.line_cunt[idx];
+        base[kind] += layout.ln_cunt[idx];
     }
 
     return LDG_ERR_AOK;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 7.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 8.0.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -311,7 +311,7 @@ set(LDG_SOURCES
         src/none/none/hash/blake2b.c
         src/none/none/hash/poseidon2.c
         src/none/none/time/cal.c
-        src/none/none/io/line.c
+        src/none/none/io/ln.c
         src/none/none/logging/logging.c
         src/none/none/sort/sort.c
         src/none/none/parse/parse.c
@@ -348,7 +348,7 @@ if(NOT LDG_ARCH STREQUAL "i386")
         src/none/none/term/svg.c
         src/none/none/term/caption.c
         src/none/none/term/fx.c
-        src/none/none/term/line.c
+        src/none/none/term/ln.c
         src/none/none/shell/shell.c
         src/none/none/shell/cmd.c
         src/none/none/shell/hist.c

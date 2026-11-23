@@ -434,7 +434,7 @@ uint32_t ldg_audio_mix_create(const ldg_audio_mix_conf_t *conf, ldg_audio_mix_t 
 
     if (LDG_UNLIKELY(stream_cap > UINT32_MAX)) { return LDG_ERR_RANGE; }
 
-    pool_cap = (uint64_t)sizeof(struct ldg_audio_mix) + LDG_AMD64_CACHE_LINE_WIDTH;
+    pool_cap = (uint64_t)sizeof(struct ldg_audio_mix) + LDG_AMD64_CACHE_LN_WIDTH;
     pool_cap += conf->clip_frame_cap * (uint64_t)sizeof(int16_t);
     pool_cap += (uint64_t)conf->clip_cap * (uint64_t)sizeof(mix_clip_t);
     pool_cap += (uint64_t)conf->voice_cap * (uint64_t)sizeof(mix_voice_t);
@@ -445,7 +445,7 @@ uint32_t ldg_audio_mix_create(const ldg_audio_mix_conf_t *conf, ldg_audio_mix_t 
     ret = ldg_mem_pool_create(LDG_AUDIO_MIX_POOL_ITEM_SIZE_VAR, pool_cap, &pool);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    ret = mix_buff_take(pool, (uint64_t)sizeof(struct ldg_audio_mix) + LDG_AMD64_CACHE_LINE_WIDTH, &mem);
+    ret = mix_buff_take(pool, (uint64_t)sizeof(struct ldg_audio_mix) + LDG_AMD64_CACHE_LN_WIDTH, &mem);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK))
     {
         if (LDG_UNLIKELY(ldg_mem_pool_destroy(&pool) != LDG_ERR_AOK)) { return LDG_ERR_MEM_POOL_INVALID; }

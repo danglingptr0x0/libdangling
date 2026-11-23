@@ -131,7 +131,7 @@ static void midi_byte_feed(ldg_io_midi_in_t *midi, uint8_t byte, uint32_t stamp)
 static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char *out, uint64_t cap)
 {
     char proc_path[LDG_IO_MIDI_PROC_MAX] = LDG_ARR_ZERO_INIT;
-    char line[LDG_IO_MIDI_PORT_NAME_MAX] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_IO_MIDI_PORT_NAME_MAX] = LDG_ARR_ZERO_INIT;
     FILE *file = 0x0;
     char *got = 0x0;
     uint64_t idx = 0;
@@ -147,7 +147,7 @@ static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char
         return LDG_ERR_AOK;
     }
 
-    got = fgets(line, (int32_t)sizeof(line), file);
+    got = fgets(ln, (int32_t)sizeof(ln), file);
 
     if (fclose(file) != 0) { return LDG_ERR_IO_CLOSE; }
 
@@ -158,14 +158,14 @@ static uint32_t midi_name_rd(uint32_t card, uint32_t dev, const char *path, char
         return LDG_ERR_AOK;
     }
 
-    while (line[idx] != LDG_STR_TERM)
+    while (ln[idx] != LDG_STR_TERM)
     {
-        if (line[idx] == '\n' || line[idx] == '\r') { line[idx] = LDG_STR_TERM; break; }
+        if (ln[idx] == '\n' || ln[idx] == '\r') { ln[idx] = LDG_STR_TERM; break; }
 
         idx++;
     }
 
-    if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, line) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
+    if (ldg_str_fmt(out, cap, &len, LDG_IO_MIDI_NAME_FMT, ln) != LDG_ERR_AOK) { return LDG_ERR_IO_FMT; }
 
     return LDG_ERR_AOK;
 }

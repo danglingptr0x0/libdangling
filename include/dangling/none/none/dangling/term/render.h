@@ -221,7 +221,7 @@ LDG_EXPORT uint32_t ldg_term_render_clip_rst(ldg_term_render_t *render);
 LDG_EXPORT uint32_t ldg_term_render_clip_get(const ldg_term_render_t *render, ldg_term_rect_t *out);
 
 LDG_EXPORT uint32_t ldg_term_render_point_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *pt);
-LDG_EXPORT uint32_t ldg_term_render_line_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *lhs, const ldg_term_render_vert2_t *rhs);
+LDG_EXPORT uint32_t ldg_term_render_ln_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *lhs, const ldg_term_render_vert2_t *rhs);
 LDG_EXPORT uint32_t ldg_term_render_tri_draw(ldg_term_render_t *render, const ldg_term_render_vert2_t *vert_a, const ldg_term_render_vert2_t *vert_b, const ldg_term_render_vert2_t *vert_c);
 LDG_EXPORT uint32_t ldg_term_render_rect_fill(ldg_term_render_t *render, const ldg_term_render_fixed_t *pos, const ldg_term_render_fixed_t *extent, const ldg_term_render_color_t *color);
 LDG_EXPORT uint32_t ldg_term_render_text_draw(ldg_term_render_t *render, uint32_t col, uint32_t row, const char *text, uint64_t len, const ldg_term_render_color_t *fg, const ldg_term_render_color_t *bg);

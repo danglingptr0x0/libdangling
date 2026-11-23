@@ -53,7 +53,7 @@ uint32_t ldg_mpmc_init(ldg_mpmc_queue_t *queue, uint64_t item_size, uint64_t cap
 
     if (LDG_UNLIKELY(memset(queue, 0, sizeof(ldg_mpmc_queue_t)) != queue)) { return LDG_ERR_MEM_BAD; }
 
-    slot_data_offset = LDG_AMD64_CACHE_LINE_WIDTH;
+    slot_data_offset = LDG_AMD64_CACHE_LN_WIDTH;
     if (LDG_UNLIKELY(item_size > UINT64_MAX - slot_data_offset)) { return LDG_ERR_OVERFLOW; }
 
     queue->slot_size = LDG_ALIGNED_UP(slot_data_offset + item_size);

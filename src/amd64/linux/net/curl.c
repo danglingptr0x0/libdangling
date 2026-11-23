@@ -47,7 +47,7 @@ static size_t ldg_net_curl_resp_wr_cb(void *contents, size_t size, size_t nmemb,
         new_cap = resp->cap ? resp->cap * LDG_NET_CURL_RESP_RESIZE_FACTOR : LDG_NET_CURL_RESP_INITIAL_CAP;
         while (new_cap < new_len + LDG_STR_TERM_SIZE) { new_cap *= LDG_NET_CURL_RESP_RESIZE_FACTOR; }
 
-        if (LDG_UNLIKELY(posix_memalign(&new_data, LDG_AMD64_CACHE_LINE_WIDTH, new_cap) != 0)) { return 0; }
+        if (LDG_UNLIKELY(posix_memalign(&new_data, LDG_AMD64_CACHE_LN_WIDTH, new_cap) != 0)) { return 0; }
 
         if (LDG_UNLIKELY(memset(new_data, 0, new_cap) != new_data)) { free(new_data); return 0; }
 
@@ -123,7 +123,7 @@ uint32_t ldg_net_curl_multi_ctx_create(ldg_net_curl_multi_ctx_t *ctx, uint64_t c
     ctx->multi = curl_multi_init();
     if (LDG_UNLIKELY(!ctx->multi)) { return LDG_ERR_NET_INIT; }
 
-    if (LDG_UNLIKELY(posix_memalign(&reqs_tmp, LDG_AMD64_CACHE_LINE_WIDTH, cap * sizeof(ldg_net_curl_multi_req_t)) != 0))
+    if (LDG_UNLIKELY(posix_memalign(&reqs_tmp, LDG_AMD64_CACHE_LN_WIDTH, cap * sizeof(ldg_net_curl_multi_req_t)) != 0))
     {
         curl_multi_cleanup(ctx->multi);
         ctx->multi = 0x0;
@@ -185,7 +185,7 @@ uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *u
     if (LDG_UNLIKELY(memset(req, 0, sizeof(ldg_net_curl_multi_req_t)) != req)) { return LDG_ERR_MEM_BAD; }
 
     url_len = (uint64_t)strlen(url) + LDG_STR_TERM_SIZE;
-    if (LDG_UNLIKELY(posix_memalign(&url_tmp, LDG_AMD64_CACHE_LINE_WIDTH, url_len) != 0)) { return LDG_ERR_ALLOC_NULL; }
+    if (LDG_UNLIKELY(posix_memalign(&url_tmp, LDG_AMD64_CACHE_LN_WIDTH, url_len) != 0)) { return LDG_ERR_ALLOC_NULL; }
 
     req->url = (char *)url_tmp;
 
@@ -200,7 +200,7 @@ uint32_t ldg_net_curl_multi_req_add(ldg_net_curl_multi_ctx_t *ctx, const char *u
     if (post_data)
     {
         data_len = (uint64_t)strlen(post_data) + LDG_STR_TERM_SIZE;
-        if (LDG_UNLIKELY(posix_memalign(&data_tmp, LDG_AMD64_CACHE_LINE_WIDTH, data_len) != 0))
+        if (LDG_UNLIKELY(posix_memalign(&data_tmp, LDG_AMD64_CACHE_LN_WIDTH, data_len) != 0))
         {
             free(req->url);
             req->url = 0x0;

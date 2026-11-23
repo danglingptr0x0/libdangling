@@ -43,12 +43,12 @@
 #define LDG_STRUCT_ZERO_INIT { 0 }
 #define LDG_ARR_ZERO_INIT { 0 }
 
-#define LDG_AMD64_CACHE_LINE_WIDTH 64
-#define LDG_DANGCSA_CACHE_LINE_WIDTH 64
-#define LDG_ALIGNED __attribute__((aligned(LDG_AMD64_CACHE_LINE_WIDTH)))
+#define LDG_AMD64_CACHE_LN_WIDTH 64
+#define LDG_DANGCSA_CACHE_LN_WIDTH 64
+#define LDG_ALIGNED __attribute__((aligned(LDG_AMD64_CACHE_LN_WIDTH)))
 #define LDG_PACKED __attribute__((packed))
-#define LDG_ALIGNED_UP(x) (((uint64_t)(x) + (LDG_AMD64_CACHE_LINE_WIDTH - 1)) & ~(uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1))
-#define LDG_ALIGNED_DOWN(x) ((uint64_t)(x) & ~(uint64_t)(LDG_AMD64_CACHE_LINE_WIDTH - 1))
+#define LDG_ALIGNED_UP(val) (((uint64_t)(val) + (LDG_AMD64_CACHE_LN_WIDTH - 1)) & ~(uint64_t)(LDG_AMD64_CACHE_LN_WIDTH - 1))
+#define LDG_ALIGNED_DOWN(val) ((uint64_t)(val) & ~(uint64_t)(LDG_AMD64_CACHE_LN_WIDTH - 1))
 
 #define LDG_BOOL_ASSERT(cond) do { if (LDG_UNLIKELY(!(cond))) { *(volatile uint8_t *)0x0 = 0; } } while (0)
 

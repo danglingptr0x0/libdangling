@@ -361,9 +361,9 @@ uint32_t ldg_shell_out_get(ldg_shell_t *shell, uint64_t seq, char *out, uint64_t
     if (seq >= shell->out_seq) { ret = LDG_ERR_EMPTY; }
     else
     {
-        slot = (uint32_t)(((uint64_t)shell->out_hd + (seq - oldest)) % (uint64_t)shell->conf.out_line_max);
+        slot = (uint32_t)(((uint64_t)shell->out_hd + (seq - oldest)) % (uint64_t)shell->conf.out_ln_max);
 
-        ret = ldg_str_rbrcpy(out, shell->out + (uint64_t)slot * shell->conf.out_line_cap, cap);
+        ret = ldg_str_rbrcpy(out, shell->out + (uint64_t)slot * shell->conf.out_ln_cap, cap);
         if (ret == LDG_ERR_STR_TRUNC) { ret = LDG_ERR_AOK; }
 
         *out_seq = seq;
@@ -396,15 +396,15 @@ uint32_t ldg_shell_out_push(ldg_shell_t *shell, const char *text)
     {
         if (shell->out_open != LDG_TRUTH_TRUE)
         {
-            if (shell->out_cunt < shell->conf.out_line_max) { shell->out_cunt++; }
-            else { shell->out_hd = (shell->out_hd + SHELL_STACK_TOP_OFF) % shell->conf.out_line_max; }
+            if (shell->out_cunt < shell->conf.out_ln_max) { shell->out_cunt++; }
+            else { shell->out_hd = (shell->out_hd + SHELL_STACK_TOP_OFF) % shell->conf.out_ln_max; }
 
             shell->out_open = LDG_TRUTH_TRUE;
             shell->out_open_len = 0;
         }
 
-        slot = (shell->out_hd + shell->out_cunt - SHELL_STACK_TOP_OFF) % shell->conf.out_line_max;
-        row = shell->out + (uint64_t)slot * shell->conf.out_line_cap;
+        slot = (shell->out_hd + shell->out_cunt - SHELL_STACK_TOP_OFF) % shell->conf.out_ln_max;
+        row = shell->out + (uint64_t)slot * shell->conf.out_ln_cap;
 
         if (text[idx] == LDG_ASCII_LF)
         {
@@ -414,7 +414,7 @@ uint32_t ldg_shell_out_push(ldg_shell_t *shell, const char *text)
             continue;
         }
 
-        if (shell->out_open_len + LDG_STR_TERM_SIZE >= shell->conf.out_line_cap) { continue; }
+        if (shell->out_open_len + LDG_STR_TERM_SIZE >= shell->conf.out_ln_cap) { continue; }
 
         row[shell->out_open_len] = text[idx];
         shell->out_open_len++;
@@ -508,7 +508,7 @@ static uint32_t shell_candidate_vars_put(ldg_shell_t *shell, shell_candidate_sin
         if (name[0] == LDG_STR_TERM) { continue; }
 
         ret = ldg_str_fmt(text, LDG_SHELL_CANDIDATE_CAP, &text_len, fmt, name);
-        if (ret == LDG_ERR_AOK) { ret = shell_candidate_put(sink, text, shell->var_text + (uint64_t)idx * shell->conf.line_cap); }
+        if (ret == LDG_ERR_AOK) { ret = shell_candidate_put(sink, text, shell->var_text + (uint64_t)idx * shell->conf.ln_cap); }
     }
 
     return ret;
@@ -529,7 +529,7 @@ static uint32_t shell_candidate_addrs_put(ldg_shell_t *shell, shell_candidate_si
 
     for (idx = 0; idx < shell->conf.var_max && ret == LDG_ERR_AOK; idx++)
     {
-        text = shell->var_text + (uint64_t)idx * shell->conf.line_cap;
+        text = shell->var_text + (uint64_t)idx * shell->conf.ln_cap;
 
         if (shell->var_name[(uint64_t)idx * LDG_SHELL_NAME_CAP] == LDG_STR_TERM || text[0] != SHELL_ADDR_LEAD_FIRST || text[SHELL_PREV_OFF] != SHELL_ADDR_LEAD_LAST) { continue; }
 
@@ -601,7 +601,7 @@ uint32_t ldg_shell_candidate_get(ldg_shell_t *shell, const char *text, uint32_t 
     {
         for (idx = 0; idx < shell->cmd_cunt && ret == LDG_ERR_AOK; idx++) { ret = shell_candidate_put(&sink, shell->cmd[idx].name, shell->cmd[idx].help); }
 
-        for (idx = 0; idx < shell->conf.alias_max && ret == LDG_ERR_AOK; idx++) { if (shell->alias_name[(uint64_t)idx * LDG_SHELL_NAME_CAP] != LDG_STR_TERM) { ret = shell_candidate_put(&sink, shell->alias_name + (uint64_t)idx * LDG_SHELL_NAME_CAP, shell->alias_text + (uint64_t)idx * shell->conf.line_cap); } }
+        for (idx = 0; idx < shell->conf.alias_max && ret == LDG_ERR_AOK; idx++) { if (shell->alias_name[(uint64_t)idx * LDG_SHELL_NAME_CAP] != LDG_STR_TERM) { ret = shell_candidate_put(&sink, shell->alias_name + (uint64_t)idx * LDG_SHELL_NAME_CAP, shell->alias_text + (uint64_t)idx * shell->conf.ln_cap); } }
     }
     else if (arg_idx == SHELL_CMD_NAME_CUNT && shell_span_eq_is(SHELL_CMD_SET, text, verb_len) == LDG_TRUTH_TRUE) { ret = shell_candidate_vars_put(shell, &sink, SHELL_CANDIDATE_SET_FMT); }
     else if (arg_idx == SHELL_CMD_NAME_CUNT && shell_span_eq_is(SHELL_CMD_UNSET, text, verb_len) == LDG_TRUTH_TRUE) { ret = shell_candidate_vars_put(shell, &sink, SHELL_CANDIDATE_NAME_FMT); }
@@ -621,7 +621,7 @@ uint32_t ldg_shell_var_set(ldg_shell_t *shell, const char *name, const char *tex
 {
     if (LDG_UNLIKELY(!shell || !name || !text)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return shell_pair_set(shell->var_name, shell->var_text, shell->conf.var_max, shell->conf.line_cap, name, text);
+    return shell_pair_set(shell->var_name, shell->var_text, shell->conf.var_max, shell->conf.ln_cap, name, text);
 }
 
 uint32_t ldg_shell_var_get(const ldg_shell_t *shell, const char *name, const char **out)
@@ -635,7 +635,7 @@ uint32_t ldg_shell_var_get(const ldg_shell_t *shell, const char *name, const cha
     slot = shell_slot_find(shell->var_name, shell->conf.var_max, name, shell_len_get(name, LDG_SHELL_NAME_CAP));
     if (slot == LDG_SHELL_SEL_NONE) { return LDG_ERR_NOT_FOUND; }
 
-    *out = shell->var_text + (uint64_t)slot * shell->conf.line_cap;
+    *out = shell->var_text + (uint64_t)slot * shell->conf.ln_cap;
 
     return LDG_ERR_AOK;
 }
@@ -651,7 +651,7 @@ uint32_t ldg_shell_alias_set(ldg_shell_t *shell, const char *name, const char *t
 {
     if (LDG_UNLIKELY(!shell || !name || !text)) { return LDG_ERR_FUNC_ARG_NULL; }
 
-    return shell_pair_set(shell->alias_name, shell->alias_text, shell->conf.alias_max, shell->conf.line_cap, name, text);
+    return shell_pair_set(shell->alias_name, shell->alias_text, shell->conf.alias_max, shell->conf.ln_cap, name, text);
 }
 
 uint32_t ldg_shell_alias_get(const ldg_shell_t *shell, const char *name, const char **out)
@@ -665,7 +665,7 @@ uint32_t ldg_shell_alias_get(const ldg_shell_t *shell, const char *name, const c
     slot = shell_slot_find(shell->alias_name, shell->conf.alias_max, name, shell_len_get(name, LDG_SHELL_NAME_CAP));
     if (slot == LDG_SHELL_SEL_NONE) { return LDG_ERR_NOT_FOUND; }
 
-    *out = shell->alias_text + (uint64_t)slot * shell->conf.line_cap;
+    *out = shell->alias_text + (uint64_t)slot * shell->conf.ln_cap;
 
     return LDG_ERR_AOK;
 }
@@ -702,7 +702,7 @@ static uint32_t shell_pairs_put(ldg_shell_t *shell, const char *names, const cha
     {
         if (names[(uint64_t)slot * LDG_SHELL_NAME_CAP] == LDG_STR_TERM) { continue; }
 
-        ret = shell_row_put(shell, names + (uint64_t)slot * LDG_SHELL_NAME_CAP, SHELL_SEP_PAIR, texts + (uint64_t)slot * shell->conf.line_cap);
+        ret = shell_row_put(shell, names + (uint64_t)slot * LDG_SHELL_NAME_CAP, SHELL_SEP_PAIR, texts + (uint64_t)slot * shell->conf.ln_cap);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
     }
 
@@ -839,13 +839,13 @@ uint32_t ldg_shell_conf_default_get(ldg_shell_conf_t *out)
 
     if (LDG_UNLIKELY(ldg_mem_zero(out, sizeof(ldg_shell_conf_t)) != LDG_ERR_AOK)) { return LDG_ERR_MEM_BAD; }
 
-    out->line_cap = LDG_SHELL_LINE_CAP_DEFAULT;
+    out->ln_cap = LDG_SHELL_LN_CAP_DEFAULT;
     out->hist_max = LDG_SHELL_HIST_MAX_DEFAULT;
     out->cmd_max = LDG_SHELL_CMD_MAX_DEFAULT;
     out->var_max = LDG_SHELL_VAR_MAX_DEFAULT;
     out->alias_max = LDG_SHELL_ALIAS_MAX_DEFAULT;
-    out->out_line_max = LDG_SHELL_OUT_LINE_MAX_DEFAULT;
-    out->out_line_cap = LDG_SHELL_OUT_LINE_CAP_DEFAULT;
+    out->out_ln_max = LDG_SHELL_OUT_LN_MAX_DEFAULT;
+    out->out_ln_cap = LDG_SHELL_OUT_LN_CAP_DEFAULT;
 
     return LDG_ERR_AOK;
 }
@@ -858,19 +858,19 @@ uint32_t ldg_shell_pool_size_get(const ldg_shell_conf_t *conf, uint64_t *out)
 
     *out = 0;
 
-    if (LDG_UNLIKELY(conf->line_cap < LDG_SHELL_LINE_CAP_MIN || conf->hist_max == 0 || conf->cmd_max == 0 || conf->var_max == 0 || conf->alias_max == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(conf->ln_cap < LDG_SHELL_LN_CAP_MIN || conf->hist_max == 0 || conf->cmd_max == 0 || conf->var_max == 0 || conf->alias_max == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
-    if (LDG_UNLIKELY(conf->out_line_max == 0 || conf->out_line_cap < LDG_SHELL_LINE_CAP_MIN)) { return LDG_ERR_FUNC_ARG_INVALID; }
+    if (LDG_UNLIKELY(conf->out_ln_max == 0 || conf->out_ln_cap < LDG_SHELL_LN_CAP_MIN)) { return LDG_ERR_FUNC_ARG_INVALID; }
 
     total = (uint64_t)sizeof(ldg_shell_t);
     total += (uint64_t)SHELL_POOL_ALLOC_CUNT * (uint64_t)LDG_MEM_POOL_VAR_ALIGN;
-    total += (uint64_t)conf->line_cap * (uint64_t)SHELL_EXEC_BUFF_CUNT;
-    total += (uint64_t)conf->hist_max * (uint64_t)conf->line_cap * (uint64_t)SHELL_HIST_BUFF_CUNT;
+    total += (uint64_t)conf->ln_cap * (uint64_t)SHELL_EXEC_BUFF_CUNT;
+    total += (uint64_t)conf->hist_max * (uint64_t)conf->ln_cap * (uint64_t)SHELL_HIST_BUFF_CUNT;
     total += (uint64_t)conf->cmd_max * (uint64_t)sizeof(ldg_shell_cmd_t);
-    total += (uint64_t)(conf->var_max + conf->alias_max) * (uint64_t)(LDG_SHELL_NAME_CAP + conf->line_cap);
-    total += (uint64_t)conf->out_line_max * (uint64_t)conf->out_line_cap;
+    total += (uint64_t)(conf->var_max + conf->alias_max) * (uint64_t)(LDG_SHELL_NAME_CAP + conf->ln_cap);
+    total += (uint64_t)conf->out_ln_max * (uint64_t)conf->out_ln_cap;
     total += (uint64_t)conf->hist_max * (uint64_t)LDG_SHELL_HIST_ROW_EXTRA;
-    total += (uint64_t)conf->alias_max * (uint64_t)(LDG_SHELL_NAME_CAP + conf->line_cap + LDG_SHELL_HIST_ROW_EXTRA);
+    total += (uint64_t)conf->alias_max * (uint64_t)(LDG_SHELL_NAME_CAP + conf->ln_cap + LDG_SHELL_HIST_ROW_EXTRA);
 
     *out = total;
 
@@ -879,7 +879,7 @@ uint32_t ldg_shell_pool_size_get(const ldg_shell_conf_t *conf, uint64_t *out)
 
 static uint32_t shell_hist_buffs_take(ldg_mem_pool_t *pool, ldg_shell_t *shell)
 {
-    uint64_t cap = (uint64_t)shell->conf.line_cap;
+    uint64_t cap = (uint64_t)shell->conf.ln_cap;
     uint64_t blob_cap = (cap + (uint64_t)LDG_SHELL_HIST_ROW_EXTRA) * (uint64_t)shell->conf.hist_max + (uint64_t)shell->conf.alias_max * ((uint64_t)LDG_SHELL_NAME_CAP + cap + (uint64_t)LDG_SHELL_HIST_ROW_EXTRA);
     uint32_t ret = 0;
 
@@ -914,7 +914,7 @@ uint32_t ldg_shell_create(ldg_mem_pool_t *pool, const ldg_shell_conf_t *conf, ld
     ret = ldg_mem_cpy(&shell->conf, conf, sizeof(ldg_shell_conf_t));
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    cap = (uint64_t)conf->line_cap;
+    cap = (uint64_t)conf->ln_cap;
 
     ret = shell_hist_buffs_take(pool, shell);
     if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, (uint64_t)conf->cmd_max * (uint64_t)sizeof(ldg_shell_cmd_t), (void **)&shell->cmd); }
@@ -927,9 +927,9 @@ uint32_t ldg_shell_create(ldg_mem_pool_t *pool, const ldg_shell_conf_t *conf, ld
 
     if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, (uint64_t)conf->alias_max * cap, (void **)&shell->alias_text); }
 
-    if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, (uint64_t)conf->out_line_max * (uint64_t)conf->out_line_cap, (void **)&shell->out); }
+    if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, (uint64_t)conf->out_ln_max * (uint64_t)conf->out_ln_cap, (void **)&shell->out); }
 
-    if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, cap, (void **)&shell->exec_line); }
+    if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, cap, (void **)&shell->exec_ln); }
 
     if (ret == LDG_ERR_AOK) { ret = shell_buff_take(pool, cap * (uint64_t)SHELL_ARG_BUFF_FACTOR, (void **)&shell->arg_buff); }
 
@@ -1019,8 +1019,8 @@ static uint32_t shell_var_ref_take(ldg_shell_t *shell, const char *src, uint32_t
     slot = shell_slot_find(shell->var_name, shell->conf.var_max, src + name_start, at - name_start);
     if (slot == LDG_SHELL_SEL_NONE) { return LDG_ERR_NOT_FOUND; }
 
-    val = shell->var_text + (uint64_t)slot * shell->conf.line_cap;
-    val_len = shell_len_get(val, shell->conf.line_cap);
+    val = shell->var_text + (uint64_t)slot * shell->conf.ln_cap;
+    val_len = shell_len_get(val, shell->conf.ln_cap);
 
     if (LDG_UNLIKELY(*buff_len + val_len + LDG_STR_TERM_SIZE >= cap)) { return LDG_ERR_OVERFLOW; }
 
@@ -1038,7 +1038,7 @@ static uint32_t shell_var_ref_take(ldg_shell_t *shell, const char *src, uint32_t
 
 static uint32_t shell_words_take(ldg_shell_t *shell, const char *src, uint32_t len, uint32_t *pos, uint32_t *buff_len, uint32_t word_max)
 {
-    uint32_t cap = shell->conf.line_cap * SHELL_ARG_BUFF_FACTOR;
+    uint32_t cap = shell->conf.ln_cap * SHELL_ARG_BUFF_FACTOR;
     uint32_t taken = 0;
     uint32_t ret = 0;
     uint8_t quote = SHELL_QUOTE_NONE;
@@ -1096,10 +1096,10 @@ static uint32_t shell_words_take(ldg_shell_t *shell, const char *src, uint32_t l
 
 static uint32_t shell_leaf_split(ldg_shell_t *shell, uint32_t item)
 {
-    const char *src = shell->exec_line + shell->expr_start[item];
+    const char *src = shell->exec_ln + shell->expr_start[item];
     const char *alias = 0x0;
     uint32_t len = shell->expr_len[item];
-    uint32_t cap = shell->conf.line_cap * SHELL_ARG_BUFF_FACTOR;
+    uint32_t cap = shell->conf.ln_cap * SHELL_ARG_BUFF_FACTOR;
     uint32_t pos = 0;
     uint32_t alias_pos = 0;
     uint32_t buff_len = 0;
@@ -1117,8 +1117,8 @@ static uint32_t shell_leaf_split(ldg_shell_t *shell, uint32_t item)
 
     if (slot != LDG_SHELL_SEL_NONE)
     {
-        alias = shell->alias_text + (uint64_t)slot * shell->conf.line_cap;
-        ret = shell_words_take(shell, alias, shell_len_get(alias, shell->conf.line_cap), &alias_pos, &buff_len, UINT32_MAX);
+        alias = shell->alias_text + (uint64_t)slot * shell->conf.ln_cap;
+        ret = shell_words_take(shell, alias, shell_len_get(alias, shell->conf.ln_cap), &alias_pos, &buff_len, UINT32_MAX);
         pos = end;
     }
     else { ret = shell_words_take(shell, src, len, &pos, &buff_len, SHELL_WORD_FIRST_CUNT); }
@@ -1157,7 +1157,7 @@ static uint32_t shell_leaf_cmd_get(ldg_shell_t *shell, uint32_t item, uint32_t *
     ret = shell_leaf_split(shell, item);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    cmd_idx = shell_cmd_span_find(shell, shell->arg[0], shell_len_get(shell->arg[0], shell->conf.line_cap * SHELL_ARG_BUFF_FACTOR));
+    cmd_idx = shell_cmd_span_find(shell, shell->arg[0], shell_len_get(shell->arg[0], shell->conf.ln_cap * SHELL_ARG_BUFF_FACTOR));
     if (cmd_idx == LDG_SHELL_SEL_NONE)
     {
         ret = shell_row_put(shell, SHELL_MSG_UNKNOWN, shell->arg[0], SHELL_MSG_NONE);
@@ -1278,7 +1278,7 @@ static uint32_t shell_expr_op_push(ldg_shell_t *shell, uint32_t *depth, uint32_t
 
 static uint32_t shell_expr_parse(ldg_shell_t *shell, uint32_t start, uint32_t len)
 {
-    const char *text = shell->exec_line + start;
+    const char *text = shell->exec_ln + start;
     uint32_t pos = 0;
     uint32_t end = 0;
     uint32_t kind = 0;
@@ -1438,7 +1438,7 @@ static uint32_t shell_expr_eval(ldg_shell_t *shell)
 
 static uint32_t shell_alias_stmt_take(ldg_shell_t *shell, uint32_t start, uint32_t len, uint8_t *out_taken)
 {
-    char *text = shell->exec_line + start;
+    char *text = shell->exec_ln + start;
     uint32_t name_start = 0;
     uint32_t name_end = 0;
     uint32_t val_start = 0;
@@ -1552,7 +1552,7 @@ static uint32_t shell_span_exec(ldg_shell_t *shell, const char *text, uint32_t l
     uint32_t ret = 0;
     uint8_t quote = SHELL_QUOTE_NONE;
 
-    if (LDG_UNLIKELY(len >= shell->conf.line_cap))
+    if (LDG_UNLIKELY(len >= shell->conf.ln_cap))
     {
         shell->status = LDG_ERR_OVERFLOW;
         shell->truth_has = LDG_TRUTH_FALSE;
@@ -1563,21 +1563,21 @@ static uint32_t shell_span_exec(ldg_shell_t *shell, const char *text, uint32_t l
         return shell_status_put(shell);
     }
 
-    ret = ldg_mem_cpy(shell->exec_line, text, len);
+    ret = ldg_mem_cpy(shell->exec_ln, text, len);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    shell->exec_line[len] = LDG_STR_TERM;
+    shell->exec_ln[len] = LDG_STR_TERM;
 
     while (pos < len)
     {
-        if (shell_space_is(shell->exec_line[pos]) == LDG_TRUTH_TRUE || shell->exec_line[pos] == SHELL_CH_STMT_END)
+        if (shell_space_is(shell->exec_ln[pos]) == LDG_TRUTH_TRUE || shell->exec_ln[pos] == SHELL_CH_STMT_END)
         {
             pos++;
             continue;
         }
 
-        end = shell_word_end_get(shell->exec_line, len, pos);
-        cmd_idx = shell_cmd_span_find(shell, shell->exec_line + pos, end - pos);
+        end = shell_word_end_get(shell->exec_ln, len, pos);
+        cmd_idx = shell_cmd_span_find(shell, shell->exec_ln + pos, end - pos);
 
         if (cmd_idx != LDG_SHELL_SEL_NONE && shell->cmd[cmd_idx].remainder == LDG_TRUTH_TRUE) { end = len; }
         else
@@ -1585,9 +1585,9 @@ static uint32_t shell_span_exec(ldg_shell_t *shell, const char *text, uint32_t l
             quote = SHELL_QUOTE_NONE;
             for (end = pos; end < len; end++)
             {
-                if (quote == SHELL_QUOTE_NONE && shell->exec_line[end] == SHELL_CH_STMT_END) { break; }
+                if (quote == SHELL_QUOTE_NONE && shell->exec_ln[end] == SHELL_CH_STMT_END) { break; }
 
-                quote = shell_quote_next_get(quote, shell->exec_line[end]);
+                quote = shell_quote_next_get(quote, shell->exec_ln[end]);
             }
         }
 
@@ -1604,23 +1604,23 @@ static uint32_t shell_span_exec(ldg_shell_t *shell, const char *text, uint32_t l
     return LDG_ERR_AOK;
 }
 
-uint32_t ldg_shell_line_exec(ldg_shell_t *shell, const char *line)
+uint32_t ldg_shell_ln_exec(ldg_shell_t *shell, const char *ln)
 {
-    if (LDG_UNLIKELY(!shell || !line)) { return LDG_ERR_FUNC_ARG_NULL; }
+    if (LDG_UNLIKELY(!shell || !ln)) { return LDG_ERR_FUNC_ARG_NULL; }
 
     shell->status = LDG_ERR_AOK;
     shell->truth = LDG_TRUTH_INDETERMINATE;
     shell->truth_has = LDG_TRUTH_FALSE;
 
-    return shell_span_exec(shell, line, shell_len_get(line, shell->conf.line_cap));
+    return shell_span_exec(shell, ln, shell_len_get(ln, shell->conf.ln_cap));
 }
 
 uint32_t ldg_shell_file_exec(ldg_shell_t *shell, const char *path, const char *src, uint64_t len)
 {
     uint64_t path_len = 0;
     uint64_t ext_len = sizeof(LDG_SHELL_SCRIPT_EXT) - LDG_STR_TERM_SIZE;
-    uint64_t line_start = 0;
-    uint64_t line_end = 0;
+    uint64_t ln_start = 0;
+    uint64_t ln_end = 0;
     uint64_t idx = 0;
     uint32_t order = 0;
     uint32_t ret = 0;
@@ -1645,14 +1645,14 @@ uint32_t ldg_shell_file_exec(ldg_shell_t *shell, const char *path, const char *s
     {
         if (idx < len && src[idx] != LDG_ASCII_LF) { continue; }
 
-        line_end = idx;
-        if (line_end > line_start && src[line_end - LDG_STR_TERM_SIZE] == LDG_ASCII_CR) { line_end--; }
+        ln_end = idx;
+        if (ln_end > ln_start && src[ln_end - LDG_STR_TERM_SIZE] == LDG_ASCII_CR) { ln_end--; }
 
-        ret = shell_span_exec(shell, src + line_start, (line_end - line_start < UINT32_MAX) ? (uint32_t)(line_end - line_start) : UINT32_MAX);
+        ret = shell_span_exec(shell, src + ln_start, (ln_end - ln_start < UINT32_MAX) ? (uint32_t)(ln_end - ln_start) : UINT32_MAX);
         if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-        line_start = idx;
-        line_start++;
+        ln_start = idx;
+        ln_start++;
     }
 
     return LDG_ERR_AOK;

@@ -21,7 +21,7 @@
 #define LDG_NET_DIAG_RESOLV_KEY_LEN 10
 #define LDG_NET_DIAG_RESOLV_COMMENT '#'
 #define LDG_NET_DIAG_RESOLV_COMMENT_ALT ';'
-#define LDG_NET_DIAG_LINE_CAP 256
+#define LDG_NET_DIAG_LN_CAP 256
 #define LDG_NET_DIAG_BLK_SIZE 4096
 #define LDG_NET_DIAG_FILE_ACCESS 0
 #define LDG_NET_DIAG_ECHO_SEQ 1
@@ -131,30 +131,30 @@ uint32_t ldg_net_diag_ping(const char *host, uint64_t timeout, uint64_t *out_rtt
     return ret;
 }
 
-static void net_diag_resolv_line_parse(const char *line, uint64_t len, ldg_net_diag_addr_t *out, uint64_t cap, uint64_t *cunt)
+static void net_diag_resolv_ln_parse(const char *ln, uint64_t len, ldg_net_diag_addr_t *out, uint64_t cap, uint64_t *cunt)
 {
     uint64_t pos = 0;
     uint64_t start = 0;
 
-    while (pos < len && (line[pos] == LDG_ASCII_SPACE || line[pos] == LDG_ASCII_TAB)) { pos++; }
+    while (pos < len && (ln[pos] == LDG_ASCII_SPACE || ln[pos] == LDG_ASCII_TAB)) { pos++; }
 
     if (len - pos <= LDG_NET_DIAG_RESOLV_KEY_LEN) { return; }
 
-    if (ldg_mem_secure_eq_is(line + pos, LDG_NET_DIAG_RESOLV_KEY, LDG_NET_DIAG_RESOLV_KEY_LEN) != LDG_TRUTH_TRUE) { return; }
+    if (ldg_mem_secure_eq_is(ln + pos, LDG_NET_DIAG_RESOLV_KEY, LDG_NET_DIAG_RESOLV_KEY_LEN) != LDG_TRUTH_TRUE) { return; }
 
     pos += LDG_NET_DIAG_RESOLV_KEY_LEN;
 
-    if (line[pos] != LDG_ASCII_SPACE && line[pos] != LDG_ASCII_TAB) { return; }
+    if (ln[pos] != LDG_ASCII_SPACE && ln[pos] != LDG_ASCII_TAB) { return; }
 
-    while (pos < len && (line[pos] == LDG_ASCII_SPACE || line[pos] == LDG_ASCII_TAB)) { pos++; }
+    while (pos < len && (ln[pos] == LDG_ASCII_SPACE || ln[pos] == LDG_ASCII_TAB)) { pos++; }
 
     start = pos;
 
-    while (pos < len && line[pos] != LDG_ASCII_SPACE && line[pos] != LDG_ASCII_TAB && line[pos] != LDG_NET_DIAG_RESOLV_COMMENT && line[pos] != LDG_NET_DIAG_RESOLV_COMMENT_ALT) { pos++; }
+    while (pos < len && ln[pos] != LDG_ASCII_SPACE && ln[pos] != LDG_ASCII_TAB && ln[pos] != LDG_NET_DIAG_RESOLV_COMMENT && ln[pos] != LDG_NET_DIAG_RESOLV_COMMENT_ALT) { pos++; }
 
     if (pos == start || pos - start >= LDG_NET_DIAG_ADDR_CAP || *cunt >= cap) { return; }
 
-    if (ldg_mem_secure_cpy(out[*cunt].text, line + start, pos - start) != LDG_ERR_AOK) { return; }
+    if (ldg_mem_secure_cpy(out[*cunt].text, ln + start, pos - start) != LDG_ERR_AOK) { return; }
 
     out[*cunt].text[pos - start] = LDG_STR_TERM;
     (*cunt)++;
@@ -163,9 +163,9 @@ static void net_diag_resolv_line_parse(const char *line, uint64_t len, ldg_net_d
 uint32_t ldg_net_diag_dns_list(ldg_net_diag_addr_t *out, uint64_t cap, uint64_t *out_cunt)
 {
     uint8_t blk[LDG_NET_DIAG_BLK_SIZE] __attribute__((aligned(LDG_NET_DIAG_BLK_SIZE))) = LDG_ARR_ZERO_INIT;
-    char line[LDG_NET_DIAG_LINE_CAP] = LDG_ARR_ZERO_INIT;
+    char ln[LDG_NET_DIAG_LN_CAP] = LDG_ARR_ZERO_INIT;
     ldg_io_file_t *file = 0x0;
-    uint64_t line_len = 0;
+    uint64_t ln_len = 0;
     uint64_t got = 0;
     uint64_t idx = 0;
     uint32_t ret = 0;
@@ -188,19 +188,19 @@ uint32_t ldg_net_diag_dns_list(ldg_net_diag_addr_t *out, uint64_t cap, uint64_t 
         {
             if (blk[idx] != LDG_ASCII_LF)
             {
-                if (line_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LINE_CAP) { line[line_len] = (char)blk[idx]; }
+                if (ln_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LN_CAP) { ln[ln_len] = (char)blk[idx]; }
 
-                line_len++;
+                ln_len++;
                 continue;
             }
 
-            if (line_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LINE_CAP) { net_diag_resolv_line_parse(line, line_len, out, cap, out_cunt); }
+            if (ln_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LN_CAP) { net_diag_resolv_ln_parse(ln, ln_len, out, cap, out_cunt); }
 
-            line_len = 0;
+            ln_len = 0;
         }
     } while (got == LDG_NET_DIAG_BLK_SIZE);
 
-    if (ret == LDG_ERR_AOK && line_len > 0 && line_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LINE_CAP) { net_diag_resolv_line_parse(line, line_len, out, cap, out_cunt); }
+    if (ret == LDG_ERR_AOK && ln_len > 0 && ln_len + LDG_STR_TERM_SIZE < LDG_NET_DIAG_LN_CAP) { net_diag_resolv_ln_parse(ln, ln_len, out, cap, out_cunt); }
 
     if (LDG_UNLIKELY(ldg_io_file_close(file) != LDG_ERR_AOK) && ret == LDG_ERR_AOK) { ret = LDG_ERR_IO_CLOSE; }
 
