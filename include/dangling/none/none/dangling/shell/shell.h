@@ -101,6 +101,7 @@ typedef struct ldg_shell
     void *out_user;
     ldg_mut_t out_mut;
     uint64_t out_seq;
+    uint64_t wipe_cunt;
     char addr[LDG_SHELL_ADDR_MAX][LDG_SHELL_ADDR_CAP];
     uint32_t addr_next;
     uint32_t addr_cunt;
@@ -143,6 +144,7 @@ LDG_EXPORT uint32_t ldg_shell_out_push(ldg_shell_t *shell, const char *text);
 LDG_EXPORT uint32_t ldg_shell_out_cb_set(ldg_shell_t *shell, ldg_shell_out_cb_t cb, void *user);
 LDG_EXPORT uint32_t ldg_shell_out_seq_get(ldg_shell_t *shell, uint64_t *out);
 LDG_EXPORT uint32_t ldg_shell_out_get(ldg_shell_t *shell, uint64_t seq, char *out, uint64_t cap, uint64_t *out_seq);
+LDG_EXPORT uint32_t ldg_shell_wipe_cunt_get(ldg_shell_t *shell, uint64_t *out);
 LDG_EXPORT uint32_t ldg_shell_candidate_get(ldg_shell_t *shell, const char *text, uint32_t len, char (*out)[LDG_SHELL_CANDIDATE_CAP], uint32_t cap, uint32_t *out_cunt, uint32_t *out_at, uint8_t *out_more);
 
 #endif

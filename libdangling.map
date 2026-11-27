@@ -2161,3 +2161,16 @@ DANGLING_7.0 {
         ldg_term_ln_draw;
         ldg_term_ln_encode;
 } DANGLING_6.2;
+
+DANGLING_8.1 {
+    global:
+        /* shell */
+        ldg_shell_wipe_cunt_get;
+        /* sys/info */
+        ldg_sys_media_list;
+        ldg_sys_media_player_play;
+        ldg_sys_media_player_pause;
+        ldg_sys_media_player_next_skip;
+        ldg_sys_media_player_prev_skip;
+        ldg_sys_kb_list;
+} DANGLING_7.0;

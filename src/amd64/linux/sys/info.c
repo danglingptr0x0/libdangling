@@ -689,6 +689,45 @@ uint32_t ldg_sys_media_prev_skip(void)
     return LDG_ERR_UNSUPPORTED;
 }
 
+uint32_t ldg_sys_media_list(ldg_sys_media_info_t *out, uint32_t cap, uint32_t *out_cunt)
+{
+    if (LDG_UNLIKELY(!out || !out_cunt)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out_cunt = 0;
+
+    if (LDG_UNLIKELY(cap == 0)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_sys_media_player_play(const char *player)
+{
+    if (LDG_UNLIKELY(!player)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_sys_media_player_pause(const char *player)
+{
+    if (LDG_UNLIKELY(!player)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_sys_media_player_next_skip(const char *player)
+{
+    if (LDG_UNLIKELY(!player)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    return LDG_ERR_UNSUPPORTED;
+}
+
+uint32_t ldg_sys_media_player_prev_skip(const char *player)
+{
+    if (LDG_UNLIKELY(!player)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    return LDG_ERR_UNSUPPORTED;
+}
+
 static const char* sys_notify_level_arg_get(ldg_sys_notify_level_t level)
 {
     if (level == LDG_SYS_NOTIFY_LEVEL_LOW) { return LDG_SYS_NOTIFY_LEVEL_LOW_ARG; }

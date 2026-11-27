@@ -8,6 +8,8 @@
 #include <dangling/mem/cpy.h>
 #include <dangling/str/fmt.h>
 #include <dangling/str/str.h>
+#include <dangling/time/cal.h>
+#include <dangling/time/time.h>
 #include <dangling/shell/shell.h>
 #include <dangling/shell/cmd.h>
 
@@ -71,6 +73,21 @@
 #define SHELL_HELP_UNSET "unset <name>; drops a variable"
 #define SHELL_HELP_VARS "vars; lists every variable"
 #define SHELL_HELP_ALIASES "aliases; lists every alias; name=text sets one, name= drops it"
+#define SHELL_CMD_WIPE "wipe"
+#define SHELL_CMD_REFLECT "reflect"
+#define SHELL_CMD_MEM "mem"
+#define SHELL_CMD_DEPCH "depch"
+#define SHELL_HELP_WIPE "wipe; clears the output"
+#define SHELL_HELP_REFLECT "reflect [text]; prints the text"
+#define SHELL_HELP_MEM "mem; prints memory stats"
+#define SHELL_HELP_DEPCH "depch; prints the UTC time as YYYY-MM-DDTHH:MM:SSZ"
+#define SHELL_WIPE_STEP 1
+#define SHELL_MEM_FMT "bytes: %u64; peak: %u64; allocs: %u64; deallocs: %u64; active: %u64; pools: %u64\n"
+#define SHELL_MEM_CAP 192
+#define SHELL_DEPCH_CAP 32
+#define SHELL_DEPCH_SUFFIX "Z\n"
+#define SHELL_DEPCH_DATE_LEN 10
+#define SHELL_DEPCH_TIME_SEP 'T'
 
 typedef enum shell_expr_kind
 {
@@ -331,6 +348,22 @@ uint32_t ldg_shell_out_seq_get(ldg_shell_t *shell, uint64_t *out)
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
     *out = shell->out_seq;
+
+    return ldg_mut_unlock(&shell->out_mut);
+}
+
+uint32_t ldg_shell_wipe_cunt_get(ldg_shell_t *shell, uint64_t *out)
+{
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!shell || !out)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    *out = 0;
+
+    ret = ldg_mut_lock(&shell->out_mut);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    *out = shell->wipe_cunt;
 
     return ldg_mut_unlock(&shell->out_mut);
 }
@@ -798,6 +831,96 @@ static uint32_t shell_aliases_cb(void *user, const char *const *arg, uint32_t ar
     return shell_pairs_put(shell, shell->alias_name, shell->alias_text, shell->conf.alias_max);
 }
 
+static uint32_t shell_wipe_cb(void *user, const char *const *arg, uint32_t arg_cunt, uint8_t *out_truth)
+{
+    ldg_shell_t *shell = (ldg_shell_t *)user;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!shell || !arg || !out_truth)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(arg_cunt != SHELL_CMD_NAME_CUNT)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    ret = ldg_mut_lock(&shell->out_mut);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    shell->out_hd = 0;
+    shell->out_cunt = 0;
+    shell->out_open = LDG_TRUTH_FALSE;
+    shell->out_open_len = 0;
+    shell->wipe_cunt += SHELL_WIPE_STEP;
+
+    return ldg_mut_unlock(&shell->out_mut);
+}
+
+static uint32_t shell_reflect_cb(void *user, const char *const *arg, uint32_t arg_cunt, uint8_t *out_truth)
+{
+    ldg_shell_t *shell = (ldg_shell_t *)user;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!shell || !arg || !out_truth)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (arg_cunt > SHELL_CMD_NAME_CUNT)
+    {
+        ret = ldg_shell_out_push(shell, arg[1]);
+        if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+    }
+
+    return ldg_shell_out_push(shell, SHELL_MSG_LF);
+}
+
+static uint32_t shell_mem_cb(void *user, const char *const *arg, uint32_t arg_cunt, uint8_t *out_truth)
+{
+    ldg_shell_t *shell = (ldg_shell_t *)user;
+    ldg_mem_stats_t stats = LDG_STRUCT_ZERO_INIT;
+    char text[SHELL_MEM_CAP] = LDG_ARR_ZERO_INIT;
+    uint64_t len = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!shell || !arg || !out_truth)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(arg_cunt != SHELL_CMD_NAME_CUNT)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    ret = ldg_mem_stats_get(&stats);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_str_fmt(text, sizeof(text), &len, SHELL_MEM_FMT, stats.bytes_alloc, stats.bytes_peak, stats.alloc_cunt, stats.dealloc_cunt, stats.active_alloc_cunt, stats.pool_cunt);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_shell_out_push(shell, text);
+}
+
+static uint32_t shell_depch_cb(void *user, const char *const *arg, uint32_t arg_cunt, uint8_t *out_truth)
+{
+    ldg_shell_t *shell = (ldg_shell_t *)user;
+    ldg_time_cal_t cal = LDG_STRUCT_ZERO_INIT;
+    char text[SHELL_DEPCH_CAP] = LDG_ARR_ZERO_INIT;
+    uint64_t stamp = 0;
+    uint64_t len = 0;
+    uint32_t ret = 0;
+
+    if (LDG_UNLIKELY(!shell || !arg || !out_truth)) { return LDG_ERR_FUNC_ARG_NULL; }
+
+    if (LDG_UNLIKELY(arg_cunt != SHELL_CMD_NAME_CUNT)) { return LDG_ERR_FUNC_ARG_INVALID; }
+
+    stamp = ldg_time_epoch_ms_get();
+    if (LDG_UNLIKELY(stamp == UINT64_MAX)) { return LDG_ERR_TIME_NOT_CALIBRATED; }
+
+    ret = ldg_time_cal_get(stamp / LDG_MS_PER_SEC, &cal);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = ldg_time_cal_fmt(&cal, text, sizeof(text), &len);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    if (LDG_UNLIKELY(len <= SHELL_DEPCH_DATE_LEN)) { return LDG_ERR_STR_FMT; }
+
+    text[SHELL_DEPCH_DATE_LEN] = SHELL_DEPCH_TIME_SEP;
+
+    ret = ldg_shell_out_push(shell, text);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return ldg_shell_out_push(shell, SHELL_DEPCH_SUFFIX);
+}
+
 static uint32_t shell_builtin_reg(ldg_shell_t *shell, const char *name, const char *help, ldg_shell_cmd_cb_t cb, uint32_t arg_min, uint32_t arg_max, uint8_t remainder)
 {
     ldg_shell_cmd_t cmd = LDG_STRUCT_ZERO_INIT;
@@ -830,7 +953,19 @@ static uint32_t shell_builtins_reg(ldg_shell_t *shell)
     ret = shell_builtin_reg(shell, SHELL_CMD_VARS, SHELL_HELP_VARS, shell_vars_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
     if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
 
-    return shell_builtin_reg(shell, SHELL_CMD_ALIASES, SHELL_HELP_ALIASES, shell_aliases_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
+    ret = shell_builtin_reg(shell, SHELL_CMD_ALIASES, SHELL_HELP_ALIASES, shell_aliases_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = shell_builtin_reg(shell, SHELL_CMD_WIPE, SHELL_HELP_WIPE, shell_wipe_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = shell_builtin_reg(shell, SHELL_CMD_REFLECT, SHELL_HELP_REFLECT, shell_reflect_cb, SHELL_ARG_CUNT_NONE, SHELL_NAME_ARG_CUNT, LDG_TRUTH_TRUE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    ret = shell_builtin_reg(shell, SHELL_CMD_MEM, SHELL_HELP_MEM, shell_mem_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
+    if (LDG_UNLIKELY(ret != LDG_ERR_AOK)) { return ret; }
+
+    return shell_builtin_reg(shell, SHELL_CMD_DEPCH, SHELL_HELP_DEPCH, shell_depch_cb, SHELL_ARG_CUNT_NONE, SHELL_ARG_CUNT_NONE, LDG_TRUTH_FALSE);
 }
 
 uint32_t ldg_shell_conf_default_get(ldg_shell_conf_t *out)

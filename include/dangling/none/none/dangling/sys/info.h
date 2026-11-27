@@ -42,14 +42,37 @@ typedef struct ldg_sys_media_info
     char title[LDG_SYS_MEDIA_TEXT_MAX];
     char artist[LDG_SYS_MEDIA_TEXT_MAX];
     char album[LDG_SYS_MEDIA_TEXT_MAX];
+    char player[LDG_SYS_MEDIA_TEXT_MAX];
+    uint64_t change;
+    uint64_t len;
+    uint64_t pos;
     ldg_sys_media_status_t status;
+    uint8_t current;
+    uint8_t pudding[3];
 } ldg_sys_media_info_t;
 
 LDG_EXPORT uint32_t ldg_sys_media_info_get(ldg_sys_media_info_t *out);
+LDG_EXPORT uint32_t ldg_sys_media_list(ldg_sys_media_info_t *out, uint32_t cap, uint32_t *out_cunt);
 LDG_EXPORT uint32_t ldg_sys_media_play(void);
 LDG_EXPORT uint32_t ldg_sys_media_pause(void);
 LDG_EXPORT uint32_t ldg_sys_media_next_skip(void);
 LDG_EXPORT uint32_t ldg_sys_media_prev_skip(void);
+LDG_EXPORT uint32_t ldg_sys_media_player_play(const char *player);
+LDG_EXPORT uint32_t ldg_sys_media_player_pause(const char *player);
+LDG_EXPORT uint32_t ldg_sys_media_player_next_skip(const char *player);
+LDG_EXPORT uint32_t ldg_sys_media_player_prev_skip(const char *player);
+
+#define LDG_SYS_KB_NAME_MAX 256
+
+typedef struct ldg_sys_kb
+{
+    char name[LDG_SYS_KB_NAME_MAX];
+    uint16_t vid;
+    uint16_t pid;
+    uint8_t pudding[4];
+} ldg_sys_kb_t;
+
+LDG_EXPORT uint32_t ldg_sys_kb_list(ldg_sys_kb_t *out, uint32_t cap, uint32_t *out_cunt);
 
 typedef enum ldg_sys_notify_level
 {

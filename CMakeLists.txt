@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(dangling VERSION 8.0.0 LANGUAGES C ASM_NASM)
+project(dangling VERSION 8.1.0 LANGUAGES C ASM_NASM)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{HOME}/.config/cmake")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -467,6 +467,7 @@ if(LDG_PLATFORM STREQUAL "linux" OR LDG_PLATFORM STREQUAL "windows")
         ${LDG_PLATFORM_DIR}/sys/entropy.c
         ${LDG_PLATFORM_DIR}/sys/tty.c
         ${LDG_PLATFORM_DIR}/sys/info.c
+        ${LDG_PLATFORM_DIR}/sys/kb.c
         ${LDG_PLATFORM_DIR}/sys/proc.c
         ${LDG_PLATFORM_DIR}/sys/cpuset.c
         ${LDG_PLATFORM_DIR}/sys/lib.c
